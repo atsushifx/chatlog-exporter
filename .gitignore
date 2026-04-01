@@ -1,0 +1,88 @@
+# src: .gitignore
+# @(#) : mainly ignored files and directories
+#
+# Copyright (c) 2026- atsushifx <http://github.com/atsushifx>
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+
+##  General
+#   OS specific files
+.DS_Store
+thumbs.db
+
+#   logs, patches
+*.log
+*.diff
+*.patch
+
+#   history, cache
+.history/
+.cache/
+# **/*cache
+
+
+#   backup/swap/temp
+$~*
+~*
+*~
+*tmp
+*swp
+*lock
+
+# session files
+*session.json
+*session
+**/*session.json
+**/*session
+
+# .env files
+.env*
+.env.*
+
+## Development tools (installed locally)
+.tools/
+
+## Worktrees
+# worktree base dir
+.worktrees/
+
+## AI generated files
+
+## Coding AI depended
+# SDD (Spec-Driven Development) files
+**/.cc-sdd/
+
+# claude code setting
+.claude/*
+
+# agents can tracking
+!.claude/agents/
+!.claude/agents/**
+!.claude/rules/
+!.claude/rules/**
+
+# MCP server dependency files
+.cocoindex_code/
+.serena/
+.lsmcp/
+
+## Temporary directories are never tracked
+temp/
+tmp/
+**/temp/
+**/tmp/
+
+##  Editor
+#   VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+!.vscode/cspell*
+
+## Node
+node_modules/

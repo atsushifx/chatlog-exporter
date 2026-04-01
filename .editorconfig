@@ -1,0 +1,125 @@
+# src: .editorconfig
+# @(#) : editorconfig template with shell settings
+#
+# Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+root = true
+
+# ─────────────────────────────
+# Base Settings
+# ─────────────────────────────
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+indent_style = space
+indent_size = 2
+tab_width = 2
+
+# ─────────────────────────────
+# Exclude directories/files
+# ─────────────────────────────
+[.tools/*]
+ignore = true
+
+[.local/*]
+ignore = true
+
+[*.spec.sh]
+ignore = true
+
+# ─────────────────────────────
+# Source Code Files
+# ─────────────────────────────
+
+# ─────────────────────────────
+# Shell Scripts
+# ─────────────────────────────
+[*.{sh,bash,zsh}]
+indent_style = space
+indent_size = 2
+tab_width = 2
+
+##  shell script foematter settings
+# --language-dialect
+shell_variant      = bash
+simplify           = true
+binary_next_line   = true
+# --case-indent
+switch_case_indent = true
+space_redirects    = true
+keep_padding       = true
+# --func-next-line
+function_next_line = true
+minify             = true
+
+# PowerShell
+[*.ps1]
+indent_style = space
+indent_size = 4
+tab_width = 4
+
+# ─────────────────────────────
+# Documents
+# ─────────────────────────────
+[*.md]
+indent_style = space
+indent_size = 2
+tab_width = 2
+
+# ─────────────────────────────
+# configuration files
+# ─────────────────────────────
+[*.json]
+indent_style = space
+indent_size = 2
+tab_width = 2
+
+[*.{yaml,yml}]
+indent_style = space
+indent_size = 2
+tab_width = 2
+
+[*.ini]
+indent_style = space
+indent_size = 4
+tab_width = 4
+
+[*.toml]
+indent_style = space
+indent_size = 2
+tab_width = 2
+
+[*rc]
+indent_style = space
+indent_size = 2
+tab_width = 2
+
+
+# ─────────────────────────────
+# Git Config Files
+# ─────────────────────────────
+[*.git*]
+indent_style = tab
+tab_width = 4
+
+# ─────────────────────────────
+# Special Files (e.g. Dockerfile, LICENSE)
+# ─────────────────────────────
+[{Makefile,*.mk}]
+indent_style = tab
+indent_size = 4
+tab_width = 4
+
+# ignore files
+[**/*ignore]
+indent_style = space
+indent_size = 2
+tab_width = 2
+
+# [Dockerfile]
+# indent_style = space
+# indent_size = 2

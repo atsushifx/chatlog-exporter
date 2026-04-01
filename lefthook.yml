@@ -1,0 +1,36 @@
+# src: lefthook.yml
+# @(#) : lefthook config
+#
+# Copyright (c) 2026- atsushifx <http://github.com/atsushifx>
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+pre-commit:
+  parallel: true
+  commands:
+    betterleaks:
+      run: betterleaks protect --config ./configs/betterleaks.toml --staged
+
+    secretlint:
+      glob: "**/*"
+      run: >
+        secretlint
+        --secretlintrc ./configs/secretlint.config.yaml
+        --secretlintignore .gitignore
+        --maskSecrets
+        "{staged_files}"
+      skip:
+        - empty
+
+prepare-commit-msg:
+  commands:
+    prepare-message-script:
+      run: bash -c './scripts/prepare-commit-msg.sh --model sonnet --output "{1}"'
+
+# check commit message as Conventional Commit
+commit-msg:
+  parallel: true
+  commands:
+    commitlint:
+      run: commitlint --config ./configs/commitlint.config.js --edit
