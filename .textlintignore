@@ -1,0 +1,21 @@
+# src: .textlintignore
+# @(#) : ignore settings for textlint
+#
+# Copyright (c) 2026- atsushifx <http://github.com/atsushifx>
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+## AI Generated files
+.claude/**
+.serena/**
+
+# temp
+**/temp/**
+**/tmp/**
+
+## Dev tools
+.tools/**
+
+## Releases
+releases/**
