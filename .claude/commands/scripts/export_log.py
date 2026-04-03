@@ -11,7 +11,7 @@ chatlog/YYYY-MM/{project}/YYYY-MM-DD-{titleslug}-{sessionid8}.md 形式で書き
     python export_log.py 2026                   # 2026年全体
     python export_log.py 2026-03 prompt-review  # 年月 + プロジェクトフィルタ
     python export_log.py 2026 sandbox           # 年 + プロジェクトフィルタ
-    python export_log.py --output ./chatlog     # 出力先を指定
+    python export_log.py --output ./temp/chatlog     # 出力先を指定
 """
 
 import argparse
@@ -71,7 +71,11 @@ def sanitize_text(text: str) -> str:
 def extract_user_text(content) -> str:
     """message.content からユーザーテキストを抽出する（システムメッセージを除外）"""
     if isinstance(content, str):
-        return sanitize_text(content.strip())
+        text = content.strip()
+        # 文字列全体が local-command-stdout タグで囲まれている場合は除外
+        if re.match(r"^<local-command-stdout\b", text):
+            return ""
+        return sanitize_text(text)
     elif isinstance(content, list):
         parts = []
         for item in content:
@@ -257,9 +261,26 @@ _SKIP_PATTERNS = ["/clear", "/help", "/reset", "/exit", "/quit"]
 _NOISE_PATTERNS = [
     "<system-reminder",
     "<command-name",
+    "<command-message",
     "[Request interrupted",
     "Tool loaded.",
+    "Unknown skill:",
+    "Say 'OK' and nothing else.",
 ]
+
+# local-command-stdout の中身が短い場合に除外する閾値（文字数）
+_LOCAL_COMMAND_STDOUT_MAX_LEN = 100
+
+
+def _is_short_local_command_stdout(text: str) -> bool:
+    """<local-command-stdout>...</local-command-stdout> のみで中身が短いテキストか判定"""
+    m = re.fullmatch(
+        r"<local-command-stdout>(.*?)</local-command-stdout>", text, re.DOTALL
+    )
+    if m:
+        inner = m.group(1).strip()
+        return len(inner) < _LOCAL_COMMAND_STDOUT_MAX_LEN
+    return False
 
 
 def is_meaningful_user_entry(entry: dict) -> bool:
@@ -276,6 +297,9 @@ def is_meaningful_user_entry(entry: dict) -> bool:
     if any(text.startswith(p) for p in _SKIP_PATTERNS):
         return False
     if any(text.startswith(p) for p in _NOISE_PATTERNS):
+        return False
+    # 短い local-command-stdout のみのメッセージを除外
+    if _is_short_local_command_stdout(text):
         return False
     # 短文肯定応答を除外
     if len(text) <= SHORT_AFFIRMATION_MAX_LEN and text.strip().lower() in SKIP_EXACT:
@@ -480,8 +504,8 @@ def main():
         help="プロジェクト名でフィルタ（部分一致）"
     )
     parser.add_argument(
-        "--output", type=str, default="./chatlog",
-        help="出力ベースディレクトリ（デフォルト: ./chatlog）"
+        "--output", type=str, default="./temp/chatlog",
+        help="出力ベースディレクトリ（デフォルト: ./temp/chatlog）"
     )
     args = parser.parse_args()
 
