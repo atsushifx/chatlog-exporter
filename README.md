@@ -1,2 +1,3 @@
 # chatlog-exporter
-export calude-code session log
+
+export AI-agents session log, and edit these for import to obsidian.
