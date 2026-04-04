@@ -458,12 +458,6 @@ async function judgeCategory(fm: FileMeta, type: LogType, dics: Dics): Promise<s
 // Phase 3b: フロントマター生成（並列）
 // ─────────────────────────────────────────────
 
-function buildTopicsHint(_type: LogType, category: string, dics: Dics): string {
-  const categoryHint = dics.topicsRules.categoryRules.get(category)
-    ?? `category=${category} → choose the most relevant primary topic`;
-  return `## Category hint for primary selection\n${categoryHint}\n\n${dics.topicsRules.commonRules}`;
-}
-
 async function generateFrontmatter(
   fm: FileMeta,
   type: LogType,
@@ -472,13 +466,11 @@ async function generateFrontmatter(
 ): Promise<FrontmatterResult> {
   const tmpl = dics.prompts.get('meta') ?? { system: '', user: '' };
   const topicList = dics.topicEntries.map(formatEntryWithRules).join('\n');
-  const topicsHint = buildTopicsHint(type, category, dics);
   const system = renderPrompt(tmpl.system, {});
   const user = renderPrompt(tmpl.user, {
     log_type: type,
     log_category: category,
     topic_list: topicList,
-    topics_hint: topicsHint,
     tags_list: dics.tags,
     body: fm.body,
   });
