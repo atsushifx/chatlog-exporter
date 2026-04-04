@@ -2,227 +2,270 @@
 # 構造: key / def（AI判断用・キーを端的に定義する短文）/ desc（人間向け説明）/ rules（判断補助）
 #
 # 設計方針:
-#   2層構造: primary（関心領域・必須1つ）+ secondary（補助・0〜2）
-#   「何に意識が向いていたか」= 関心対象で選ぶ。行為・問題種類ではない。
+#   2層構造: domain（何の話か・必須1つ）+ aspect（どういう観点か・0〜2つ）
+#   domain = 「それについて話す」と言えるジャンル名
+#   aspect = 「それとして扱う」と言える観点・行為
 #   tech系（git/yaml等）はtagsへ完全移行。topicsには含めない。
 #
-# primary の分類軸（固定）:
-#   対象系: architecture / information / content
-#   挙動系: behavior
-#   意思系: decision
-#   設定系: configuration
-#   知識系: knowledge / news
+# domain の一覧:
+#   development / infrastructure / ai / game / news / misc
+#
+# aspect の一覧:
+#   観点系: knowledge / decision / configuration / architecture / behavior / information / content
+#   対話系: discussion / chat
+#   プロセス系: workflow / validation
+#   品質系: security / testing / review
 #
 # 選定ルール:
-#   RULE 1: primary を必ず1つ選ぶ（ログの主軸となる関心領域）
-#   RULE 2: secondary は内容を補完する場合のみ選ぶ（0〜2個）
+#   RULE 1: domain を必ず1つ選ぶ（ログのジャンル）
+#   RULE 2: aspect は観点を補完する場合のみ選ぶ（0〜2個）
 #   RULE 3: tech系キーワード（git/yaml/powershell等）はtags専用、topicsには使わない
-#   RULE 4: 合計最大3つ（primary 1 + secondary 0〜2）
+#   RULE 4: 合計最大3つ（domain 1 + aspect 0〜2）
+#   RULE 5: domain は「最も支配的な関心（目的）」で選ぶ
+#           行為・形式・話し方よりも"そのログが何のためにあるか"を優先する
+#           例: AIロールプレイで設計議論 → game ではなく discussion aspect + ai domain
+#   RULE 6: chat → discussion の昇格条件
+#           「問いが進化するか」で判断する。
+#           chat    = ターンが進んでも話題の次元が変わらない（同じ行動・感情の繰り返し）
+#           discussion = ターンを経るごとに問いの粒度・視点・範囲が変わる
+#           ロールプレイ・雑談が混在していても、技術選定・設計判断・方針検討が
+#           1ターンでも発生したら discussion に昇格する
+#
+# 判定チェック:
+#   Q1: 「それについて話す」と言えるか → YES → domain
+#   Q2: 「それとして扱う」と言えるか   → YES → aspect
 
-# ── primary: 関心領域（必須1つ）──────────────────────────────
-# 「このログで意識が最も向いていた対象は何か」で選ぶ
-# 行為（実装した・修正した）ではなく、意識が向いていた対象で判断する
+# ── domain: ジャンル軸（必須1つ）────────────────────────────
+# 「このログは何の話か」で選ぶ
 
-architecture:
-  def: The focus was on how something is designed, structured, or composed as a system
-  desc: システム設計・アーキテクチャ・コンポーネント構成・インタフェース設計に意識が向いていた
+development:
+  def: "[domain] The log is about software development — code, design, debugging, or implementation"
+  desc: ソフトウェア開発全般（コード実装・設計・デバッグ・テスト・リファクタリング）
   rules:
     when:
-      - システム設計・モジュール構造・ファイル配置を設計・変更した
-      - アーキテクチャ・インタフェース・API設計を決定した
+      - コード・ロジックの実装・修正・設計が主題
+      - バグ調査・テスト・リファクタリングが主題
+    not:
+      - ツール導入・環境構築が主題（→ infrastructure）
+      - AI技術そのものが主題（→ ai）
+
+infrastructure:
+  def: "[domain] The log is about tools, environments, CI/CD pipelines, or system operations"
+  desc: 開発環境・ツール・CI/CD・システム運用（ツール導入・環境構築・パイプライン）
+  rules:
+    when:
+      - ツールの導入・設定・環境構築が主題
+      - CI/CDパイプライン・デプロイ・運用が主題
+      - エディタ・シェル・パッケージ管理の整備が主題
+    not:
+      - コード・ロジック実装が主目的（→ development）
+
+ai:
+  def: "[domain] The log is about AI/LLM technology, agents, prompts, or AI workflows"
+  desc: AI技術全般（LLM・AIエージェント・プロンプト設計・AIワークフロー・MCP）
+  rules:
+    when:
+      - LLM・AIモデルの利用・評価・比較が主題
+      - AIエージェント・MCPサーバーの設計・実装が主題
+      - プロンプト・スキル定義の設計・改善が主題
+    not:
+      - AIをツールとして使って別の作業をした（内容のdomainを選ぶ）
+
+game:
+  def: "[domain] The log is about gaming, media, roleplay, or entertainment experience"
+  desc: ゲーム・映画・書籍・AIロールプレイなど娯楽・体験全般
+  rules:
+    when:
+      - ゲームのプレイ・攻略・感想が主題
+      - 映画・アニメ・書籍などの体験・評価が主題
+      - AIとのロールプレイ・キャラクター演技が主目的
+    not:
+      - 時事ニュース・社会的出来事（→ news）
+      - 実用目的のない日常雑談（→ misc + chat）
+
+news:
+  def: "[domain] The log is about current events, social topics, or real-world media"
+  desc: 時事・社会的トピック（ニュース・報道・SNSトレンド・社会・政治・文化）
+  rules:
+    when:
+      - ニュース・報道・SNSの話題が主題
+      - 社会・政治・経済・文化の時事的出来事が主題
+    not:
+      - 技術情報・仕様の調査（→ development または ai）
+      - ゲーム・映画などの体験（→ game）
+
+misc:
+  def: "[domain] The log does not fit any specific domain — everyday questions or general consultation"
+  desc: 特定ジャンルに属さない雑談・日常相談・思考整理
+  rules:
+    when:
+      - 他のdomainに明確に該当しない場合のみ（最後の手段）
+      - 技術外の日常的な質問・生活上の相談
+    not:
+      - 技術的な内容を含む（他domainを必ず優先）
+
+# ── aspect: 観点軸（0〜2個）────────────────────────────────
+# 「このログをどういう観点・行為として扱うか」で選ぶ
+
+# 観点系
+
+knowledge:
+  def: "[aspect] The interaction was about understanding, learning, or investigating — without implementation"
+  desc: 理解・調査・学習・概念把握の観点（実装や決定を伴わない）
+  rules:
+    when:
+      - 技術・仕様・概念の調査・理解が主目的
+      - 実装を伴わない質問・回答・比較
+    not:
+      - 調査後に実装した（→ architecture または behavior を追加）
+      - 調査後に決定した（→ decision を追加）
+
+decision:
+  def: "[aspect] The interaction involved making choices, evaluating options, or establishing policies"
+  desc: 意思決定・選択・方針策定の観点（結論に至った）
+  rules:
+    when:
+      - 技術選定・アプローチ選択・方針確定を行った
+      - トレードオフを検討して決定した
+    not:
+      - 結論に至らず議論・探索が主体（→ discussion）
+      - 決定を実装に落とし込んだ（→ architecture）
+
+configuration:
+  def: "[aspect] The interaction focused on settings, values, or environment files"
+  desc: 設定値・設定ファイルの記述・変更・管理の観点
+  rules:
+    when:
+      - 設定ファイル・設定値の記述・変更が主目的
+      - 依存関係・パッケージバージョンの管理が主題
+    not:
+      - 設定の構成方針・設計判断（→ architecture）
+      - どのツールを使うかの選定（→ decision）
+
+architecture:
+  def: "[aspect] The interaction focused on how something is designed, structured, or composed"
+  desc: システム設計・構造・インタフェース設計の観点
+  rules:
+    when:
+      - システム設計・モジュール構造・API設計を設計・変更した
       - コードの構造改善・リファクタリングが主目的
     not:
       - 動作・挙動の確認が主目的（→ behavior）
-      - 意思決定の議論が主目的（→ decision）
-      - データ表現・スキーマ設計が主目的（→ information）
+      - データ表現・スキーマ設計（→ information）
 
 behavior:
-  def: The focus was on how something works, runs, or responds
-  desc: 動作・挙動・実行結果・応答に意識が向いていた
+  def: "[aspect] The interaction focused on how something works, runs, or responds"
+  desc: 動作・挙動・実行結果・エラーの観点
   rules:
     when:
       - コードの実行結果・動作を確認・修正した
       - エラー・バグの症状や原因を調査した
-      - テストを実行して挙動を検証した
     not:
       - 構造・設計の変更が主目的（→ architecture）
       - 環境設定の変更が主目的（→ configuration）
 
 information:
-  def: The focus was on data formats, schemas, state, encoding, or information representation in code
-  desc: データフォーマット・スキーマ・エンコーディング・状態・情報表現に意識が向いていた
+  def: "[aspect] The interaction focused on data formats, schemas, state, or encoding"
+  desc: データフォーマット・スキーマ・エンコーディング・状態表現の観点
   rules:
     when:
       - データフォーマット・スキーマ・シリアライズを設計・変更した
       - 文字コード・エンコーディング問題を扱った
-      - 状態管理・データ変換・マイグレーションが主題
     not:
-      - データを処理するコードのアーキテクチャ（→ architecture）
-      - データの動的挙動（→ behavior）
-      - 人間が読む文書・記事の内容（→ content）
+      - データ処理コードのアーキテクチャ（→ architecture）
+      - 人間が読む文書の内容（→ content）
 
 content:
-  def: The focus was on the substance of documents, articles, specifications, or written artifacts
-  desc: 文書・記事・仕様書・プロンプト文面など、人間が読む成果物の内容に意識が向いていた
+  def: "[aspect] The interaction focused on the substance of documents, articles, or written artifacts"
+  desc: 文書・記事・仕様書・プロンプト文面など成果物の内容の観点
   rules:
     when:
       - README・仕様書・記事・ブログの内容を作成・改訂した
       - プロンプト・スキル定義の文面を設計・改善した
-      - ドキュメントの構成・表現・内容が主題
     not:
       - 文書を管理するコードの設計（→ architecture）
-      - 技術調査の結果を整理した（→ knowledge）
+      - 技術調査の結果整理（→ knowledge）
 
-configuration:
-  def: The focus was on the settings, values, or files themselves — not on design or selection
-  desc: 設定値・設定ファイルそのものの記述・変更・管理に意識が向いていた
+# 対話系
+
+discussion:
+  def: "[aspect] The interaction involved questions that evolved across turns — scope, angle, or depth changed"
+  desc: ターンを経るごとに問いが進化する対話の観点（設計議論・技術検討・方針探索）
   rules:
     when:
-      - 設定ファイル・設定値の記述・変更・修正が主目的
-      - 依存関係・パッケージバージョンの固定・更新が主題
-      - 開発・実行環境の構築・セットアップ手順が主目的
-      - CI/CDパイプラインの設定値・ジョブ定義の編集が主目的
+      - ターンを経るごとに問いの粒度・視点・範囲が変わった
+      - 技術選定・設計判断・方針検討が1ターンでも発生した
+      - ロールプレイ混在でも技術的な判断軸があった（例: slug設計・記事構成の検討）
+      - 提案への反論・修正・比較検討が発生した
     not:
-      - 設定変更後の動作確認（→ behavior を secondary に追加）
-      - 設定の構成方針・全体設計の判断（→ architecture）
-      - どのツール・ライブラリを使うかの選定（→ decision）
+      - 議論の結果として明確な決定を下した（→ decision）
+      - ターンが進んでも話題の次元が変わらない（→ chat）
 
-decision:
-  def: The focus was on making choices, evaluating options, or establishing policies
-  desc: 意思決定・選択・方針策定・オプション評価に意識が向いていた
+chat:
+  def: "[aspect] The interaction repeated the same dimension across turns with no evolution of questions"
+  desc: 問いが進化しない雑談・ロールプレイの観点（ターンを経ても次元が変わらない）
   rules:
     when:
-      - 技術選定・ライブラリ比較・アプローチ選択を行った
-      - 設計方針・命名規則・運用ルールを確定した
-      - トレードオフを検討して決定した
+      - ターンが進んでも話題の次元・深さが変わらない（感情・行動の繰り返し）
+      - AIキャラクターへの行動指示とその反応のみで構成される
+      - 技術選定・設計判断・方針検討が一切発生しない
     not:
-      - 決定を実装に落とし込んだ（→ architecture または configuration）
-      - 調査のみで決定に至らなかった（→ knowledge）
+      - ターンを経るごとに問いの粒度・視点が変わった（→ discussion に昇格）
+      - ロールプレイ中でも技術的判断が1ターンでも発生した（→ discussion に昇格）
 
-knowledge:
-  def: The focus was on understanding, learning, or investigating concepts and technologies
-  desc: 理解・調査・学習・概念把握に意識が向いていた
-  rules:
-    when:
-      - 技術・仕様・概念の調査・理解が主目的
-      - ドキュメント・記事を読んで把握した
-      - 実装を伴わない質問・回答・議論
-    not:
-      - 調査後に実装した（→ architecture または behavior を追加）
-      - 調査後に決定した（→ decision を追加）
-      - 時事・社会的トピックの話題（→ news）
-
-news:
-  def: The focus was on current events, social topics, or media content from the real world
-  desc: Twitter・TV・ニュースなど時事・社会的トピックへの関心や議論に意識が向いていた
-  rules:
-    when:
-      - ニュース・報道・SNSの話題について話した
-      - 社会・政治・経済・文化の時事的出来事が主題
-      - Twitterでの気になる発言・トレンドを取り上げた
-    not:
-      - 技術情報・仕様の調査（→ knowledge）
-      - AIとの趣味的な雑談（→ chat）
-
-# ── secondary: 補助（0〜2個、内容を具体化する場合のみ）──────
-# primary だけでは表現しきれない重要な側面を補完する
-
-versioning:
-  def: Version numbers, release tags, or changelog management was a significant aspect
-  desc: バージョン番号・タグ・CHANGELOG管理が重要な要素だった
-  rules:
-    when:
-      - バージョン番号のインクリメント・タグ付けが主題の一部
-      - CHANGELOG・リリースノートの作成・更新
-    not:
-      - 通常のコミット・プッシュ（tagsで十分）
-
-encoding:
-  def: Character encoding, binary format, or data representation was a significant aspect
-  desc: 文字エンコーディング・バイナリ形式・データ表現が重要な要素だった
-  rules:
-    when:
-      - 文字化け・エンコーディング問題を扱った
-      - バイナリ・文字コード変換が主題の一部
-    not:
-      - データ変換全般（→ primary: information で十分）
-
-validation:
-  def: Verification, linting, schema checking, or correctness testing was a significant aspect
-  desc: 検証・Lint・スキーマチェック・正確性確認が重要な要素だった
-  rules:
-    when:
-      - Lintツール・バリデーターの実行・設定が主題の一部
-      - スキーマ・フォーマット検証が重要な要素
-      - テスト・CI上での検証プロセスが重要な側面
-    not:
-      - バグ修正のみ（→ primary: behavior で十分）
+# プロセス系
 
 workflow:
-  def: PR, issue, branch, or development collaboration process was a significant aspect
-  desc: PR・Issue・ブランチ・開発フロープロセスが重要な要素だった
+  def: "[aspect] The interaction involved PR, issue, branch, or development collaboration process"
+  desc: PR・Issue・ブランチ・開発フロープロセスの観点
   rules:
     when:
       - PR作成・レビュー・マージのプロセスが重要な側面
       - Issueの起票・クローズ・トリアージが主題の一部
-      - ブランチ戦略・開発フローの整備・CI/CDパイプラインの運用手順
+      - ブランチ戦略・開発フローの整備
     not:
-      - PR内のコード変更（→ primary: architecture/behavior）
-      - パイプライン設定ファイルの構成（→ primary: configuration）
+      - PR内のコード変更（→ architecture/behavior）
+      - パイプライン設定ファイルの構成（→ configuration）
+
+validation:
+  def: "[aspect] The interaction involved verification, linting, schema checking, or correctness testing"
+  desc: 検証・Lint・スキーマチェック・正確性確認の観点
+  rules:
+    when:
+      - Lintツール・バリデーターの実行・設定が主題の一部
+      - スキーマ・フォーマット検証が重要な要素
+    not:
+      - バグ修正のみ（→ behavior で十分）
+
+# 品質系
 
 security:
-  def: Security vulnerabilities, access controls, or secret management was a significant aspect
-  desc: セキュリティ脆弱性・アクセス制御・シークレット管理が重要な要素だった
+  def: "[aspect] The interaction involved security vulnerabilities, access controls, or secret management"
+  desc: セキュリティ脆弱性・アクセス制御・シークレット管理の観点
   rules:
     when:
       - セキュリティ脆弱性・権限管理が重要な側面
       - シークレット・トークン管理が主題の一部
     not:
-      - セキュリティツールのインストールのみ（→ primary: configuration）
+      - セキュリティツールのインストールのみ（→ configuration）
 
 testing:
-  def: Test design, implementation, or execution was a significant aspect
-  desc: テスト設計・実装・実行が重要な要素だった
+  def: "[aspect] The interaction involved test design, implementation, or execution"
+  desc: テスト設計・実装・実行の観点
   rules:
     when:
-      - テストコードを書いた・実行した（primary: behavior の補完）
+      - テストコードを書いた・実行した
       - テスト戦略・テスト設計を議論・確定した
     not:
-      - テスト結果を見てバグ修正（→ primary: behavior のみ）
+      - テスト結果を見てバグ修正（→ behavior のみ）
 
 review:
-  def: Evaluation, critique, or feedback on code, design, or written artifacts was a significant aspect
-  desc: コード・設計・文書・記事に対するレビュー・評価・フィードバックが重要な要素だった
+  def: "[aspect] The interaction involved evaluation, critique, or feedback on code, design, or artifacts"
+  desc: コード・設計・文書に対するレビュー・評価・フィードバックの観点
   rules:
     when:
       - コードレビュー・設計レビューを実施・受けた
-      - 記事・仕様書・ブログへのフィードバック・批評が主題の一部
-      - 品質評価・改善提案が重要な側面
+      - 記事・仕様書へのフィードバック・批評が主題の一部
     not:
-      - レビュー後の修正実装（→ primary: architecture/behavior を優先）
+      - レビュー後の修正実装（→ architecture/behavior を優先）
       - Lintによる自動検証（→ validation）
-
-prompting:
-  def: AI prompt design, system instructions, or agent behavior tuning was a significant aspect
-  desc: AIプロンプト設計・システム指示・エージェント動作調整が重要な要素だった
-  rules:
-    when:
-      - プロンプト・スキル定義の設計・改善が主題の一部
-      - AI動作の調整・テストが重要な側面
-    not:
-      - AIを使って別作業（→ 主軸の primary を優先）
-      - AIとの趣味的会話・ロールプレイ（→ chat）
-
-chat:
-  def: The interaction was a casual conversation, roleplay, or hobby exchange with AI — with no practical outcome
-  desc: AIとの雑談・ロールプレイ・非実用対話が主軸で、成果物や意思決定が存在しなかった
-  rules:
-    when:
-      - AIとのロールプレイ・キャラクター演技が主目的
-      - 実用目的を持たない雑談・趣味的な会話が主体
-      - エンターテインメント・創作目的のAI対話
-      - 成果物・意思決定・実装が一切ない対話
-    not:
-      - 明確な成果（設計・実装・決定）がある場合（→ 該当する primary を選べ）
-      - AIをツールとして使った作業（→ 主軸の primary を優先）
-      - プロンプト設計・改善が目的（→ prompting）
