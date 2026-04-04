@@ -5,12 +5,22 @@
 #
 # 確定タイプ: execution / incident / discussion / research / writing（5種別）
 #
-# 一言判断基準:
-#   ファイルを変えた   → execution
-#   エラーが起点       → incident
-#   何かを決めた       → discussion
-#   調べた・聞いた     → research
-#   文書を書いた       → writing
+# 判定優先順位（この順序で確認すること）:
+#   STEP 1: incident signal が起点・中心テーマにあるか？ → YES → incident（無条件）
+#   STEP 2: ファイル変更が主目的か（incident修正の副産物ではない）→ execution
+#   STEP 3: 文書を書いた（成果物が文章・仕様・プロンプト）    → writing
+#   STEP 4: 明示的な決定・方針確定があるか                    → discussion
+#   STEP 5: 調査・理解が主目的（実装・決定なし）              → research
+#
+# incident signal（これが1つでもあればSTEP 1で確定）:
+#   - エラーメッセージ・スタックトレース・CI失敗が会話の起点
+#   - 「動かない」「失敗した」「不整合」「期待と違う挙動」が出発点
+#   - 障害・バグの症状報告から始まっている
+#
+# なぜincident優先か:
+#   外形分類（何をやったか）と因果分類（なぜ始まったか）は別物。
+#   incident後に修正→execution, 調査→research, 方針決定→discussionが
+#   続いても、ログの「起点」はincidentのまま変わらない。
 
 execution:
   def: A log where the primary outcome is implemented or modified code, scripts, or configuration files
