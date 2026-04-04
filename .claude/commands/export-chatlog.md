@@ -1,29 +1,41 @@
 ---
-name: export-log
+name: export-chatlog
 description: >
-  Claude Code セッション履歴をノイズ除外してMarkdownにエクスポートする。
-  /export-log で呼び出す。
+  AIエージェントのセッション履歴をノイズ除外してMarkdownにエクスポートする。
+  /export-chatlog で呼び出す。
   システムログ・短文肯定応答（「y」「はい」「ok」等）・ツール使用記録を除外し、
-  指定期間・プロジェクトの実質的な会話のみを temp/chatlog/{YYYY-MM}/ に書き出す。
-argument-hint: YYYY-MM [project]
-allowed-tools: Bash, Read
+  指定エージェント・期間・プロジェクトの実質的な会話のみを書き出す。
+  対応エージェント: claude（デフォルト）, codex
+argument-hint: "[agent] [YYYY-MM|YYYY] [project]"
+allowed-tools: Bash, Glob
 ---
 
 <!-- cspell:words sessionid -->
 
-# export-log スキル
+# export-chatlog スキル
 
-Claude Code セッション履歴をノイズ除外して Markdown にエクスポートする。
+AIエージェントのセッション履歴をノイズ除外して Markdown にエクスポートする。
+
+## 前提条件
+
+- `deno` コマンドが利用可能であること（TypeScript実行用）
 
 ## 引数の処理
 
 `$ARGUMENTS` を解析し、以下のルールで引数を処理:
 
-- 引数なし → 全期間・全プロジェクト
-- `YYYY-MM` 形式（例: `2026-03`）→ **年月フィルタ**（その月のみ）
-- `YYYY` 形式（4桁、例: `2026`）→ **年フィルタ**（その年全体）
-- `YYYY-MM プロジェクト名`（例: `2026-03 sandbox`）→ **年月** + **プロジェクトフィルタ**
-- `YYYY プロジェクト名`（例: `2026 sandbox`）→ **年** + **プロジェクトフィルタ**
+- 引数なし → `claude` agent・全期間・全プロジェクト
+- `agent`（例: `codex`）→ 指定 agent・全期間・全プロジェクト
+- `YYYY-MM`（例: `2026-03`）→ `claude` agent・指定月
+- `YYYY`（例: `2026`）→ `claude` agent・指定年
+- `agent YYYY-MM`（例: `codex 2026-03`）→ 指定 agent・指定月
+- `agent YYYY-MM project`（例: `claude 2026-03 sandbox`）→ 指定 agent・月・プロジェクト
+
+引数の判定ルール:
+- `YYYY-MM` パターン（`^[0-9]{4}-[0-9]{2}$`）→ YEAR_MONTH
+- `YYYY` パターン（`^[0-9]{4}$`）→ YEAR
+- 既知の agent リスト（`claude`, `codex`）→ AGENT
+- それ以外の非オプション引数 → PROJECT
 
 ## ステップ1: スクリプトパスの解決
 
@@ -31,7 +43,7 @@ Glob ツールで `**/commands/export-chatlog.md` を検索し、そのディレ
 
 ```bash
 SKILL_DIR   = <export-chatlog.md が存在するディレクトリの絶対パス>
-SCRIPT_PATH = $SKILL_DIR/scripts/export_log.py
+SCRIPT_PATH = $SKILL_DIR/scripts/export-chatlog.ts
 OUTPUT      = <cwd>/temp/chatlog
 ```
 
@@ -40,20 +52,20 @@ OUTPUT      = <cwd>/temp/chatlog
 解決した `SCRIPT_PATH` と `OUTPUT` を使い、Bash で実行する:
 
 ```bash
-python "$SCRIPT_PATH" [period] [project] --output "$OUTPUT"
+deno run --allow-read --allow-write --allow-env "$SCRIPT_PATH" [agent] [period] [project] --output "$OUTPUT"
 ```
 
 ### 引数からオプションを組み立てるルール
 
-- 引数なし → `python "$SCRIPT_PATH" --output "$OUTPUT"`
-- `YYYY-MM` のみ → `python "$SCRIPT_PATH" 2026-03 --output "$OUTPUT"`
-- `YYYY` のみ → `python "$SCRIPT_PATH" 2026 --output "$OUTPUT"`
-- `YYYY-MM project` → `python "$SCRIPT_PATH" 2026-03 sandbox --output "$OUTPUT"`
-- `YYYY project` → `python "$SCRIPT_PATH" 2026 sandbox --output "$OUTPUT"`
+- 引数なし → `deno run ... "$SCRIPT_PATH" --output "$OUTPUT"`
+- `agent` のみ → `deno run ... "$SCRIPT_PATH" codex --output "$OUTPUT"`
+- `YYYY-MM` のみ → `deno run ... "$SCRIPT_PATH" 2026-03 --output "$OUTPUT"`
+- `agent YYYY-MM` → `deno run ... "$SCRIPT_PATH" codex 2026-03 --output "$OUTPUT"`
+- `agent YYYY-MM project` → `deno run ... "$SCRIPT_PATH" codex 2026-03 sandbox --output "$OUTPUT"`
 
 スクリプトは以下を除外してエクスポート:
 
-- システムログ（`isMeta: true` エントリ）
+- システムログ（`isMeta: true` エントリ、AGENTS.md・permissions等の注入コンテンツ）
 - ツール使用・ツール結果エントリ
 - スラッシュコマンド（`/clear`、`/help`、`/reset`、`/exit`、`/quit`）
 - システムタグで始まるメッセージ（`<system-reminder` 等）
@@ -68,10 +80,26 @@ python "$SCRIPT_PATH" [period] [project] --output "$OUTPUT"
 - 書き出したファイル数と出力先ディレクトリ
 - 書き出しが 0 件の場合は、その理由と確認方法を案内する
 
-出力ディレクトリ構造:
+## 出力ディレクトリ構造
 
-```bash
-temp/chatlog/
-  └── YYYY-MM/
-       └── YYYY-MM-DD-{slug}-{sessionid8}.md
 ```
+temp/chatlog/
+  └── <agent>/
+       └── YYYY/
+            └── YYYY-MM/
+                 └── <project>/
+                      └── YYYY-MM-DD-{slug}-{sessionid8}.md
+```
+
+### エージェント別データソース
+
+| agent | データソース |
+|---|---|
+| `claude` | `~/.claude/projects/*/**.jsonl` |
+| `codex` | `~/.codex/sessions/YYYY/MM/DD/*.jsonl` |
+
+## 関連スキル
+
+- `/filter-chatlog` — 低価値ChatLogのフィルタリング（export-chatlog の後工程）
+- `/classify-chatlog` — プロジェクト別サブディレクトリへの分類
+- `/set-frontmatter` — フロントマター付加
