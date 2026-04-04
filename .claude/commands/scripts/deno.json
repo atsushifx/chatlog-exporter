@@ -1,5 +1,0 @@
-{
-  "compilerOptions": {
-    "lib": ["deno.ns", "es2022", "dom"]
-  }
-}
