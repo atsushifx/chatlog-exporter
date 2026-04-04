@@ -6,6 +6,12 @@
 # 目的:
 #   typeはcategoryを「決めない」。typeは「何に注目してcategoryを判断するか」のヒントを与えるだけ。
 #   categoryはログの内容・対象ドメインから独立して決定される。
+#
+# 設計方針（重要）:
+#   各ガイドは「誘導」であり「決定ロジック」ではない。
+#   「→ category名」を直接記述しない。
+#   「often indicate」「may suggest」「tends to」で弱める。
+#   最終判断は常に category.dic の PRIMARY PURPOSE ルールに従う。
 
 execution: |
   WHEN  evaluating an execution log — look at the FILE PATHS and TARGETS that were modified:

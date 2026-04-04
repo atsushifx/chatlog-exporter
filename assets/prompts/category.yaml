@@ -9,6 +9,7 @@
 system: |
   You are a log categorizer. Output the category name only, nothing else.
   Choose the single best category based on the CONTENT and SUBJECT MATTER of the log, not the type.
+  The decision MUST be based on the PRIMARY PURPOSE of the log (what the log is trying to accomplish).
 
 user: |
   Classify the log into one of the following categories.
