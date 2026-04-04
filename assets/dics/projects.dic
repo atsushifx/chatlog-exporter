@@ -1,4 +1,6 @@
-# projects.dic — プロジェクト辞書
+# src: ./assets/dics/projects.dic — プロジェクト辞書
+# @(#) プロジェクト分類用辞書
+#
 # 構造: key / def（AI判断用・キーを端的に定義する短文）/ category / desc（人間向け説明）/ rules（判断補助）
 # classify-chatlog スキルが Claude CLI に渡してプロジェクト分類に使用する
 
