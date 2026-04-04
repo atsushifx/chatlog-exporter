@@ -1,0 +1,764 @@
+#!/usr/bin/env -S deno run --allow-read --allow-run --allow-write
+/**
+ * set_frontmatter.ts — チャットログMarkdownにAI生成フロントマターを並列付加する
+ *
+ * 使い方:
+ *   deno run --allow-read --allow-run --allow-write set_frontmatter.ts <target_dir> [--dry-run] [--no-review] [--concurrency N] [--dics DIR]
+ *
+ * 処理フロー:
+ *   Phase 1: ファイル列挙・メタ読み込み
+ *   Phase 2: type判定 (並列)
+ *   Phase 3a: category判定 (並列, typeごとの外部プロンプト使用)
+ *   Phase 3b: フロントマター生成 (並列, category起点)
+ *   Phase 3.5: レビュー・修正 (並列)
+ *   Phase 4: Markdownへ書き込み
+ */
+
+// cspell:words dics
+
+// import libraries
+// deno-lint-ignore no-unversioned-import
+import { parse as parseYaml } from 'jsr:@std/yaml';
+
+// ─────────────────────────────────────────────
+// 定数
+// ─────────────────────────────────────────────
+
+const DEFAULT_CONCURRENCY = 4;
+const MAX_BODY_CHARS = 4000;
+
+// ─────────────────────────────────────────────
+// 型定義
+// ─────────────────────────────────────────────
+
+type LogType = string;
+
+interface FileMeta {
+  file: string; // フルパス
+  sessionId: string;
+  date: string;
+  project: string;
+  slug: string;
+  body: string; // 本文（4000文字制限）
+  fullBody: string; // 本文（無制限、書き込み用）
+}
+
+interface TypeResult {
+  file: string;
+  type: LogType;
+}
+
+interface FrontmatterResult {
+  file: string;
+  type: LogType;
+  category: string; // Phase 3aで確定したcategory
+  yaml: string; // AI生成YAMLブロック（title/summary/topics/tags）
+}
+
+interface ReviewResult {
+  file: string;
+  validity: 'pass' | 'fail';
+  errors: string[];
+  correctedType: string; // validity=fail のとき修正後type、pass のとき空文字
+  correctedCategory: string; // validity=fail のとき修正後category、pass のとき空文字
+  correctedYaml: string; // validity=fail のとき修正後YAML、pass のとき空文字
+}
+
+interface Stats {
+  total: number;
+  success: number;
+  fail: number;
+  skip: number;
+}
+
+// ─────────────────────────────────────────────
+// 辞書エントリ型
+// ─────────────────────────────────────────────
+
+interface DicRules {
+  when: string[];
+  not: string[];
+}
+
+interface DicEntry {
+  key: string;
+  def: string;
+  desc: string;
+  rules: DicRules;
+}
+
+interface TopicsRules {
+  categoryRules: Map<string, string>; // categoryごとのRULE 1
+  commonRules: string; // RULE 2〜4（全category共通）
+}
+
+interface PromptTemplate {
+  system: string;
+  user: string;
+}
+
+interface Dics {
+  category: string; // キー一覧（カンマ区切り、スキーマ制約用）
+  tags: string; // キー一覧（カンマ区切り、スキーマ制約用）
+  typeEntries: DicEntry[];
+  topicEntries: DicEntry[];
+  categoryPrompts: Map<string, string>; // typeごとのcategory判定プロンプト
+  topicsRules: TopicsRules; // topicsヒント生成ルール
+  prompts: Map<string, PromptTemplate>; // phase別プロンプトテンプレート
+}
+
+// ─────────────────────────────────────────────
+// 辞書読み込み
+// ─────────────────────────────────────────────
+
+async function loadDics(dicsDir: string): Promise<Dics> {
+  const readFile = async (path: string): Promise<string> => {
+    try {
+      return await Deno.readTextFile(path);
+    } catch {
+      console.error(`警告: 辞書ファイルが見つかりません: ${path}`);
+      return '';
+    }
+  };
+
+  const promptsDir = dicsDir.replace(/[/\\]dics$/, '/prompts');
+
+  const [
+    categoryRaw, topicsRaw, tagsRaw, typesRaw,
+    categoryRulesRaw, topicsRulesRaw,
+    typePromptRaw, categoryPromptRaw, metaPromptRaw, reviewPromptRaw,
+  ] = await Promise.all([
+    readFile(`${dicsDir}/category.dic`),
+    readFile(`${dicsDir}/topics.dic`),
+    readFile(`${dicsDir}/tags.dic`),
+    readFile(`${dicsDir}/types.dic`),
+    readFile(`${promptsDir}/category-rules.yaml`),
+    readFile(`${promptsDir}/topics-rules.yaml`),
+    readFile(`${promptsDir}/type.yaml`),
+    readFile(`${promptsDir}/category.yaml`),
+    readFile(`${promptsDir}/meta.yaml`),
+    readFile(`${promptsDir}/review.yaml`),
+  ]);
+
+  const parseYamlDic = (raw: string): Record<string, unknown> => {
+    if (!raw) { return {}; }
+    const result = parseYaml(raw);
+    return (result && typeof result === 'object') ? (result as Record<string, unknown>) : {};
+  };
+
+  const extractEntries = (raw: string): DicEntry[] => {
+    const parsed = parseYamlDic(raw);
+    return Object.entries(parsed)
+      .filter(([, v]) => v !== null && typeof v === 'object')
+      .map(([k, v]) => {
+        const entry = v as Record<string, unknown>;
+        const rulesRaw = entry['rules'] as Record<string, unknown> | undefined;
+        const toStrArray = (val: unknown): string[] => Array.isArray(val) ? val.map(String) : [];
+        return {
+          key: k,
+          def: (entry['def'] as string | undefined)?.trim() ?? '',
+          desc: (entry['desc'] as string | undefined)?.trim() ?? '',
+          rules: {
+            when: toStrArray(rulesRaw?.['when']),
+            not: toStrArray(rulesRaw?.['not']),
+          },
+        };
+      });
+  };
+
+  const category = Object.keys(parseYamlDic(categoryRaw)).join(',');
+  const tags = Object.keys(parseYamlDic(tagsRaw)).join(',');
+
+  const categoryRulesObj = parseYamlDic(categoryRulesRaw);
+  const categoryPrompts = new Map<string, string>(
+    Object.entries(categoryRulesObj)
+      .filter(([, v]) => typeof v === 'string')
+      .map(([k, v]) => [k, (v as string).trim()]),
+  );
+
+  const topicsRulesObj = parseYamlDic(topicsRulesRaw);
+  const topicsRulesCategory = topicsRulesObj['category_rules'];
+  const categoryRulesMap = new Map<string, string>(
+    (topicsRulesCategory && typeof topicsRulesCategory === 'object')
+      ? Object.entries(topicsRulesCategory as Record<string, unknown>)
+          .filter(([, v]) => typeof v === 'string')
+          .map(([k, v]) => [k, (v as string).trim()])
+      : [],
+  );
+  const commonRules = typeof topicsRulesObj['common_rules'] === 'string'
+    ? (topicsRulesObj['common_rules'] as string).trim()
+    : '';
+
+  // プロンプトテンプレート読み込み
+  const loadPromptTemplate = (raw: string, name: string): PromptTemplate => {
+    const obj = parseYamlDic(raw);
+    const system = typeof obj['system'] === 'string' ? (obj['system'] as string).trim() : '';
+    const user = typeof obj['user'] === 'string' ? (obj['user'] as string).trim() : '';
+    if (!system || !user) {
+      console.error(`警告: プロンプトテンプレート "${name}" に system/user キーがありません`);
+    }
+    return { system, user };
+  };
+
+  const prompts = new Map<string, PromptTemplate>([
+    ['type', loadPromptTemplate(typePromptRaw, 'type')],
+    ['category', loadPromptTemplate(categoryPromptRaw, 'category')],
+    ['meta', loadPromptTemplate(metaPromptRaw, 'meta')],
+    ['review', loadPromptTemplate(reviewPromptRaw, 'review')],
+  ]);
+
+  return {
+    category,
+    tags,
+    typeEntries: extractEntries(typesRaw),
+    topicEntries: extractEntries(topicsRaw),
+    categoryPrompts,
+    topicsRules: { categoryRules: categoryRulesMap, commonRules },
+    prompts,
+  };
+}
+
+// ─────────────────────────────────────────────
+// テンプレート変数置換
+// ─────────────────────────────────────────────
+
+/**
+ * テンプレート内の ${varname} を vars で置換する。
+ * varname が [a-z_]+ 以外の場合はエラー終了（インジェクション防止）。
+ */
+function renderPrompt(template: string, vars: Record<string, string>): string {
+  return template.replace(/\$\{([^}]+)\}/g, (_match, name: string) => {
+    if (!/^[a-z_]+$/.test(name)) {
+      console.error(`エラー: 不正な変数名 "${name}" — 英小文字と "_" のみ使用可能`);
+      Deno.exit(1);
+    }
+    if (!(name in vars)) {
+      console.error(`エラー: 未定義の変数 "${name}"`);
+      Deno.exit(1);
+    }
+    return vars[name];
+  });
+}
+
+// ─────────────────────────────────────────────
+// 辞書エントリをプロンプト文字列に整形するヘルパー
+// ─────────────────────────────────────────────
+
+/** エントリを「- key: def\n  when: ...\n  not: ...」形式に展開 */
+function formatEntryWithRules(e: DicEntry): string {
+  const lines: string[] = [`- ${e.key}: ${e.def}`];
+  if (e.rules.when.length > 0) {
+    lines.push(`  when: ${e.rules.when.join(' / ')}`);
+  }
+  if (e.rules.not.length > 0) {
+    lines.push(`  not:  ${e.rules.not.join(' / ')}`);
+  }
+  return lines.join('\n');
+}
+
+/** エントリを「- key: def」形式に展開（rules なし・簡略版） */
+function formatEntryShort(e: DicEntry): string {
+  return `- ${e.key}: ${e.def}`;
+}
+
+// ─────────────────────────────────────────────
+// Frontmatter パーサー
+// ─────────────────────────────────────────────
+
+function parseFrontmatter(text: string): { meta: Record<string, string>; body: string } {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+
+  if (lines[0] !== '---') {
+    return { meta: {}, body: lines.join('\n') };
+  }
+
+  const meta: Record<string, string> = {};
+  let bodyStart = lines.length;
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^---/.test(line)) {
+      bodyStart = i + 1;
+      break;
+    }
+
+    const idx = line.indexOf(': ');
+    if (idx !== -1 && !line.startsWith(' ') && /^\w/.test(line)) {
+      meta[line.slice(0, idx).trim()] = line.slice(idx + 2).trim();
+    } else if (line.trim() === '' || line.startsWith(' ') || line.startsWith('\t')) {
+      // YAML継続値・空行はスキップ
+    } else {
+      bodyStart = i;
+      break;
+    }
+  }
+
+  return { meta, body: lines.slice(bodyStart).join('\n') };
+}
+
+// ─────────────────────────────────────────────
+// ファイル列挙
+// ─────────────────────────────────────────────
+
+async function findMdFiles(dir: string): Promise<string[]> {
+  const results: string[] = [];
+  await collectMdFiles(dir, results);
+  return results.sort();
+}
+
+async function collectMdFiles(dir: string, results: string[]): Promise<void> {
+  let entries: Deno.DirEntry[];
+  try {
+    entries = [];
+    for await (const entry of Deno.readDir(dir)) { entries.push(entry); }
+  } catch {
+    return;
+  }
+  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    const fullPath = `${dir}/${entry.name}`;
+    if (entry.isDirectory) {
+      await collectMdFiles(fullPath, results);
+    } else if (entry.isFile && entry.name.endsWith('.md')) {
+      results.push(fullPath);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
+// ファイルメタ読み込み
+// ─────────────────────────────────────────────
+
+async function loadFileMeta(filePath: string): Promise<FileMeta | null> {
+  let text: string;
+  try {
+    text = await Deno.readTextFile(filePath);
+  } catch {
+    return null;
+  }
+
+  const { meta } = parseFrontmatter(text);
+
+  const rawLines = text.replace(/\r\n/g, '\n').split('\n');
+  const headerIdx = rawLines.findIndex((l) => /^#/.test(l));
+  if (headerIdx === -1) { return null; }
+
+  const startIdx = headerIdx > 0 && rawLines[headerIdx - 1].trim() === ''
+    ? headerIdx - 1
+    : headerIdx;
+  const fullBody = rawLines.slice(startIdx).join('\n');
+  if (!fullBody.trim()) { return null; }
+
+  return {
+    file: filePath,
+    sessionId: meta['session_id'] ?? '',
+    date: meta['date'] ?? '',
+    project: meta['project'] ?? '',
+    slug: meta['slug'] ?? '',
+    body: fullBody.slice(0, MAX_BODY_CHARS),
+    fullBody,
+  };
+}
+
+// ─────────────────────────────────────────────
+// Claude CLI 呼び出し
+// ─────────────────────────────────────────────
+
+async function runClaude(systemPrompt: string, userPrompt: string): Promise<string> {
+  const cmd = new Deno.Command('claude', {
+    args: ['-p', systemPrompt, '--output-format', 'text'],
+    stdin: 'piped',
+    stdout: 'piped',
+    stderr: 'null',
+  });
+  const process = cmd.spawn();
+  const writer = process.stdin.getWriter();
+  await writer.write(new TextEncoder().encode(userPrompt));
+  await writer.close();
+  const output = await process.output();
+  if (!output.success) { throw new Error(`claude CLI エラー (code=${output.code})`); }
+  return new TextDecoder().decode(output.stdout).trim();
+}
+
+// ─────────────────────────────────────────────
+// 並列実行ヘルパー
+// ─────────────────────────────────────────────
+
+async function withConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let idx = 0;
+  async function worker() {
+    while (idx < tasks.length) {
+      const i = idx++;
+      results[i] = await tasks[i]();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+  return results;
+}
+
+// ─────────────────────────────────────────────
+// YAML クリーニングヘルパー
+// ─────────────────────────────────────────────
+
+/** コードフェンス除去・先頭の非YAMLテキストを除去して最初の有効フィールドから返す */
+function cleanYaml(raw: string, firstField: string): string {
+  return raw
+    .split('\n')
+    .filter((l) => !l.startsWith('```'))
+    .join('\n')
+    .replace(new RegExp(`^[\\s\\S]*?(^${firstField}:)`, 'm'), '$1')
+    .trim();
+}
+
+// ─────────────────────────────────────────────
+// Phase 2: type判定（並列）
+// ─────────────────────────────────────────────
+
+async function judgeType(fm: FileMeta, dics: Dics): Promise<TypeResult> {
+  const tmpl = dics.prompts.get('type') ?? { system: '', user: '' };
+  const typeList = dics.typeEntries.map(formatEntryWithRules).join('\n');
+  const system = renderPrompt(tmpl.system, {});
+  const user = renderPrompt(tmpl.user, { type_list: typeList, body: fm.body });
+  let raw: string;
+  try {
+    raw = await runClaude(system, user);
+  } catch {
+    return { file: fm.file, type: 'research' };
+  }
+  const normalized = raw.replace(/\s/g, '').toLowerCase();
+  const validKeys = new Set(dics.typeEntries.map((e) => e.key));
+  return { file: fm.file, type: validKeys.has(normalized) ? normalized : 'research' };
+}
+
+// ─────────────────────────────────────────────
+// Phase 3a: category判定（並列）
+// ─────────────────────────────────────────────
+
+async function judgeCategory(fm: FileMeta, type: LogType, dics: Dics): Promise<string> {
+  const tmpl = dics.prompts.get('category') ?? { system: '', user: '' };
+  const focusGuide = dics.categoryPrompts.get(type) ?? '';
+  const system = renderPrompt(tmpl.system, {});
+  const user = renderPrompt(tmpl.user, {
+    category_list: dics.category,
+    focus_guide: focusGuide,
+    body: fm.body,
+  });
+  let raw: string;
+  try {
+    raw = await runClaude(system, user);
+  } catch {
+    return 'development';
+  }
+  const normalized = raw.replace(/\s/g, '').toLowerCase();
+  const valid = new Set(dics.category.split(','));
+  return valid.has(normalized) ? normalized : 'development';
+}
+
+// ─────────────────────────────────────────────
+// Phase 3b: フロントマター生成（並列）
+// ─────────────────────────────────────────────
+
+function buildTopicsHint(_type: LogType, category: string, dics: Dics): string {
+  const categoryHint = dics.topicsRules.categoryRules.get(category)
+    ?? `category=${category} → choose the most relevant primary topic`;
+  return `## Category hint for primary selection\n${categoryHint}\n\n${dics.topicsRules.commonRules}`;
+}
+
+async function generateFrontmatter(
+  fm: FileMeta,
+  type: LogType,
+  category: string,
+  dics: Dics,
+): Promise<FrontmatterResult> {
+  const tmpl = dics.prompts.get('meta') ?? { system: '', user: '' };
+  const topicList = dics.topicEntries.map(formatEntryWithRules).join('\n');
+  const topicsHint = buildTopicsHint(type, category, dics);
+  const system = renderPrompt(tmpl.system, {});
+  const user = renderPrompt(tmpl.user, {
+    log_type: type,
+    log_category: category,
+    topic_list: topicList,
+    topics_hint: topicsHint,
+    tags_list: dics.tags,
+    body: fm.body,
+  });
+  let raw: string;
+  try {
+    raw = await runClaude(system, user);
+  } catch {
+    return { file: fm.file, type, category, yaml: '' };
+  }
+  return { file: fm.file, type, category, yaml: cleanYaml(raw, 'title') };
+}
+
+// ─────────────────────────────────────────────
+// Phase 3.5: フロントマターレビュー（並列）
+// ─────────────────────────────────────────────
+
+async function reviewFrontmatter(
+  result: FrontmatterResult,
+  dics: Dics,
+): Promise<ReviewResult> {
+  const tmpl = dics.prompts.get('review') ?? { system: '', user: '' };
+  const typeList = dics.typeEntries.map(formatEntryWithRules).join('\n');
+  const topicList = dics.topicEntries.map(formatEntryShort).join('\n');
+  const system = renderPrompt(tmpl.system, {});
+  const user = renderPrompt(tmpl.user, {
+    type_list: typeList,
+    topic_list: topicList,
+    category_list: dics.category,
+    tags_list: dics.tags,
+    result_type: result.type,
+    result_category: result.category,
+    result_yaml: result.yaml,
+  });
+  let raw: string;
+  try {
+    raw = await runClaude(system, user);
+  } catch {
+    return { file: result.file, validity: 'pass', errors: [], correctedType: '', correctedCategory: '', correctedYaml: '' };
+  }
+
+  const cleaned = raw.split('\n').filter((l) => !l.startsWith('```')).join('\n').trim();
+
+  const validityMatch = cleaned.match(/^validity:\s*(pass|fail)/m);
+  const validity = (validityMatch?.[1] ?? 'pass') as 'pass' | 'fail';
+
+  if (validity === 'pass') {
+    return { file: result.file, validity: 'pass', errors: [], correctedType: '', correctedCategory: '', correctedYaml: '' };
+  }
+
+  const errorsMatch = cleaned.match(/^errors:\s*\n((?: {2}- .+\n?)*)/m);
+  const errors = errorsMatch
+    ? errorsMatch[1].split('\n').map((l) => l.replace(/^ {2}- /, '').trim()).filter(Boolean)
+    : [];
+
+  const typeMatch = cleaned.match(/^ {2}type:\s*(\S+)/m);
+  const correctedType = typeMatch?.[1]?.trim() ?? '';
+
+  const categoryMatch = cleaned.match(/^ {2}category:\s*(\S+)/m);
+  const correctedCategory = categoryMatch?.[1]?.trim() ?? '';
+
+  const correctedYaml = cleaned
+    .replace(/^[\s\S]*?(^ {2}title:)/m, '$1')
+    .split('\n')
+    .map((l) => l.replace(/^ {2}/, ''))
+    .join('\n')
+    .trim();
+
+  return { file: result.file, validity, errors, correctedType, correctedCategory, correctedYaml };
+}
+
+// ─────────────────────────────────────────────
+// Phase 4: Markdownへ書き込み
+// ─────────────────────────────────────────────
+
+async function writeFrontmatter(
+  fm: FileMeta,
+  result: FrontmatterResult,
+  dryRun: boolean,
+  stats: Stats,
+): Promise<void> {
+  if (!result.yaml) {
+    console.error(`  FAIL (yaml空): ${fm.file.split(/[/\\]/).pop()}`);
+    stats.fail++;
+    return;
+  }
+
+  const newFrontmatter = [
+    '---',
+    `session_id: ${fm.sessionId}`,
+    `date: ${fm.date}`,
+    `project: ${fm.project}`,
+    `slug: ${fm.slug}`,
+    `type: ${result.type}`,
+    `category: ${result.category}`,
+    result.yaml,
+    '---',
+  ].join('\n');
+
+  if (dryRun) {
+    console.log(`\n=== DRY RUN [${result.type}/${result.category}]: ${fm.file.split(/[/\\]/).pop()} ===`);
+    console.log(newFrontmatter);
+    stats.success++;
+    return;
+  }
+
+  const tmpFile = fm.file + '.tmp';
+  try {
+    await Deno.writeTextFile(tmpFile, newFrontmatter + '\n' + fm.fullBody);
+    await Deno.rename(tmpFile, fm.file);
+    console.error(`  OK [${result.type}/${result.category}]: ${fm.file.split(/[/\\]/).pop()}`);
+    stats.success++;
+  } catch (e) {
+    try {
+      await Deno.remove(tmpFile);
+    } catch { /* ignore */ }
+    console.error(`  FAIL (書き込みエラー): ${fm.file.split(/[/\\]/).pop()}: ${e}`);
+    stats.fail++;
+  }
+}
+
+// ─────────────────────────────────────────────
+// 引数解析
+// ─────────────────────────────────────────────
+
+interface Args {
+  targetDir: string;
+  dicsDir: string;
+  dryRun: boolean;
+  review: boolean;
+  concurrency: number;
+}
+
+function parseArgs(args: string[]): Args {
+  let targetDir = '', dicsDir = './assets/dics', dryRun = false, review = true, concurrency = DEFAULT_CONCURRENCY;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--dry-run') {
+      dryRun = true;
+    } else if (arg === '--no-review') {
+      review = false;
+    } else if (arg === '--dics' && i + 1 < args.length) {
+      dicsDir = args[++i];
+    } else if (arg.startsWith('--dics=')) {
+      dicsDir = arg.slice('--dics='.length);
+    } else if (arg === '--concurrency' && i + 1 < args.length) {
+      concurrency = parseInt(args[++i], 10) || DEFAULT_CONCURRENCY;
+    } else if (arg.startsWith('--concurrency=')) {
+      concurrency = parseInt(arg.slice('--concurrency='.length), 10) || DEFAULT_CONCURRENCY;
+    } else if (!arg.startsWith('-')) {
+      targetDir = arg;
+    } else {
+      console.error(`不明なオプション: ${arg}`);
+      Deno.exit(1);
+    }
+  }
+  if (!targetDir) {
+    console.error('Usage: set_frontmatter.ts <target_dir> [--dry-run] [--no-review] [--concurrency N] [--dics DIR]');
+    Deno.exit(1);
+  }
+  return { targetDir, dicsDir, dryRun, review, concurrency };
+}
+
+// ─────────────────────────────────────────────
+// メイン
+// ─────────────────────────────────────────────
+
+async function main(): Promise<void> {
+  const { targetDir, dicsDir, dryRun, review, concurrency } = parseArgs(Deno.args);
+
+  try {
+    const stat = await Deno.stat(targetDir);
+    if (!stat.isDirectory) { throw new Error(); }
+  } catch {
+    console.error(`エラー: ディレクトリが見つかりません: ${targetDir}`);
+    Deno.exit(1);
+  }
+
+  const dics = await loadDics(dicsDir);
+  console.error(
+    `辞書読み込み完了: category=${dics.category.split(',').length}件 `
+      + `topics=${dics.topicEntries.length}件 tags=${dics.tags.split(',').length}件 `
+      + `types=${dics.typeEntries.length}件`,
+  );
+
+  const allFiles = await findMdFiles(targetDir);
+  console.error(`対象ファイル数: ${allFiles.length}`);
+  if (dryRun) { console.error('dry-run モード: ファイルは更新しません'); }
+  if (!review) { console.error('--no-review モード: Phase 3.5 をスキップします'); }
+  if (allFiles.length === 0) {
+    console.error('対象ファイルなし');
+    Deno.exit(0);
+  }
+
+  // Phase 1: メタ読み込み
+  const fileMetaList: FileMeta[] = [];
+  const stats: Stats = { total: allFiles.length, success: 0, fail: 0, skip: 0 };
+  for (const filePath of allFiles) {
+    const fm = await loadFileMeta(filePath);
+    if (!fm) {
+      console.error(`  skip: ${filePath.split(/[/\\]/).pop()}`);
+      stats.skip++;
+    } else { fileMetaList.push(fm); }
+  }
+  console.error(`メタ読み込み: ${fileMetaList.length}件（スキップ: ${stats.skip}件）`);
+
+  // Phase 2: type判定（並列）
+  console.error(`\nPhase 2: type判定開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
+  const typeResults = await withConcurrency(fileMetaList.map((fm) => () => judgeType(fm, dics)), concurrency);
+  const typeMap = new Map(typeResults.map((r) => [r.file, r]));
+  for (const r of typeResults) { console.error(`  type [${r.type}]: ${r.file.split(/[/\\]/).pop()}`); }
+
+  // Phase 3a: category判定（並列）
+  console.error(`\nPhase 3a: category判定開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
+  const categoryResults = await withConcurrency(
+    fileMetaList.map((fm) => async () => {
+      const type = typeMap.get(fm.file)?.type ?? 'research';
+      const category = await judgeCategory(fm, type, dics);
+      console.error(`  category [${category}]: ${fm.file.split(/[/\\]/).pop()}`);
+      return { file: fm.file, type, category };
+    }),
+    concurrency,
+  );
+  const categoryMap = new Map(categoryResults.map((r) => [r.file, r]));
+
+  // Phase 3b: フロントマター生成（並列）
+  console.error(`\nPhase 3b: フロントマター生成開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
+  const fmResults = await withConcurrency(
+    fileMetaList.map((fm) => () => {
+      const cr = categoryMap.get(fm.file);
+      const type = cr?.type ?? 'research';
+      const category = cr?.category ?? 'development';
+      return generateFrontmatter(fm, type, category, dics);
+    }),
+    concurrency,
+  );
+  const fmResultMap = new Map(fmResults.map((r) => [r.file, r]));
+  for (const r of fmResults) { console.error(`  generated: ${r.file.split(/[/\\]/).pop()}`); }
+
+  // Phase 3.5: レビュー（並列）
+  if (review) {
+    console.error(`\nPhase 3.5: フロントマターレビュー開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
+    const reviewResults = await withConcurrency(
+      fmResults.filter((r) => r.yaml).map((r) => () => reviewFrontmatter(r, dics)),
+      concurrency,
+    );
+    for (const r of reviewResults) {
+      if (r.validity === 'fail') {
+        console.error(`  review FAIL: ${r.file.split(/[/\\]/).pop()} — ${r.errors.join('; ')}`);
+        const fm = fmResultMap.get(r.file);
+        if (fm) {
+          fmResultMap.set(r.file, {
+            ...fm,
+            type: r.correctedType || fm.type,
+            category: r.correctedCategory || fm.category,
+            yaml: r.correctedYaml || fm.yaml,
+          });
+        }
+      } else {
+        console.error(`  review OK: ${r.file.split(/[/\\]/).pop()}`);
+      }
+    }
+  } else {
+    console.error(`\nPhase 3.5: スキップ (--no-review)`);
+  }
+
+  // Phase 4: 書き込み
+  console.error(`\nPhase 4: Markdownへ書き込み`);
+  for (const fm of fileMetaList) {
+    const result = fmResultMap.get(fm.file);
+    if (!result) {
+      stats.fail++;
+      continue;
+    }
+    await writeFrontmatter(fm, result, dryRun, stats);
+  }
+
+  const drySuffix = dryRun ? ' (dry-run)' : '';
+  console.error(
+    `\n完了${drySuffix}: total=${stats.total} success=${stats.success} fail=${stats.fail} skip=${stats.skip}`,
+  );
+}
+
+await main();
