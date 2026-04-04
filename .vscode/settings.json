@@ -1,4 +1,10 @@
+//
 {
+  //  chatlog dictionary files
+  "files.associations": {
+    "*.dic": "yaml"
+  },
+  // deno settings
   "deno.enable": true,
   "deno.enablePaths": [
     ".claude/commands/scripts"
