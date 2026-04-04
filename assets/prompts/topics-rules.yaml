@@ -1,9 +1,15 @@
 # src: ./assets/prompts/topics-rules.yaml
 # @(#) topicsヒント生成ルール
 #
+# DEPRECATED: meta.yaml の ${topics_hint} 変数廃止により、このファイルは
+#   set_frontmatter.ts から参照されなくなった（buildTopicsHint 関数削除済み）。
+#   RULE 1〜6 および chat→discussion 昇格条件は meta.yaml に直接ハードコード済み。
+#   common_rules の語彙（structure/behavior/environment等）は旧設計のものであり、
+#   現行の domain/aspect 2層構造（topics.dic）とは乖離しているため参照しないこと。
+#
 # 構造:
 #   category_rules: categoryごとのprimary選択ヒント（強制ではなく傾向）
-#   common_rules:   全categoryに共通のRULE 1〜4
+#   common_rules:   全categoryに共通のRULE 1〜4（旧語彙・参照非推奨）
 
 category_rules:
   infrastructure: |
