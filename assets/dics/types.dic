@@ -1,0 +1,84 @@
+# src: ./assets/dics/types.dic
+# @(#) ログ種別分類用辞書
+#
+# 構造: key / def（AI判断用・キーを端的に定義する短文）/ desc（人間向け説明）/ rules（判断補助）
+#
+# 確定タイプ: execution / incident / discussion / research / writing（5種別）
+#
+# 一言判断基準:
+#   ファイルを変えた   → execution
+#   エラーが起点       → incident
+#   何かを決めた       → discussion
+#   調べた・聞いた     → research
+#   文書を書いた       → writing
+
+execution:
+  def: A log where the primary outcome is implemented or modified code, scripts, or configuration files
+  desc: ファイル変更（コード・設定・スクリプト）が主体の実作業ログ。成果物はコミットされたファイル変更。
+  rules:
+    when:
+      - コード・スクリプト・設定ファイルを実際に書いた・変更した
+      - 既存機能の追加・拡張・リファクタリングを行った
+      - テストを実装・修正した
+    not:
+      - エラー・障害の発生が起点（→ incident）
+      - ファイル変更がない計画・方針確定（→ discussion）
+      - 文書・記事の作成が主体（→ writing）
+  structure: 指示 → 実装 → 確認
+
+incident:
+  def: A log where an error, failure, or unexpected behavior was the starting point and resolution was pursued
+  desc: エラー・障害が起点。症状→原因→解決→確認の流れを持つログ
+  rules:
+    when:
+      - エラーメッセージ・スタックトレース・CI失敗が会話の起点になっている
+      - 症状→原因→解決の流れが読み取れる
+      - バグ・環境依存の問題を修正して解消した
+    not:
+      - 新機能の実装でエラーなく進行した（→ execution）
+      - エラーが出たが原因調査のみで修正なし（→ research）
+      - 計画中にリスクを議論しただけ（→ discussion）
+  structure: 症状 → 原因 → 解決 → 確認
+
+discussion:
+  def: A log where decisions, policies, or architectural choices were the primary outcome without code implementation
+  desc: 議論・意思決定・方針策定が主体。成果物は「決定事項」。ファイル変更はないか副次的。
+  rules:
+    when:
+      - アーキテクチャ・設計・方針・仕様の確定が主目的
+      - 技術選定・命名規則・運用方針を議論して決めた
+      - 実装計画・タスク分解の策定（コード変更なし）
+    not:
+      - 決定を実装に落とし込んだ（→ execution）
+      - 技術調査のみで決定に至らなかった（→ research）
+      - エラーが起点の対処方針検討（→ incident）
+  structure: 課題 → 検討 → 決定
+
+research:
+  def: A log where the primary purpose is information gathering, comparison, or conceptual understanding without implementation
+  desc: 調査・質問・情報収集・概念理解が主体。実装・変更・決定を伴わないか副次的。
+  rules:
+    when:
+      - 技術・ツール・概念の調査・比較検討が主目的
+      - 実装を伴わない質問・回答・議論
+      - ドキュメント・記事を読んで理解した
+      - 使い方・仕様・動作を確認した
+    not:
+      - 調査後にコードを実装した（→ execution）
+      - 調査後に設計・方針を確定した（→ discussion）
+      - エラーが起点の原因調査（→ incident）
+  structure: 問い → 調査・回答 → 結論
+
+writing:
+  def: A log where the primary outcome is a written document, article, specification, or prompt text
+  desc: 文書・記事・仕様書・プロンプトの作成・整備が主体。成果物は公開可能な文章またはドキュメント。
+  rules:
+    when:
+      - README・仕様書・ブログ記事・設計文書を新規作成・大幅改訂した
+      - プロンプト文書・スキル定義を作成した
+      - 文章の校閲・構成改善が主目的
+    not:
+      - 設計判断の議論が主体（→ discussion）
+      - コードのコメント追加のみ（→ execution）
+      - 内部設計文書の意思決定が主体（→ discussion）
+  structure: 題材 → 執筆 → 校閲

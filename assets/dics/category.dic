@@ -1,0 +1,102 @@
+# category.dic — チャットログ分類用カテゴリ辞書
+# 構造: key / def（AI判断用・キーを端的に定義する短文）/ desc（人間向け説明）/ rules（判断補助）
+#
+# 設計方針:
+#   ログの「領域」を大きく仕切る軸。1ログに1カテゴリのみ割り当てる。
+#   迷ったら broader な方を選ぶ。topics より粒度が大きい。
+
+development:
+  def: Logs centered on writing, modifying, designing, or reviewing software code
+  desc: ソフトウェア開発全般（プログラミング・設計・デバッグ・テスト・リファクタリング・実装議論）
+  rules:
+    when:
+      - コードを書いた・修正した・レビューした
+      - バグを調査・修正した
+      - テストを設計・実装した
+      - アーキテクチャ・設計判断を行った
+    not:
+      - ツールの導入・設定変更のみ（→ tooling）
+      - CI/CDパイプラインの構築・運用（→ infrastructure）
+
+infrastructure:
+  def: Logs centered on CI/CD, cloud operations, deployment pipelines, or security configuration
+  desc: DevOps・CI/CD・クラウド・システム運用・パイプライン構築・セキュリティ設定
+  rules:
+    when:
+      - GitHub Actionsワークフローを構築・設定・デバッグした
+      - クラウドリソース・サーバーの設定・運用を行った
+      - セキュリティポリシー・権限管理を整備した
+      - デプロイ・リリースパイプラインを操作した
+    not:
+      - パイプラインのスクリプトをコードとして実装（→ development）
+      - ツールのインストール・設定のみ（→ tooling）
+
+tooling:
+  def: Logs centered on selecting, configuring, or learning developer tools and environments
+  desc: 開発ツールの選定・設定・活用（CLI・エディタ・パッケージ管理・開発環境構築）
+  rules:
+    when:
+      - ツールのインストール・バージョン管理・設定変更が主目的
+      - エディタ・シェル・パッケージマネージャの環境整備
+      - ツールの使い方を調査・試した
+    not:
+      - ツール自体のコード編集・機能追加・バグ修正（→ development）
+      - CI/CDパイプラインの設定（→ infrastructure）
+
+ai:
+  def: Logs centered on LLM usage, AI agent design, or prompt engineering
+  desc: AI関連技術全般（LLM・AIエージェント・AIツール開発・AI活用ワークフロー・プロンプト設計）
+  rules:
+    when:
+      - LLM・AIモデルの利用・評価・比較が主題
+      - AIエージェント・MCPサーバーの設計・実装
+      - プロンプト設計・改善・分析が主目的
+      - AIワークフローの構築・運用
+    not:
+      - AIツールを使って別の作業をした（ツールは手段。内容で分類）
+
+writing:
+  def: Logs centered on creating or editing technical documents, articles, or specifications
+  desc: 技術文書・記事・仕様書の作成と整理（README・ブログ・ドキュメント設計・校閲）
+  rules:
+    when:
+      - 文章・ドキュメント・記事の作成・編集・校閲が主目的
+      - README・仕様書・設計文書を書いた
+      - 技術ブログ・チュートリアルを執筆した
+    not:
+      - ドキュメントを読んで調査した（→ knowledge）
+      - コードのコメント追加のみ（→ development）
+
+knowledge:
+  def: Logs centered on researching, comparing, or learning about technologies without implementation
+  desc: 技術知識の整理・習得・調査（設計思想・アーキテクチャ議論・技術比較・チュートリアル）
+  rules:
+    when:
+      - 技術の調査・比較・理解が主目的
+      - 概念・アーキテクチャ・ベストプラクティスを学んだ
+      - 実装を伴わない質問・回答・議論
+    not:
+      - 実装・修正を行った（→ development）
+      - 文書を作成した（→ writing）
+
+creative:
+  def: Logs centered on roleplay, character design, storytelling, or creative ideation
+  desc: 創作・アイデア生成・ロールプレイ（キャラ設計・ネーミング・ストーリー・AIキャラクター運用）
+  rules:
+    when:
+      - AIキャラクターの設定・ロールプレイセッション
+      - ネーミング・ストーリー・シナリオの創作
+      - アイデア出し・ブレインストーミングが主目的
+    not:
+      - 技術的な設計議論（→ development または knowledge）
+
+casual:
+  def: Logs consisting of everyday conversation, non-technical questions, or general consultation
+  desc: 雑談・思考整理・技術外の相談・日常的な質問（ガジェット・アプリ・アイデア議論）
+  rules:
+    when:
+      - 技術外の日常的な質問・相談・雑談
+      - ガジェット・アプリ・生活上の疑問
+      - どのカテゴリにも明確に分類できない会話
+    not:
+      - 技術的な内容を含む（他カテゴリを優先）
