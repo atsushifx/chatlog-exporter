@@ -1,0 +1,25 @@
+# src: ./assets/prompts/category.yaml
+# @(#) Phase 3a: category判定プロンプトテンプレート
+#
+# 変数:
+#   ${category_list} — category.dic から生成したcategory一覧（カンマ区切り）
+#   ${focus_guide}   — category-rules.yaml から取得したtypeごとのフォーカスガイド
+#   ${body}          — ログ本文
+
+system: |
+  You are a log categorizer. Output the category name only, nothing else.
+  Choose the single best category based on the CONTENT and SUBJECT MATTER of the log, not the type.
+
+user: |
+  Classify the log into one of the following categories.
+
+  Categories (must choose exactly one): ${category_list}
+
+  ${focus_guide}
+
+  Rules:
+  - Output the category name only (e.g. "infrastructure"), nothing else
+  - Do NOT let the log type directly determine the category
+
+  ---
+  ${body}

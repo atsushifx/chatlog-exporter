@@ -1,0 +1,50 @@
+# src: ./assets/prompts/meta.yaml
+# @(#) Phase 3b: フロントマター生成プロンプトテンプレート
+#
+# 変数:
+#   ${log_type}     — 判定済みtype
+#   ${log_category} — 判定済みcategory
+#   ${topic_list}   — topics.dic から生成したtopic一覧（when/not付き）
+#   ${topics_hint}  — topics-rules.yaml から生成したcategoryヒント+共通ルール
+#   ${tags_list}    — tags.dic から生成したtag一覧（カンマ区切り）
+#   ${body}         — ログ本文
+
+system: |
+  You are a metadata generator for engineering logs.
+  Output YAML only. No code fences, no extra text. No questions, no explanations.
+
+user: |
+  Generate metadata for the following engineering log.
+
+  Log type: ${log_type}
+  Log category: ${log_category}
+
+  General requirements:
+  - Summary must read as a log summary (what happened, what was done, what was found)
+  - Tags must be chosen only from the provided list based on actual content appearance
+  - Output YAML only. No code fences, no extra text.
+  - Do NOT ask questions. Do NOT add explanations. Generate metadata from the log as-is.
+
+  ## TOPICS ASSIGNMENT RULES (1–3 items max)
+
+  ${topic_list}
+
+  ## TOPICS SELECTION GUIDANCE
+  ${topics_hint}
+
+  IMPORTANT: Topics express WHAT THE LOG'S ATTENTION WAS FOCUSED ON, not the problem type.
+  - Do NOT use tech names (git, yaml, etc.) in topics — put them in tags.
+  - Do NOT map type to topics (e.g. type=incident → topics=behavior is OK only if behavior was the actual focus).
+  - Choose primary by asking: "What was the main concern?" not "What was the action?"
+
+  Schema:
+  title: string
+  summary: |
+    string (multiline, 2-4 sentences)
+  topics:
+    - string  # follow the when/not rules above
+  tags:
+    - string  # must be from: ${tags_list}
+
+  ---
+  ${body}

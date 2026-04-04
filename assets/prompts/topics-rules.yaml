@@ -1,0 +1,64 @@
+# src: ./assets/prompts/topics-rules.yaml
+# @(#) topicsヒント生成ルール
+#
+# 構造:
+#   category_rules: categoryごとのprimary選択ヒント（強制ではなく傾向）
+#   common_rules:   全categoryに共通のRULE 1〜4
+
+category_rules:
+  infrastructure: |
+    Typical primary for infrastructure logs:
+    - process   → CI/CDパイプライン・自動化フローが主題
+    - behavior  → CI失敗・ツールの動作問題が主題
+    - environment → 設定ファイル・インフラ設定の変更が主題
+  development: |
+    Typical primary for development logs:
+    - structure  → コード設計・アーキテクチャ・リファクタリングが主題
+    - behavior   → コード動作確認・バグ修正・テストが主題
+    - decision   → 技術選定・設計方針の確定が主題
+  tooling: |
+    Typical primary for tooling logs:
+    - environment → ツール設定・セットアップ・依存関係が主題
+    - behavior    → ツールの動作・エラー確認が主題
+    - knowledge   → ツールの使い方・仕様調査が主題
+  writing: |
+    Typical primary for writing logs:
+    - knowledge  → 内容調査・構成検討が主題
+    - structure  → 文書構造・目次・章立てが主題
+    - interaction → 読者への伝え方・文体が主題
+  knowledge: |
+    Typical primary for knowledge logs:
+    - knowledge  → 調査・理解・学習が主題（ほぼ固定）
+    - decision   → 調査後に何かを決定した場合
+  ai: |
+    Typical primary for AI logs:
+    - interaction → AIとの対話・ロールプレイ・応答設計が主題
+    - structure   → プロンプト構造・エージェント設計が主題
+    - behavior    → AI動作確認・応答品質検証が主題
+  creative: |
+    Typical primary for creative logs:
+    - interaction → キャラクター対話・ロールプレイが主題
+    - structure   → 世界観・設定・ストーリー構造が主題
+  casual: |
+    Typical primary for casual logs:
+    - knowledge   → 情報収集・相談が主題
+    - interaction → 会話・やり取りが主題
+
+common_rules: |
+  ## RULE 1 — Primary topic (REQUIRED: exactly one)
+    Choose the ONE topic that best describes WHAT THE LOG'S ATTENTION WAS FOCUSED ON.
+    Ask: "What was the main concern in this conversation?"
+    Primary candidates: structure, behavior, data, process, environment, interaction, decision, knowledge
+    Use the category hint above as a guide, but choose based on the actual log content.
+
+  ## RULE 2 — Secondary topics (optional: 0 to 2)
+    Add secondary topics only if they represent a significant aspect not captured by primary.
+    Secondary candidates: versioning, encoding, validation, workflow, security, testing, writing, prompting
+    Do NOT add secondary just to fill slots — only when it adds meaningful information.
+
+  ## RULE 3 — Forbidden in topics (use tags instead)
+    git, yaml, powershell, shell, node, and all other tech/tool names → tags only
+    debugging, troubleshooting, investigating → expressed by log TYPE, not topics
+    ci_cd, programming, configuring → replaced by primary/secondary above
+
+  ## RULE 4 — Count: maximum 3 topics total (1 primary + 0 to 2 secondary)

@@ -1,0 +1,22 @@
+# src: ./assets/prompts/type.yaml
+# @(#) Phase 2: type判定プロンプトテンプレート
+#
+# 変数:
+#   ${type_list} — types.dic から生成したtype一覧
+#   ${body}      — ログ本文
+
+system: |
+  You are a log classifier. Output the type name only, nothing else.
+  Choose the single best type based on the PRIMARY purpose of the log.
+
+user: |
+  Classify the log into one of the following types.
+
+  Types:
+  ${type_list}
+
+  Rules:
+  - Output the type name only (e.g. "execution"), nothing else
+
+  ---
+  ${body}
