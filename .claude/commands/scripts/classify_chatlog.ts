@@ -1,0 +1,612 @@
+#!/usr/bin/env -S deno run --allow-read --allow-run --allow-write
+/**
+ * classify_chatlog.ts — チャットログをプロジェクト別サブディレクトリに分類する
+ *
+ * 使い方:
+ *   deno run --allow-read --allow-run --allow-write classify_chatlog.ts \
+ *     [agent] [YYYY-MM] [--dry-run] --input DIR --dics DIR
+ */
+
+// ─────────────────────────────────────────────
+// 定数
+// ─────────────────────────────────────────────
+
+const CHUNK_SIZE = 10;
+const CONCURRENCY = 4;
+const FALLBACK_PROJECT = 'misc';
+
+// ─────────────────────────────────────────────
+// 型定義
+// ─────────────────────────────────────────────
+
+interface ClassifyResult {
+  file: string;
+  project: string;
+  confidence: number;
+  reason: string;
+}
+
+interface FileMeta {
+  filePath: string;
+  filename: string;
+  existingProject: string;
+  title: string;
+  category: string;
+  topics: string[];
+  tags: string[];
+  fullText: string;
+}
+
+interface Stats {
+  moved: number;
+  skipped: number;
+  error: number;
+}
+
+interface Args {
+  agent: string;
+  period?: string;
+  dryRun: boolean;
+  inputDir: string;
+  dicsDir: string;
+}
+
+// ─────────────────────────────────────────────
+// 辞書読み込み
+// ─────────────────────────────────────────────
+
+async function loadProjects(dicsDir: string): Promise<string[]> {
+  const dicPath = `${dicsDir}/projects.dic`;
+  let text: string;
+  try {
+    text = await Deno.readTextFile(dicPath);
+  } catch {
+    console.error(`警告: projects.dic が見つかりません: ${dicPath}`);
+    return [];
+  }
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#') && line !== FALLBACK_PROJECT);
+}
+
+// ─────────────────────────────────────────────
+// フロントマター解析
+// ─────────────────────────────────────────────
+
+interface FrontmatterData {
+  project: string;
+  title: string;
+  category: string;
+  topics: string[];
+  tags: string[];
+  frontmatterEnd: number; // フロントマター終端のインデックス（本文先頭位置）
+}
+
+function parseFrontmatter(text: string): FrontmatterData {
+  const empty: FrontmatterData = {
+    project: '',
+    title: '',
+    category: '',
+    topics: [],
+    tags: [],
+    frontmatterEnd: 0,
+  };
+
+  const normalized = text.replace(/\r\n/g, '\n');
+  if (!normalized.startsWith('---\n')) return empty;
+
+  const end = normalized.indexOf('\n---\n', 4);
+  if (end === -1) return empty;
+
+  const fmText = normalized.slice(4, end);
+  const frontmatterEnd = end + 5; // '\n---\n' の後
+
+  const lines = fmText.split('\n');
+  const result: FrontmatterData = { project: '', title: '', category: '', topics: [], tags: [], frontmatterEnd };
+
+  let currentList: string[] | null = null;
+
+  for (const line of lines) {
+    const listMatch = line.match(/^  - (.+)$/);
+    if (listMatch && currentList) {
+      currentList.push(listMatch[1].trim());
+      continue;
+    }
+
+    currentList = null;
+
+    if (line.startsWith('title:')) {
+      result.title = line.slice('title:'.length).trim();
+    } else if (line.startsWith('category:')) {
+      result.category = line.slice('category:'.length).trim();
+    } else if (line.startsWith('project:')) {
+      result.project = line.slice('project:'.length).trim();
+    } else if (line === 'topics:') {
+      currentList = result.topics;
+    } else if (line === 'tags:') {
+      currentList = result.tags;
+    }
+  }
+
+  return result;
+}
+
+// ─────────────────────────────────────────────
+// フロントマターへ project フィールドを追加
+// ─────────────────────────────────────────────
+
+function insertProjectField(text: string, project: string): string {
+  const normalized = text.replace(/\r\n/g, '\n');
+  if (!normalized.startsWith('---\n')) return text;
+
+  const end = normalized.indexOf('\n---\n', 4);
+  if (end === -1) return text;
+
+  const fmText = normalized.slice(4, end);
+  const lines = fmText.split('\n');
+
+  const newLines: string[] = [];
+  let inserted = false;
+  for (const line of lines) {
+    newLines.push(line);
+    if (!inserted && line.startsWith('date:')) {
+      newLines.push(`project: ${project}`);
+      inserted = true;
+    }
+  }
+  if (!inserted) {
+    newLines.unshift(`project: ${project}`);
+  }
+
+  return `---\n${newLines.join('\n')}\n---\n${normalized.slice(end + 5)}`;
+}
+
+// ─────────────────────────────────────────────
+// ファイルメタデータ読み込み
+// ─────────────────────────────────────────────
+
+async function loadFileMeta(filePath: string): Promise<FileMeta | null> {
+  let text: string;
+  try {
+    text = await Deno.readTextFile(filePath);
+  } catch {
+    return null;
+  }
+
+  const filename = filePath.replace(/\\/g, '/').split('/').pop()!;
+  const fm = parseFrontmatter(text);
+
+  return {
+    filePath,
+    filename,
+    existingProject: fm.project,
+    title: fm.title,
+    category: fm.category,
+    topics: fm.topics,
+    tags: fm.tags,
+    fullText: text,
+  };
+}
+
+// ─────────────────────────────────────────────
+// ファイル列挙（直下の .md のみ）
+// ─────────────────────────────────────────────
+
+async function findMdFilesFlat(
+  inputDir: string,
+  agent: string,
+  period?: string,
+): Promise<string[]> {
+  const agentDir = `${inputDir}/${agent}`;
+  const results: string[] = [];
+
+  if (agent === 'chatgpt') {
+    // chatgpt: inputDir/chatgpt/YYYY/YYYY-MM/*.md
+    await collectChatGptFiles(agentDir, period, results);
+  } else {
+    // claude など: inputDir/agent/YYYY-MM/*.md
+    await collectClaudeFiles(agentDir, period, results);
+  }
+
+  return results.sort();
+}
+
+async function collectChatGptFiles(
+  agentDir: string,
+  period: string | undefined,
+  results: string[],
+): Promise<void> {
+  let yearDirs: string[];
+  try {
+    yearDirs = [];
+    for await (const entry of Deno.readDir(agentDir)) {
+      if (entry.isDirectory && /^\d{4}$/.test(entry.name)) {
+        yearDirs.push(`${agentDir}/${entry.name}`);
+      }
+    }
+  } catch {
+    return;
+  }
+
+  for (const yearDir of yearDirs.sort()) {
+    let monthDirs: string[];
+    try {
+      monthDirs = [];
+      for await (const entry of Deno.readDir(yearDir)) {
+        if (entry.isDirectory && /^\d{4}-\d{2}$/.test(entry.name)) {
+          if (!period || entry.name === period) {
+            monthDirs.push(`${yearDir}/${entry.name}`);
+          }
+        }
+      }
+    } catch {
+      continue;
+    }
+
+    for (const monthDir of monthDirs.sort()) {
+      await collectDirectMdFiles(monthDir, results);
+    }
+  }
+}
+
+async function collectClaudeFiles(
+  agentDir: string,
+  period: string | undefined,
+  results: string[],
+): Promise<void> {
+  let monthDirs: string[];
+  try {
+    monthDirs = [];
+    for await (const entry of Deno.readDir(agentDir)) {
+      if (entry.isDirectory && /^\d{4}-\d{2}$/.test(entry.name)) {
+        if (!period || entry.name === period) {
+          monthDirs.push(`${agentDir}/${entry.name}`);
+        }
+      }
+    }
+  } catch {
+    return;
+  }
+
+  for (const monthDir of monthDirs.sort()) {
+    await collectDirectMdFiles(monthDir, results);
+  }
+}
+
+async function collectDirectMdFiles(dir: string, results: string[]): Promise<void> {
+  try {
+    for await (const entry of Deno.readDir(dir)) {
+      if (entry.isFile && entry.name.endsWith('.md')) {
+        results.push(`${dir}/${entry.name}`);
+      }
+    }
+  } catch {
+    // ディレクトリが存在しない場合は無視
+  }
+}
+
+// ─────────────────────────────────────────────
+// バッチプロンプト構築
+// ─────────────────────────────────────────────
+
+function buildClassifyPrompt(files: FileMeta[], projects: string[]): string {
+  const projectList = [...projects, FALLBACK_PROJECT].join(', ');
+  const header = `Projects: ${projectList}\n\n`;
+
+  const parts = files.map((f, i) => {
+    const topicsStr = f.topics.length > 0 ? f.topics.join(', ') : '(none)';
+    const tagsStr = f.tags.length > 0 ? f.tags.join(', ') : '(none)';
+    return [
+      `=== FILE ${i + 1}: ${f.filename} ===`,
+      `title: ${f.title || '(no title)'}`,
+      `category: ${f.category || '(none)'}`,
+      `topics: ${topicsStr}`,
+      `tags: ${tagsStr}`,
+    ].join('\n');
+  });
+
+  return header + parts.join('\n\n');
+}
+
+function buildSystemPrompt(projects: string[]): string {
+  const projectList = [...projects, FALLBACK_PROJECT].join(', ');
+  return `Output ONLY a JSON array. No markdown, no explanation, no text before or after the array.
+[{"file":"<filename>","project":"<project_name>","confidence":0.0,"reason":"..."},...]
+
+Choose project ONLY from this list: ${projectList}
+If no project matches well, use "${FALLBACK_PROJECT}".
+Base your decision on: title, category, topics, tags.`;
+}
+
+// ─────────────────────────────────────────────
+// JSON 配列パース（filter_chatlog.ts から流用）
+// ─────────────────────────────────────────────
+
+function parseJsonArray(raw: string): ClassifyResult[] | null {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('[')) {
+    try {
+      const data = JSON.parse(trimmed);
+      if (Array.isArray(data) && data.length > 0) {
+        return data as ClassifyResult[];
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  const pattern = /\[[\s\S]*?\]/g;
+  for (const m of raw.matchAll(pattern)) {
+    try {
+      const data = JSON.parse(m[0]);
+      if (Array.isArray(data) && data.length > 0) {
+        return data as ClassifyResult[];
+      }
+    } catch {
+      // 次の候補へ
+    }
+  }
+
+  const greedyMatch = raw.match(/\[[\s\S]*\]/);
+  if (greedyMatch) {
+    try {
+      const data = JSON.parse(greedyMatch[0]);
+      if (Array.isArray(data) && data.length > 0) {
+        return data as ClassifyResult[];
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  return null;
+}
+
+// ─────────────────────────────────────────────
+// 並列実行ヘルパー（filter_chatlog.ts から流用）
+// ─────────────────────────────────────────────
+
+async function withConcurrency<T>(
+  tasks: (() => Promise<T>)[],
+  limit: number,
+): Promise<T[]> {
+  const results: T[] = [];
+  let idx = 0;
+  async function worker() {
+    while (idx < tasks.length) {
+      const i = idx++;
+      results[i] = await tasks[i]();
+    }
+  }
+  await Promise.all(Array.from({ length: limit }, worker));
+  return results;
+}
+
+// ─────────────────────────────────────────────
+// Claude CLI 呼び出し
+// ─────────────────────────────────────────────
+
+async function runClaude(systemPrompt: string, userPrompt: string): Promise<string> {
+  const cmd = new Deno.Command('claude', {
+    args: ['-p', systemPrompt, '--output-format', 'text'],
+    stdin: 'piped',
+    stdout: 'piped',
+    stderr: 'null',
+  });
+
+  const process = cmd.spawn();
+
+  const writer = process.stdin.getWriter();
+  await writer.write(new TextEncoder().encode(userPrompt));
+  await writer.close();
+
+  const output = await process.output();
+  if (!output.success) {
+    throw new Error(`claude CLI がエラーで終了しました (code=${output.code})`);
+  }
+
+  return new TextDecoder().decode(output.stdout);
+}
+
+// ─────────────────────────────────────────────
+// ファイル移動とフロントマター更新
+// ─────────────────────────────────────────────
+
+async function classifyFile(
+  fileMeta: FileMeta,
+  project: string,
+  dryRun: boolean,
+  stats: Stats,
+): Promise<void> {
+  const srcPath = fileMeta.filePath;
+  const srcDir = srcPath.replace(/\\/g, '/').split('/').slice(0, -1).join('/');
+  const dstDir = `${srcDir}/${project}`;
+  const dstPath = `${dstDir}/${fileMeta.filename}`;
+
+  if (dryRun) {
+    console.log(`[dry-run] ${fileMeta.filename} → ${project}/`);
+    stats.moved++;
+    return;
+  }
+
+  try {
+    await Deno.mkdir(dstDir, { recursive: true });
+    await Deno.rename(srcPath, dstPath);
+
+    // フロントマターに project フィールドを追加
+    const newText = insertProjectField(fileMeta.fullText, project);
+    await Deno.writeTextFile(dstPath, newText);
+
+    console.log(`moved: ${fileMeta.filename} → ${project}/`);
+    stats.moved++;
+  } catch (e) {
+    console.error(`  移動失敗: ${fileMeta.filename}: ${e}`);
+    stats.error++;
+  }
+}
+
+// ─────────────────────────────────────────────
+// チャンク処理
+// ─────────────────────────────────────────────
+
+async function processChunk(
+  chunkMetas: FileMeta[],
+  projects: string[],
+  dryRun: boolean,
+  stats: Stats,
+): Promise<void> {
+  const batchPrompt = buildClassifyPrompt(chunkMetas, projects);
+  const systemPrompt = buildSystemPrompt(projects);
+
+  let rawResult: string;
+  try {
+    rawResult = await runClaude(systemPrompt, batchPrompt);
+  } catch (e) {
+    console.error(`  警告: claude CLI 実行失敗。チャンク内ファイルをすべて ${FALLBACK_PROJECT} 扱い`);
+    console.error(`  error: ${e}`);
+    for (const f of chunkMetas) {
+      await classifyFile(f, FALLBACK_PROJECT, dryRun, stats);
+    }
+    return;
+  }
+
+  const parsed = parseJsonArray(rawResult);
+  if (!parsed) {
+    console.error(`  警告: JSON パース失敗。チャンク内ファイルをすべて ${FALLBACK_PROJECT} 扱い`);
+    console.error(`  raw output: ${rawResult.slice(0, 200)}`);
+    for (const f of chunkMetas) {
+      await classifyFile(f, FALLBACK_PROJECT, dryRun, stats);
+    }
+    return;
+  }
+
+  for (const fileMeta of chunkMetas) {
+    const result = parsed.find((r) => r.file === fileMeta.filename);
+    const project = result?.project ?? FALLBACK_PROJECT;
+    console.error(`  classify: ${fileMeta.filename} → ${project} (conf=${result?.confidence ?? 0})`);
+    await classifyFile(fileMeta, project, dryRun, stats);
+  }
+}
+
+// ─────────────────────────────────────────────
+// 引数解析
+// ─────────────────────────────────────────────
+
+const KNOWN_AGENTS = ['claude', 'chatgpt', 'codex'];
+
+function parseArgs(args: string[]): Args {
+  let agent: string | undefined;
+  let period: string | undefined;
+  let dryRun = false;
+  let inputDir = './temp/chatlog';
+  let dicsDir = './assets/dics';
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--dry-run') {
+      dryRun = true;
+    } else if (arg === '--input' && i + 1 < args.length) {
+      inputDir = args[++i];
+    } else if (arg.startsWith('--input=')) {
+      inputDir = arg.slice('--input='.length);
+    } else if (arg === '--dics' && i + 1 < args.length) {
+      dicsDir = args[++i];
+    } else if (arg.startsWith('--dics=')) {
+      dicsDir = arg.slice('--dics='.length);
+    } else if (arg.startsWith('-')) {
+      console.error(`不明なオプション: ${arg}`);
+      Deno.exit(1);
+    } else if (/^\d{4}-\d{2}$/.test(arg)) {
+      period = arg;
+    } else if (KNOWN_AGENTS.includes(arg)) {
+      agent = arg;
+    } else {
+      console.error(`不明な引数: ${arg}`);
+      Deno.exit(1);
+    }
+  }
+
+  return { agent: agent ?? 'chatgpt', period, dryRun, inputDir, dicsDir };
+}
+
+// ─────────────────────────────────────────────
+// メイン
+// ─────────────────────────────────────────────
+
+async function main(): Promise<void> {
+  const { agent, period, dryRun, inputDir, dicsDir } = parseArgs(Deno.args);
+
+  // 入力ディレクトリ確認
+  const agentDir = `${inputDir}/${agent}`;
+  try {
+    const stat = await Deno.stat(agentDir);
+    if (!stat.isDirectory) {
+      console.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
+      Deno.exit(1);
+    }
+  } catch {
+    console.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
+    Deno.exit(1);
+  }
+
+  // プロジェクト辞書読み込み
+  const projects = await loadProjects(dicsDir);
+  if (projects.length === 0) {
+    console.error('警告: projects.dic にプロジェクトが定義されていません。すべて misc に分類されます。');
+  }
+
+  console.error(`対象 agent: ${agent}`);
+  if (period) console.error(`対象期間: ${period}`);
+  if (dryRun) console.error('dry-run モード: ファイルは移動しません');
+  console.error(`プロジェクト候補: ${projects.join(', ')}`);
+
+  // ファイル列挙
+  const allFiles = await findMdFilesFlat(inputDir, agent, period);
+  if (allFiles.length === 0) {
+    console.error('対象ファイルなし');
+    console.error('完了: moved=0 skipped=0 error=0');
+    Deno.exit(0);
+  }
+
+  // メタデータ読み込みとスキップ判定
+  const targetMetas: FileMeta[] = [];
+  const stats: Stats = { moved: 0, skipped: 0, error: 0 };
+
+  for (const filePath of allFiles) {
+    const meta = await loadFileMeta(filePath);
+    if (!meta) {
+      stats.error++;
+      continue;
+    }
+    if (meta.existingProject) {
+      console.error(`  skipped (既にプロジェクト設定済み: ${meta.existingProject}): ${meta.filename}`);
+      stats.skipped++;
+      continue;
+    }
+    targetMetas.push(meta);
+  }
+
+  console.error(`\n対象ファイル数: ${targetMetas.length} (スキップ: ${stats.skipped})`);
+
+  if (targetMetas.length === 0) {
+    console.error(`\n完了: moved=${stats.moved} skipped=${stats.skipped} error=${stats.error}`);
+    Deno.exit(0);
+  }
+
+  // チャンク分割して並列処理
+  const tasks: (() => Promise<void>)[] = [];
+  for (let i = 0; i < targetMetas.length; i += CHUNK_SIZE) {
+    const chunk = targetMetas.slice(i, i + CHUNK_SIZE);
+    tasks.push(() => processChunk(chunk, projects, dryRun, stats));
+  }
+  await withConcurrency(tasks, CONCURRENCY);
+
+  // サマリー
+  const drySuffix = dryRun ? ' (dry-run)' : '';
+  console.error(
+    `\n完了${drySuffix}: moved=${stats.moved} skipped=${stats.skipped} error=${stats.error}`,
+  );
+}
+
+await main();
