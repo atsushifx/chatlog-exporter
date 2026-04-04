@@ -1,4 +1,7 @@
 {
+  "imports": {
+    "@std/yaml": "jsr:@std/yaml@^1.0.12"
+  },
   "compilerOptions": {
     "lib": ["deno.ns", "es2022", "dom"]
   }
