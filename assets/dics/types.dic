@@ -6,11 +6,11 @@
 # 確定タイプ: execution / incident / discussion / research / writing（5種別）
 #
 # 判定優先順位（この順序で確認すること）:
-#   STEP 1: incident signal が起点・中心テーマにあるか？ → YES → incident（無条件）
-#   STEP 2: ファイル変更が主目的か（incident修正の副産物ではない）→ execution
-#   STEP 3: 文書を書いた（成果物が文章・仕様・プロンプト）    → writing
-#   STEP 4: 明示的な決定・方針確定があるか                    → discussion
-#   STEP 5: 調査・理解が主目的（実装・決定なし）              → research
+#   STEP 1: incident signal が実際に発生して行動を引き起こしたか？ → incident（無条件）
+#   STEP 2: 成果物が文書・仕様・記事・プロンプト文面か？          → writing
+#   STEP 3: コード/設定変更が主目的か（文書除く・incident修正除く）→ execution
+#   STEP 4: 将来の実装に影響する明示的・不可逆な決定があるか？    → discussion
+#   STEP 5: 理解・比較が主目的で実装も明示的決定もないか？        → research
 #
 # incident signal（これが1つでもあればSTEP 1で確定）:
 #   - エラーメッセージ・スタックトレース・CI失敗が会話の起点
