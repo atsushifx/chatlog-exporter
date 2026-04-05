@@ -15,74 +15,77 @@ development:
       - コード・ロジックの実装が主目的（ツール設定を含んでいても構わない）
       - バグを調査・修正した
       - テストを設計・実装した
-      - アーキテクチャ・設計判断を行った
+      - 実装・設計・選択に対して最終判断を下した（または下す前提で議論した）
     not:
       - ツールの導入・設定が主目的でコード実装を伴わない（→ tooling）
       - 実行環境・パイプライン制御が主目的（→ infrastructure）
+      - 判断材料の収集・整理が目的で最終決定に至っていない（→ knowledge）
 
 infrastructure:
   def: Logs centered on execution environment, CI/CD pipeline control, or deployment operations
   desc: DevOps・CI/CD・クラウド・システム運用・パイプライン構築・セキュリティ設定
   rules:
     when:
-      - 実行環境・パイプライン制御が主目的
+      - チーム・CI・共有環境に影響する設定・構成変更が主目的
       - GitHub Actionsワークフローを構築・設定・デバッグした
       - クラウドリソース・サーバーの設定・運用を行った
       - セキュリティポリシー・権限管理を整備した
       - デプロイ・リリースパイプラインを操作した
     not:
       - パイプライン内の処理ロジック実装が主目的（→ development）
-      - ツールのインストール・設定のみ（→ tooling）
+      - 個人またはローカル環境に閉じた設定（→ tooling）
 
 tooling:
   def: Logs centered on introducing, configuring, or learning developer tools as the primary goal
   desc: 開発ツールの選定・設定・活用（CLI・エディタ・パッケージ管理・開発環境構築）
   rules:
     when:
-      - ツール単体の導入・設定が主目的（システム全体の構成変更を伴わない）
+      - 個人またはローカル環境に閉じたツール導入・設定が主目的
       - エディタ・シェル・パッケージマネージャの環境整備
       - ツールの使い方を調査・試した
     not:
       - ツールを含めてもコード・ロジック実装が主目的（→ development）
-      - CI/CDパイプラインの設定（→ infrastructure）
+      - チーム・CI・共有環境に影響する設定（→ infrastructure）
 
 ai:
   def: Logs centered on LLM usage, AI agent design, or prompt engineering as the primary subject
   desc: AI関連技術全般（LLM・AIエージェント・AIツール開発・AI活用ワークフロー・プロンプト設計）
   rules:
     when:
-      - AIそのものの設計・利用・評価が主目的
-      - LLM・AIモデルの利用・評価・比較が主題
+      - AIそのものの設計・評価・ワークフロー改善が主目的
+      - LLM・AIモデルの性能・挙動・比較の評価が主題
       - AIエージェント・MCPサーバーの設計・実装
       - プロンプト設計・改善・分析が主目的
-      - AIワークフローの構築・運用
     not:
-      - AIを手段として他カテゴリの作業をしている（ツールは手段。内容で分類）
+      - AIを使って他カテゴリの作業を行っているだけ（ツールは手段。成果物の内容で分類）
+      - AIを使ったコード実装（→ development）
+      - AIを使ったドキュメント作成（→ writing）
 
 writing:
-  def: Logs where the primary output is a document, article, or specification artifact
+  def: Logs where the primary output is a structured document intended to be read by others
   desc: 技術文書・記事・仕様書の作成と整理（README・ブログ・ドキュメント設計・校閲）
   rules:
     when:
-      - 成果物（ドキュメント・記事・仕様書）を生成・編集した
-      - README・仕様書・設計文書を書いた
-      - 技術ブログ・チュートリアルを執筆した
+      - 他者が読むことを前提とした構造化ドキュメントを作成・編集した
+      - README・仕様書・設計文書・技術ブログを書いた
+      - プロンプト文書・スキル定義の文面を作成・整備した
     not:
       - 成果物を生成せず理解・調査が目的（→ knowledge）
+      - 自分用の作業メモや会話内の要約（→ knowledge）
       - コードのコメント追加のみ（→ development）
 
 knowledge:
-  def: Logs centered on researching or learning where no document artifact is produced
+  def: Logs centered on researching or learning where no structured document artifact is produced
   desc: 技術知識の整理・習得・調査（設計思想・アーキテクチャ議論・技術比較・チュートリアル）
   rules:
     when:
-      - 実装や設計決定を伴わない理解・調査・整理が目的
+      - 判断材料の収集・整理が目的で最終的な設計判断に至っていない
       - 概念・アーキテクチャ・ベストプラクティスを学んだ
       - 成果物を生成しない質問・回答・比較・調査
     not:
       - 実装・修正を行った（→ development）
-      - 設計決定・アーキテクチャ判断を伴う（→ development）
-      - ドキュメント成果物を生成した（→ writing）
+      - 実装・選択に対して最終判断を下した（→ development）
+      - 他者が読む構造化ドキュメントを生成した（→ writing）
 
 creative:
   def: Logs centered on roleplay, character design, storytelling, or creative ideation
