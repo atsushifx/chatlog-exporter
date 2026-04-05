@@ -18,19 +18,22 @@ user: |
   PRIORITY RULES — check in this order:
   1. INCIDENT FIRST:
      Does the log CONTAIN a clear problem signal (error, failure, CI failure, mismatch, unexpected behavior)
-     as the trigger or central theme — driving the actions that follow?
+     that ACTUALLY OCCURRED and triggered the actions?
      YES → type = incident (regardless of what happened after: investigation, fix, or decision)
-  2. FILES CHANGED:
-     Were code, scripts, or config files modified as the PRIMARY outcome (not just as part of fixing an incident)?
-     YES → execution
-  3. DOCUMENT WRITTEN:
+  2. DOCUMENT WRITTEN:
      Was the primary outcome a document, article, specification, or prompt text?
      YES → writing
+  3. FILES CHANGED:
+     Were code, scripts, or config files modified as the PRIMARY outcome
+     (excluding pure documentation files and not part of fixing an incident)?
+     YES → execution
   4. DECISION MADE:
-     Is there an explicit decision or commitment (e.g. "decided", "we will use", "adopted", "finalized")?
+     Is there an explicit, irreversible decision or commitment that affects future implementation?
+     (e.g. "decided", "we will use", "adopted", "finalized" — not just an opinion or preference)
      YES → discussion
   5. INFORMATION GATHERED:
-     Was the primary purpose investigation, comparison, or understanding — with no implementation or decision?
+     Was the primary purpose understanding or comparison,
+     with no implementation and no explicit decision?
      YES → research
 
   - Output the type name only (e.g. "execution"), nothing else
