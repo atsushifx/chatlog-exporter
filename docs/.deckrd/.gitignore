@@ -1,0 +1,23 @@
+# src: .gitignore
+# @(#) : deckrd gitignore settings
+#
+# Copyright (c) 2026- atsushifx <http://github.com/atsushifx>
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+# deckrd (micro framework of create specs)
+
+# track README
+!README*
+
+# temp directory
+**/temp/
+**/tmp/
+
+# session filles
+*kv
+*session
+
+# checklist
+**/*checklist.md
