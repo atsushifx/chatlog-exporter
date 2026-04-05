@@ -6,49 +6,58 @@
 # 目的:
 #   typeはcategoryを「決めない」。typeは「何に注目してcategoryを判断するか」のヒントを与えるだけ。
 #   categoryはログの内容・対象ドメインから独立して決定される。
+#
+# 設計方針（重要）:
+#   各ガイドは「誘導」であり「決定ロジック」ではない。
+#   「→ category名」を直接記述しない。
+#   「often indicate」「may suggest」「tends to」で弱める。
+#   最終判断は常に category.dic の PRIMARY PURPOSE ルールに従う。
 
 execution: |
   Focus: Look at the FILE PATHS and TARGETS that were modified.
-  - Files under `.github/workflows/`, `.github/` → infrastructure
-  - Files under `scripts/`, `src/`, `lib/`, `packages/` → development
-  - Config files (`*.config.*`, `.eslintrc`, `mise.toml`, `deno.json`, etc.) → tooling
-  - Prompt files, AI-related scripts, LLM integrations → ai
-  - Documentation files only (`.md`, `.rst`, no code) → writing
-  Priority: If multiple file types appear, use the DOMINANT type by volume or primary purpose.
+  - CI/workflow related paths (e.g. `.github/workflows/`, `.github/`) often indicate infrastructure concerns
+  - Source code paths (e.g. `src/`, `lib/`, `packages/`) often indicate development work
+  - Tool configuration files (e.g. `*.config.*`, `.eslintrc`, `mise.toml`) often indicate tooling
+  - Prompt files or AI-related scripts may suggest ai
+  - Documentation-only files (`.md`, `.rst` with no code changes) may suggest writing
+  Priority: Use these path patterns as signals only. Always decide based on the PRIMARY PURPOSE of the changes, not the file type alone.
 
 incident: |
   Focus: Look at WHERE the error OCCURRED or what system FAILED.
-  - CI pipeline failure, GitHub Actions error, workflow job failure → infrastructure
-  - Local CLI tool error, shell command failure, config parsing error → tooling
-  - Runtime code error, application crash, test failure → development
-  - AI API error, LLM agent failure, prompt execution failure → ai
-  Priority: Use the LOCATION OF FAILURE as the primary signal, not the tool used to diagnose it.
+  - CI pipeline, GitHub Actions, workflow job failures tend to suggest infrastructure concerns
+  - Local CLI tool, shell command, or config parsing errors may suggest tooling
+  - Runtime code errors, application crashes, or test failures tend to suggest development
+  - AI API errors, LLM agent failures, or prompt execution failures may suggest ai
+  Priority: Use the LOCATION OF FAILURE as a signal, not the tool used to diagnose it. Always verify against the PRIMARY PURPOSE defined in category.dic.
 
 discussion: |
   Focus: Look at the SUBJECT MATTER being decided or discussed.
-  - CI/CD operations, deployment policy, release process → infrastructure
-  - API design, code architecture, algorithm design, module structure → development
-  - Tool selection, dev environment setup, workflow tooling → tooling
-  - AI usage policy, agent design, prompt strategy, LLM integration → ai
-  - General knowledge sharing, concept clarification, learning → knowledge
-  - Document structure, writing style, content strategy → writing
-  Priority: Use the DOMAIN OF THE DECISION, not the format of the discussion.
+  - CI/CD operations, deployment policy, release process tend to suggest infrastructure
+  - API design, code architecture, algorithm or module structure tend to suggest development
+  - Tool selection, dev environment setup tend to suggest tooling
+  - AI usage policy, agent design, prompt strategy tend to suggest ai
+  - General concept clarification or learning may suggest knowledge
+  - Document structure or content strategy may suggest writing
+  Priority: Use the DOMAIN OF THE DECISION as a signal. Always decide based on PRIMARY PURPOSE, not the format of the discussion.
 
 research: |
   Focus: Look at the TECHNOLOGY or CONCEPT being researched.
-  - GitHub Actions, CI/CD systems, deployment pipelines → infrastructure
-  - ShellSpec, mise, asdf, package managers, CLI tools → tooling
-  - Programming languages, algorithms, frameworks, libraries → development
-  - LLM, prompt engineering, AI agents, Claude API → ai
-  - General software engineering concepts, design patterns → knowledge
-  - Writing techniques, documentation styles → writing
-  Priority: Use the SUBJECT DOMAIN of the research target, not the method used to research it.
+  - GitHub Actions, CI/CD systems, deployment pipelines tend to suggest infrastructure
+  - Package managers, CLI tools (ShellSpec, mise, asdf) tend to suggest tooling
+  - Programming languages, algorithms, frameworks tend to suggest development
+  - LLM, prompt engineering, AI agents, Claude API tend to suggest ai
+  - General software engineering concepts or design patterns may suggest knowledge
+  - Writing techniques or documentation styles may suggest writing
+  Priority: Use the SUBJECT DOMAIN of the research target as a signal. Always decide based on PRIMARY PURPOSE, not the method used to research it.
 
 writing: |
-  Focus: Look at the TYPE OF DOCUMENT being written.
-  - Publicly visible documents (README, blog post, tutorial, release notes) → writing
-  - Architecture / design specification documents (ADR, tech spec) → development
-  - Operations runbook, CI documentation, deployment guide → infrastructure
-  - Prompt files, AI usage guides, agent specifications → ai
-  Priority: If the document IS the deliverable (not a record of decisions), use `writing`.
-  Only use other categories if the document IS an internal specification that drives implementation.
+  Focus: Look at the TYPE OF DOCUMENT being written and its intended audience.
+  - Publicly visible documents (README, blog post, tutorial, release notes) tend to suggest writing
+  - Architecture or design specification documents (ADR, tech spec) may suggest development
+    if the document directly drives implementation decisions rather than being a deliverable for readers
+  - Operations runbook or deployment guides may suggest infrastructure
+  - Prompt files or AI usage guides may suggest ai
+  Priority:
+  - If the document is meant for external or team readers as a standalone artifact → lean toward writing
+  - If the document IS an internal specification that directly drives implementation → lean toward the corresponding domain
+  Always decide based on PRIMARY PURPOSE defined in category.dic.
