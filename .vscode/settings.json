@@ -1,7 +1,25 @@
+//
 {
+  //  chatlog dictionary files
+  "files.associations": {
+    "*.dic": "yaml"
+  },
+  // deno settings
   "deno.enable": true,
   "deno.enablePaths": [
     ".claude/commands/scripts"
   ],
-  "deno.config": ".claude/commands/scripts/deno.json"
+  "deno.config": "deno.json",
+  // trusted JSON schema hosts
+  "json.schemaDownload.enable": true,
+  "json.schemaDownload.trustedDomains": {
+    "https://schemastore.azurewebsites.net/": true,
+    "https://raw.githubusercontent.com/microsoft/vscode/": true,
+    "https://raw.githubusercontent.com/devcontainers/spec/": true,
+    "https://www.schemastore.org/": true,
+    "https://json.schemastore.org/": true,
+    "https://json-schema.org/": true,
+    "https://developer.microsoft.com/json-schemas/": true,
+    "https://raw.githubusercontent.com/denoland/": true
+  }
 }
