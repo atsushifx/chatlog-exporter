@@ -1,4 +1,11 @@
 #!/usr/bin/env -S deno run --allow-read --allow-run --allow-write
+// src: scripts/filter-chatlog.ts
+// @(#): チャットログを claude CLI でバッチ判定し DISCARD ファイルを削除する
+//
+// Copyright (c) 2025 atsushifx <https://github.com/atsushifx>
+//
+// This software is released under the MIT License.
+// https://opensource.org/licenses/MIT
 /**
  * filter_chatlog.ts — チャットログを claude CLI でバッチ判定し DISCARD ファイルを削除する
  *
@@ -445,6 +452,7 @@ async function processChunk(
 // ─────────────────────────────────────────────
 
 interface Args {
+  agent: string;
   period?: string;
   project?: string;
   dryRun: boolean;
@@ -452,6 +460,7 @@ interface Args {
 }
 
 function parseArgs(args: string[]): Args {
+  let agent: string | undefined;
   let period: string | undefined;
   let project: string | undefined;
   let dryRun = false;
@@ -468,14 +477,16 @@ function parseArgs(args: string[]): Args {
     } else if (arg.startsWith('-')) {
       console.error(`不明なオプション: ${arg}`);
       Deno.exit(1);
-    } else if (!period) {
+    } else if (/^\d{4}-\d{2}$/.test(arg)) {
       period = arg;
-    } else if (!project) {
+    } else if (period) {
       project = arg;
+    } else {
+      agent = arg;
     }
   }
 
-  return { period, project, dryRun, inputDir };
+  return { agent: agent ?? 'claude', period, project, dryRun, inputDir };
 }
 
 // ─────────────────────────────────────────────
@@ -483,22 +494,25 @@ function parseArgs(args: string[]): Args {
 // ─────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  const { period, project, dryRun, inputDir } = parseArgs(Deno.args);
+  const { agent, period, project, dryRun, inputDir } = parseArgs(Deno.args);
+  const agentDir = `${inputDir}/${agent}`;
 
   // 入力ディレクトリ確認
   try {
-    const stat = await Deno.stat(inputDir);
+    const stat = await Deno.stat(agentDir);
     if (!stat.isDirectory) {
-      console.error(`エラー: 入力ディレクトリが見つかりません: ${inputDir}`);
+      console.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
       Deno.exit(1);
     }
   } catch {
-    console.error(`エラー: 入力ディレクトリが見つかりません: ${inputDir}`);
+    console.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
     Deno.exit(1);
   }
 
+  console.error(`対象 agent: ${agent}`);
+
   // ファイル列挙
-  const allFiles = await findMdFiles(inputDir, period, project);
+  const allFiles = await findMdFiles(agentDir, period, project);
 
   // 事前フィルタ
   const targetFiles = await prefilterFiles(allFiles);
