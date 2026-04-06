@@ -1,4 +1,11 @@
 #!/usr/bin/env -S deno run --allow-read --allow-run --allow-write
+// src: scripts/filter-chatlog.ts
+// @(#): チャットログを claude CLI でバッチ判定し DISCARD ファイルを削除する
+//
+// Copyright (c) 2025 atsushifx <https://github.com/atsushifx>
+//
+// This software is released under the MIT License.
+// https://opensource.org/licenses/MIT
 /**
  * filter_chatlog.ts — チャットログを claude CLI でバッチ判定し DISCARD ファイルを削除する
  *

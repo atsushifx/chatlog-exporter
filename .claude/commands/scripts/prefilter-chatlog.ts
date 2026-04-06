@@ -1,5 +1,5 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write
-// src: scripts/prefilter_chatlog.ts
+// src: scripts/prefilter-chatlog.ts
 // @(#): チャットログの高速事前フィルタスクリプト
 //
 // Copyright (c) 2025 atsushifx <https://github.com/atsushifx>
