@@ -45,41 +45,54 @@ const NOISE_FILENAME_PATTERNS: RegExp[] = [
 /** User本文の先頭がこれにマッチすれば除外（`i` フラグで大文字小文字無視） */
 const NOISE_USER_PREFIX_PATTERNS: { pattern: RegExp; label: string }[] = [
   // Git操作ログ（GIT LOGS / GIT DIFF / END DIFF）
-  { pattern: /^={3,}\s*git\s+(logs?|diff|diffs?)\s*={3,}/i, label: "Git操作ログのみ" },
+  { pattern: /^={3,}\s*git\s+(logs?|diff|diffs?)\s*={3,}/i, label: 'Git操作ログのみ' },
 
   // スキル呼び出し（YAML先頭 ---\nname: で始まるもの）
-  { pattern: /^---\s*\nname\s*:/i, label: "スキル呼び出し(YAML)" },
+  { pattern: /^---\s*\nname\s*:/i, label: 'スキル呼び出し(YAML)' },
 
   // idd-framework 定型APIプロンプト
-  { pattern: /^以下のタイトルに対して、\d+-\d+文字程度の.*?説明を.*?生成してください/s, label: "定型プロンプト(タイトル説明生成)" },
-  { pattern: /^以下の情報から、最適なcommit種別.*?json形式で返してください/is, label: "定型プロンプト(commit/issue/branch判定)" },
-  { pattern: /^以下のjson形式パラメータから、github\s+issue下書きをmarkdown形式で生成してください/i, label: "定型プロンプト(GitHub Issue生成)" },
-  { pattern: /^based on the issue title\b/i, label: "定型プロンプト(branch名生成)" },
-  { pattern: /^translate the following text to english for use in/i, label: "定型プロンプト(英語翻訳)" },
-  { pattern: /^summarize the following.*?in \d+ words/i, label: "定型プロンプト(要約生成)" },
+  {
+    pattern: /^以下のタイトルに対して、\d+-\d+文字程度の.*?説明を.*?生成してください/s,
+    label: '定型プロンプト(タイトル説明生成)',
+  },
+  {
+    pattern: /^以下の情報から、最適なcommit種別.*?json形式で返してください/is,
+    label: '定型プロンプト(commit/issue/branch判定)',
+  },
+  {
+    pattern: /^以下のjson形式パラメータから、github\s+issue下書きをmarkdown形式で生成してください/i,
+    label: '定型プロンプト(GitHub Issue生成)',
+  },
+  { pattern: /^based on the issue title\b/i, label: '定型プロンプト(branch名生成)' },
+  { pattern: /^translate the following text to english for use in/i, label: '定型プロンプト(英語翻訳)' },
+  { pattern: /^summarize the following.*?in \d+ words/i, label: '定型プロンプト(要約生成)' },
 
   // deckrd 実装指示
-  { pattern: /^implement the following plan\b/i, label: "deckrd実装指示" },
-  { pattern: /^以下のプランを実装/i, label: "deckrd実装指示(日本語)" },
+  { pattern: /^implement the following plan\b/i, label: 'deckrd実装指示' },
+  { pattern: /^以下のプランを実装/i, label: 'deckrd実装指示(日本語)' },
 
   // プロンプトテスト系
-  { pattern: /^={3,}\s*prompt\s*={3,}/i, label: "プロンプトテスト" },
-  { pattern: /^you are a (topic and tag extraction assistant|log curator)\b/i, label: "システムプロンプト転写" },
+  { pattern: /^={3,}\s*prompt\s*={3,}/i, label: 'プロンプトテスト' },
+  { pattern: /^you are a (topic and tag extraction assistant|log curator)\b/i, label: 'システムプロンプト転写' },
 
   // スラッシュコマンド転写
-  { pattern: /^\/(export-log|filter-chatlog|commit|idd|deckrd|clear|help|set-frontmatter|classify-chatlog)\b/, label: "スラッシュコマンドのみ" },
+  {
+    pattern: /^\/(export-log|filter-chatlog|commit|idd|deckrd|clear|help|set-frontmatter|classify-chatlog)\b/,
+    label: 'スラッシュコマンドのみ',
+  },
 ];
 
 /** User本文の全体がこれにマッチすれば除外 */
 const NOISE_USER_EXACT_PATTERNS: { pattern: RegExp; label: string }[] = [
   // Windowsパスのみ（1行）
-  { pattern: /^[A-Za-z]:\\[^\n]{0,300}$/, label: "Windowsパスのみ" },
+  { pattern: /^[A-Za-z]:\\[^\n]{0,300}$/, label: 'Windowsパスのみ' },
   // Unixパスのみ（1行）
-  { pattern: /^(?:docs|temp|scripts|src|tests?|\.github)\/[^\n]{0,300}$/, label: "Unixパスのみ" },
+  { pattern: /^(?:docs|temp|scripts|src|tests?|\.github)\/[^\n]{0,300}$/, label: 'Unixパスのみ' },
 ];
 
 /** システムタグのみと判断するプレフィックス正規表現 */
-const SYSTEM_TAG_PATTERN = /^<(system-reminder|command-name|command-message|local-command-stdout|ide_opened_file|ide_selection)\b/;
+const SYSTEM_TAG_PATTERN =
+  /^<(system-reminder|command-name|command-message|local-command-stdout|ide_opened_file|ide_selection)\b/;
 
 /** Assistantの応答が短すぎる場合の閾値（文字数） */
 const MIN_ASSISTANT_CHARS = 100;
@@ -90,10 +103,10 @@ const MIN_ASSISTANT_CHARS = 100;
 
 function loadFrontmatter(text: string): { meta: Record<string, string>; body: string } {
   const normalized = text.replace(/\r\n/g, '\n');
-  if (!normalized.startsWith('---\n')) return { meta: {}, body: normalized };
+  if (!normalized.startsWith('---\n')) { return { meta: {}, body: normalized }; }
 
   const end = normalized.indexOf('\n---\n', 4);
-  if (end === -1) return { meta: {}, body: normalized };
+  if (end === -1) { return { meta: {}, body: normalized }; }
 
   const fmText = normalized.slice(4, end);
   const body = normalized.slice(end + 5);
@@ -128,7 +141,7 @@ function parseConversation(body: string): Turn[] {
     const start = m.index! + m[0].length;
     const end = i + 1 < matches.length ? matches[i + 1].index! : body.length;
     const text = body.slice(start, end).trim();
-    if (text) turns.push({ role, text });
+    if (text) { turns.push({ role, text }); }
   }
   return turns;
 }
@@ -140,14 +153,14 @@ function parseConversation(body: string): Turn[] {
 function checkFilename(filename: string): string | null {
   const lower = filename.toLowerCase();
   for (const pat of NOISE_FILENAME_PATTERNS) {
-    if (pat.test(lower)) return `ファイル名パターン: ${pat}`;
+    if (pat.test(lower)) { return `ファイル名パターン: ${pat}`; }
   }
   return null;
 }
 
 function checkUserContent(turns: Turn[]): string | null {
   const userTurns = turns.filter((t) => t.role === 'user');
-  if (userTurns.length === 0) return 'Userターンが存在しない';
+  if (userTurns.length === 0) { return 'Userターンが存在しない'; }
 
   // 全Userターンがシステムタグのみ
   if (userTurns.every((t) => SYSTEM_TAG_PATTERN.test(t.text))) {
@@ -165,16 +178,16 @@ function checkUserContent(turns: Turn[]): string | null {
 
     // 前方一致パターン
     for (const { pattern, label } of NOISE_USER_PREFIX_PATTERNS) {
-      if (pattern.test(text)) return label;
+      if (pattern.test(text)) { return label; }
     }
 
     // 完全一致パターン
     for (const { pattern, label } of NOISE_USER_EXACT_PATTERNS) {
-      if (pattern.test(text.trim())) return label;
+      if (pattern.test(text.trim())) { return label; }
     }
 
     // システムタグのみ
-    if (SYSTEM_TAG_PATTERN.test(text)) return 'UserがシステムTagのみ';
+    if (SYSTEM_TAG_PATTERN.test(text)) { return 'UserがシステムTagのみ'; }
   }
 
   return null;
@@ -200,7 +213,7 @@ function checkAssistantContent(turns: Turn[]): string | null {
 function classifyFile(filename: string, text: string): { isNoise: boolean; reason: string } {
   // 1. ファイル名チェック
   const filenameReason = checkFilename(filename);
-  if (filenameReason) return { isNoise: true, reason: filenameReason };
+  if (filenameReason) { return { isNoise: true, reason: filenameReason }; }
 
   // 2. frontmatter + body 読み込み
   const { body } = loadFrontmatter(text);
@@ -210,11 +223,11 @@ function classifyFile(filename: string, text: string): { isNoise: boolean; reaso
 
   // 4. User本文チェック
   const userReason = checkUserContent(turns);
-  if (userReason) return { isNoise: true, reason: userReason };
+  if (userReason) { return { isNoise: true, reason: userReason }; }
 
   // 5. Assistant応答の長さチェック
   const assistantReason = checkAssistantContent(turns);
-  if (assistantReason) return { isNoise: true, reason: assistantReason };
+  if (assistantReason) { return { isNoise: true, reason: assistantReason }; }
 
   return { isNoise: false, reason: '' };
 }
@@ -322,7 +335,7 @@ async function main(): Promise<void> {
 
   try {
     const stat = await Deno.stat(inputDir);
-    if (!stat.isDirectory) throw new Error();
+    if (!stat.isDirectory) { throw new Error(); }
   } catch {
     console.error(`エラー: 入力ディレクトリが見つかりません: ${inputDir}`);
     Deno.exit(1);
