@@ -15,8 +15,9 @@ copyright:
   - MIT License
 ---
 
-<!-- textlint-disable ja-technical-writng/sentence-length -->
-<!-- textlint-disable ja-technical-writing/max-comma -->
+<!-- textlint-disable
+  ja-technical-writing/sentence-length,
+  ja-technical-writing/max-comma -->
 <!-- markdownlint-disable line-length -->
 
 ## Overview
