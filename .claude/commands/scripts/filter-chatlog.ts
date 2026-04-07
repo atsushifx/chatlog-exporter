@@ -169,10 +169,16 @@ async function findMdFiles(
   project?: string,
 ): Promise<string[]> {
   let searchDir = baseDir;
-  if (period && project) {
-    searchDir = `${baseDir}/${period}/${project}`;
-  } else if (period) {
-    searchDir = `${baseDir}/${period}`;
+  if (period) {
+    // YYYY-MM 形式の場合、YYYY/YYYY-MM 構造にも対応
+    const yearDir = `${baseDir}/${period.slice(0, 4)}/${period}`;
+    const flatDir = `${baseDir}/${period}`;
+    try {
+      await Deno.stat(yearDir);
+      searchDir = project ? `${yearDir}/${project}` : yearDir;
+    } catch {
+      searchDir = project ? `${flatDir}/${project}` : flatDir;
+    }
   }
 
   const results: string[] = [];
