@@ -16,15 +16,15 @@ allowed-tools: Bash, Glob
 
 ## 前提条件
 
-- `claude` コマンドがPATHに存在すること（Claude Code CLIインストール済み）
-- `deno` コマンドが利用可能であること（TypeScript実行用）
+- `claude` コマンドがPATHに存在すること (Claude Code CLIインストール済み)
+- `deno` コマンドが利用可能であること (TypeScript実行用)
 - `assets/dics/` に辞書ファイルが存在すること
 
 ## 引数の処理
 
 `$ARGUMENTS` を解析し、以下のルールで引数を処理:
 
-- 引数なし → エラー（project またはパスを指定してください）
+- 引数なし → エラー (project またはパスを指定してください)
 - `<path>` → パス直接指定・指定ディレクトリのみ処理
 - `project` のみ → `claude` agent・指定プロジェクト・全年月
 - `project YYYY-MM` → `claude` agent・指定プロジェクト・指定年月
@@ -32,19 +32,21 @@ allowed-tools: Bash, Glob
 - `agent project YYYY-MM` → 指定 agent・指定プロジェクト・指定年月
 - `--dry-run` → 実際には書き込まず出力のみ確認
 
-引数の判定ルール（優先順位順）:
+引数の判定ルール (優先順位順):
+
 1. `--dry-run` → DRY_RUN_FLAG
 2. 各引数の `\` を `/` に正規化する
-3. 最初の非オプション引数が `/` を含む → **PATH モード**（パスを直接 TARGET_DIR として使用）
-4. `YYYY-MM` パターン（`^[0-9]{4}-[0-9]{2}$`）→ YEAR_MONTH
-5. 既知のagentリスト（`claude`, `chatgpt`）に一致 → AGENT
-6. それ以外 → PROJECT（最初の非オプション引数）
+3. 最初の非オプション引数が `/` を含む → **PATH モード** (パスを直接 TARGET_DIR として使用)
+4. `YYYY-MM` パターン (`^[0-9]{4}-[0-9]{2}$`) → YEAR_MONTH
+5. 既知のagentリスト (`claude`, `chatgpt`) に一致 → AGENT
+6. それ以外 → PROJECT (最初の非オプション引数)
 
 例:
+
 - `/set-frontmatter temp/chatlog/claude/2026-03/voift` → そのパスのみ処理
 - `/set-frontmatter dev-tooling 2026-03` → claude/dev-tooling/2026-03
 - `/set-frontmatter chatgpt dev-tooling 2026-03` → chatgpt/dev-tooling/2026-03
-- `/set-frontmatter deckrd --dry-run` → claude/deckrd 全年月（dry-run）
+- `/set-frontmatter deckrd --dry-run` → claude/deckrd 全年月 (dry-run)
 
 ## ステップ1: スクリプトパスの解決
 
@@ -71,7 +73,7 @@ TARGET_DIR=""
 
 # $ARGUMENTS を解析:
 # 1. "--dry-run" → DRY_RUN_FLAG
-# 2. 各引数の \ を / に正規化する（例: temp\chatlog\... → temp/chatlog/...）
+# 2. 各引数の \ を / に正規化する (例: temp\chatlog\... → temp/chatlog/...)
 # 3. 正規化後に / を含む → PATH_MODE=true
 # 4. "^[0-9]{4}-[0-9]{2}$" → YEAR_MONTH
 # 5. "claude" or "chatgpt" → AGENT
@@ -83,7 +85,7 @@ TARGET_DIR=""
 
 # TARGET_DIR の決定:
 # PATH_MODE true の場合:
-#   - 絶対パス（/ または ドライブレター）→ TARGET_DIR="$FIRST_ARG"
+#   - 絶対パス (/ または ドライブレター) → TARGET_DIR="$FIRST_ARG"
 #   - 相対パス → TARGET_DIR="$REPO_ROOT/$FIRST_ARG"
 #   単一ディレクトリとしてスクリプトを実行
 # PATH_MODE false の場合:
@@ -94,20 +96,20 @@ TARGET_DIR=""
 ## ステップ3: スクリプト実行
 
 ```bash
-# PATH_MODE の場合（パス直接指定）:
+# PATH_MODE の場合 (パス直接指定):
 # 単一ディレクトリとして実行
 deno run --allow-read --allow-run --allow-write "$SCRIPT_PATH" \
   "$TARGET_DIR" \
   --dics "$DICS_DIR" \
   $DRY_RUN_FLAG
 
-# YEAR_MONTH が指定されている場合（単一ディレクトリ）:
+# YEAR_MONTH が指定されている場合 (単一ディレクトリ):
 deno run --allow-read --allow-run --allow-write "$SCRIPT_PATH" \
   "$TARGET_DIR" \
   --dics "$DICS_DIR" \
   $DRY_RUN_FLAG
 
-# YEAR_MONTH が未指定の場合（全年月）:
+# YEAR_MONTH が未指定の場合 (全年月):
 find "$CHATLOG_BASE/$AGENT" -mindepth 2 -maxdepth 2 -type d -name "$PROJECT" | sort | while read -r dir; do
   echo "=== Processing: $dir ==="
   deno run --allow-read --allow-run --allow-write "$SCRIPT_PATH" \
@@ -122,6 +124,7 @@ done
 スクリプト完了後、`stderr` のサマリー行を読んでユーザーに結果を通知する。
 
 通知形式:
+
 - total / success / fail / skip の件数を報告
 - dry-run モードの場合はその旨を明示する
 
@@ -149,10 +152,10 @@ tags:
 
 - `assets/dics/category.dic`: category 選択肢
 - `assets/dics/topics.dic`: topics 選択肢
-- `assets/dics/tags.dic`: tags 選択肢（namespace:value 形式）
+- `assets/dics/tags.dic`: tags 選択肢 (namespace:value 形式)
 - `assets/dics/namespaces.dic`: タグ名前空間の定義
 
 ## 関連スキル
 
 - `/export-log` — ChatLog のエクスポート
-- `/filter-chatlog` — 低価値ChatLogのフィルタリング（set-frontmatter の前工程）
+- `/filter-chatlog` — 低価値ChatLogのフィルタリング (set-frontmatter の前工程)

@@ -2,7 +2,7 @@
 // src: scripts/set-frontmatter.ts
 // @(#): チャットログMarkdownにAI生成フロントマターを並列付加する
 //
-// Copyright (c) 2025 atsushifx <https://github.com/atsushifx>
+// Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
