@@ -93,16 +93,16 @@ deno run --allow-read --allow-write "$PREFILTER_PATH" $REST_ARGS --input "$INPUT
 解決した `SCRIPT_PATH` と `INPUT` を使い、Bash で実行する:
 
 ```bash
-deno run --allow-read --allow-run "$SCRIPT_PATH" $ARGS --input "$INPUT"
+deno run --allow-read --allow-run --allow-write "$SCRIPT_PATH" $ARGS --input "$INPUT"
 ```
 
 引数からオプションを組み立てるルール:
 
-- 引数なし → `deno run --allow-read --allow-run "$SCRIPT_PATH" --input "$INPUT"`
-- `agent` のみ → `deno run --allow-read --allow-run "$SCRIPT_PATH" chatgpt --input "$INPUT"`
-- `YYYY-MM` のみ → `deno run --allow-read --allow-run "$SCRIPT_PATH" 2026-03 --input "$INPUT"`
-- `agent YYYY-MM` → `deno run --allow-read --allow-run "$SCRIPT_PATH" chatgpt 2026-03 --input "$INPUT"`
-- `agent YYYY-MM project` → `deno run --allow-read --allow-run "$SCRIPT_PATH" chatgpt 2026-03 aplys --input "$INPUT"`
+- 引数なし → `deno run --allow-read --allow-run --allow-write "$SCRIPT_PATH" --input "$INPUT"`
+- `agent` のみ → `deno run --allow-read --allow-run --allow-write "$SCRIPT_PATH" chatgpt --input "$INPUT"`
+- `YYYY-MM` のみ → `deno run --allow-read --allow-run --allow-write "$SCRIPT_PATH" 2026-03 --input "$INPUT"`
+- `agent YYYY-MM` → `deno run --allow-read --allow-run --allow-write "$SCRIPT_PATH" chatgpt 2026-03 --input "$INPUT"`
+- `agent YYYY-MM project` → `deno run --allow-read --allow-run --allow-write "$SCRIPT_PATH" chatgpt 2026-03 aplys --input "$INPUT"`
 - `--dry-run` を含む → 末尾に `--dry-run` を追加
 
 スクリプトは以下の基準でKEEP/DISCARDを判定し、DISCARDかつ confidence >= 0.7 のファイルを削除する:
