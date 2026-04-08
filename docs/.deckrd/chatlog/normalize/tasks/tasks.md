@@ -12,23 +12,23 @@ source: specifications.md
 
 ## Task Summary
 
-| Test Target                        | Scenarios | Cases | Status  |
-| ---------------------------------- | --------- | ----- | ------- |
-| T-01: withConcurrency              | 2         | 4     | Done    |
-| T-02: runClaude                    | 3         | 5     | Done    |
-| T-03: cleanYaml                    | 2         | 4     | Done    |
-| T-04: parseFrontmatter             | 3         | 5     | Done    |
-| T-05: generateLogId                | 2         | 4     | Done    |
-| T-06: collectMdFiles / findMdFiles | 3         | 5     | Done    |
-| T-07: resolveInputDir              | 4         | 7     | Done    |
-| T-08: parseArgs                    | 2         | 5     | Done    |
-| T-09: segmentChatlog               | 3         | 5     | Done    |
-| T-10: parseJsonArray               | 3         | 5     | Pending |
-| T-11: generateSegmentFile          | 2         | 3     | Pending |
-| T-12: attachFrontmatter            | 3         | 5     | Pending |
-| T-13: writeOutput                  | 3         | 5     | Pending |
-| T-14: reportResults                | 2         | 4     | Pending |
-| T-15: main (integration)           | 4         | 8     | Pending |
+| Test Target                        | Scenarios | Cases | Status |
+| ---------------------------------- | --------- | ----- | ------ |
+| T-01: withConcurrency              | 2         | 4     | Done   |
+| T-02: runClaude                    | 3         | 5     | Done   |
+| T-03: cleanYaml                    | 2         | 4     | Done   |
+| T-04: parseFrontmatter             | 3         | 5     | Done   |
+| T-05: generateLogId                | 2         | 4     | Done   |
+| T-06: collectMdFiles / findMdFiles | 3         | 5     | Done   |
+| T-07: resolveInputDir              | 4         | 7     | Done   |
+| T-08: parseArgs                    | 2         | 5     | Done   |
+| T-09: segmentChatlog               | 3         | 5     | Done   |
+| T-10: parseJsonArray               | 3         | 5     | Done   |
+| T-11: generateSegmentFile          | 2         | 3     | Done   |
+| T-12: attachFrontmatter            | 3         | 5     | Done   |
+| T-13: writeOutput                  | 3         | 5     | Done   |
+| T-14: reportResults                | 2         | 4     | Done   |
+| T-15: main (integration)           | 4         | 8     | Done   |
 
 ---
 
@@ -396,19 +396,19 @@ source: specifications.md
 
 #### T-10-01: 直接 JSON 配列パース
 
-- [ ] **T-10-01-01**: `[` で始まる文字列を直接パースする
+- [x] **T-10-01-01**: `[` で始まる文字列を直接パースする
   - Target: `parseJsonArray(raw)`
   - Scenario: Given `[{"title":"T1","summary":"S1","body":"B1"}]` という文字列、When `parseJsonArray` を呼び出す
   - Expected: Then 1 オブジェクトを含む配列が返される
 
 #### T-10-02: テキスト混在時のフォールバック抽出
 
-- [ ] **T-10-02-01**: 非貪欲マッチで前置テキストから JSON 配列を抽出する
+- [x] **T-10-02-01**: 非貪欲マッチで前置テキストから JSON 配列を抽出する
   - Target: `parseJsonArray(raw)`
   - Scenario: Given `Here is the result:\n[{"title":"T"}]` というテキスト、When `parseJsonArray` を呼び出す
   - Expected: Then 配列が抽出されて返される
 
-- [ ] **T-10-02-02**: 非貪欲マッチ失敗時、貪欲マッチにフォールバックする
+- [x] **T-10-02-02**: 非貪欲マッチ失敗時、貪欲マッチにフォールバックする
   - Target: `parseJsonArray(raw)`
   - Scenario: Given 完全な `[...]` スパンのみが有効な JSON を生成するテキスト、When `parseJsonArray` を呼び出す
   - Expected: Then 貪欲マッチの結果が返される
@@ -417,12 +417,12 @@ source: specifications.md
 
 #### T-10-03: パース不可能な入力
 
-- [ ] **T-10-03-01**: 有効な JSON 配列が見つからない場合に null を返す
+- [x] **T-10-03-01**: 有効な JSON 配列が見つからない場合に null を返す
   - Target: `parseJsonArray(raw)`
   - Scenario: Given JSON 配列を含まないプレーンテキスト、When `parseJsonArray` を呼び出す
   - Expected: Then null が返される
 
-- [ ] **T-10-03-02**: 空文字列入力でエラーをスローせず null を返す
+- [x] **T-10-03-02**: 空文字列入力でエラーをスローせず null を返す
   - Target: `parseJsonArray(raw)`
   - Scenario: Given 空文字列、When `parseJsonArray` を呼び出す
   - Expected: Then スローされずに null が返される
@@ -435,12 +435,12 @@ source: specifications.md
 
 #### T-11-01: セグメントファイルの MD コンテンツ生成 (R-006)
 
-- [ ] **T-11-01-01**: `## Summary` セクションにセグメントサマリーが含まれる
+- [x] **T-11-01-01**: `## Summary` セクションにセグメントサマリーが含まれる
   - Target: `generateSegmentFile(segment)`
   - Scenario: Given `summary: "Fix CI pipeline"` を持つセグメントオブジェクト、When `generateSegmentFile` を呼び出す
   - Expected: Then 返却文字列に `## Summary\nFix CI pipeline` が含まれる
 
-- [ ] **T-11-01-02**: `## Excerpt` セクションにセグメントボディが含まれる
+- [x] **T-11-01-02**: `## Excerpt` セクションにセグメントボディが含まれる
   - Target: `generateSegmentFile(segment)`
   - Scenario: Given `body: "### User\nHow do I..."` を持つセグメントオブジェクト、When `generateSegmentFile` を呼び出す
   - Expected: Then 返却文字列に `## Excerpt\n### User\nHow do I...` が含まれる
@@ -449,7 +449,7 @@ source: specifications.md
 
 #### T-11-02: 空フィールド
 
-- [ ] **T-11-02-01**: summary と body が空文字列でも有効な Markdown 構造を返す
+- [x] **T-11-02-01**: summary と body が空文字列でも有効な Markdown 構造を返す
   - Target: `generateSegmentFile(segment)`
   - Scenario: Given `summary: ""` と `body: ""` を持つセグメント、When `generateSegmentFile` を呼び出す
   - Expected: Then `## Summary` と `## Excerpt` の両セクション見出しが含まれる
@@ -462,12 +462,12 @@ source: specifications.md
 
 #### T-12-01: ソースメタデータ引き継ぎによるフロントマター合成 (R-007)
 
-- [ ] **T-12-01-01**: sourceMeta の `project` フィールドを引き継ぐ
+- [x] **T-12-01-01**: sourceMeta の `project` フィールドを引き継ぐ
   - Target: `attachFrontmatter(content, sourceMeta, segmentMeta)`
   - Scenario: Given `project: ci-platform` を含む sourceMeta、When `attachFrontmatter` を呼び出す
   - Expected: Then 出力フロントマターに `project: ci-platform` が含まれる
 
-- [ ] **T-12-01-02**: AI 生成の `title`・`log_id`・`summary` フィールドが付加される
+- [x] **T-12-01-02**: AI 生成の `title`・`log_id`・`summary` フィールドが付加される
   - Target: `attachFrontmatter(content, sourceMeta, segmentMeta)`
   - Scenario: Given `title`・`log_id`・`summary` フィールドを持つ segmentMeta、When `attachFrontmatter` を呼び出す
   - Expected: Then 出力フロントマターに 3 フィールドすべてが含まれる
@@ -476,19 +476,19 @@ source: specifications.md
 
 #### T-12-02: ソースフロントマターなし
 
-- [ ] **T-12-02-01**: sourceMeta が空の場合に AI 生成フィールドのみを持つフロントマターを返す
+- [x] **T-12-02-01**: sourceMeta が空の場合に AI 生成フィールドのみを持つフロントマターを返す
   - Target: `attachFrontmatter(content, sourceMeta, segmentMeta)`
   - Scenario: Given 空の sourceMeta（入力ファイルにフロントマターなし）、When `attachFrontmatter` を呼び出す
   - Expected: Then 出力フロントマターが AI 生成フィールド（`title`・`log_id`・`summary`）のみを含む
 
 #### T-12-03: フロントマターデリミタ
 
-- [ ] **T-12-03-01**: 出力が `---` デリミタで囲まれた有効な Markdown フロントマターになる
+- [x] **T-12-03-01**: 出力が `---` デリミタで囲まれた有効な Markdown フロントマターになる
   - Target: `attachFrontmatter(content, sourceMeta, segmentMeta)`
   - Scenario: Given 任意の sourceMeta と segmentMeta、When `attachFrontmatter` を呼び出す
   - Expected: Then 出力が `---\n` で始まり、フロントマターブロックが `\n---\n` で終わる
 
-- [ ] **T-12-03-02**: コンテンツボディがフロントマターブロックの後に重複なく続く
+- [x] **T-12-03-02**: コンテンツボディがフロントマターブロックの後に重複なく続く
   - Target: `attachFrontmatter(content, sourceMeta, segmentMeta)`
   - Scenario: Given content 文字列 `## Summary\ntext`、When `attachFrontmatter` を呼び出す
   - Expected: Then 出力がフロントマターの閉じ `---` デリミタ後に正確に 1回コンテンツを含む
@@ -501,12 +501,12 @@ source: specifications.md
 
 #### T-13-01: アトミックなファイル書き込み
 
-- [ ] **T-13-01-01**: ファイルが存在しない場合にコンテンツを書き込む
+- [x] **T-13-01-01**: ファイルが存在しない場合にコンテンツを書き込む
   - Target: `writeOutput(outputPath, content, dryRun, stats)`
   - Scenario: Given まだ存在しない出力パスと `dryRun=false`、When `writeOutput` を呼び出す
   - Expected: Then 指定コンテンツでファイルが作成され `stats.success` がインクリメントされる
 
-- [ ] **T-13-01-02**: tmpfile→rename パターンでアトミック書き込みを行う
+- [x] **T-13-01-02**: tmpfile→rename パターンでアトミック書き込みを行う
   - Target: `writeOutput(outputPath, content, dryRun, stats)`
   - Scenario: Given 存在しない出力パス、When `writeOutput` を呼び出す
   - Expected: Then `.tmp` ファイルが書き込まれてから最終出力パスにリネームされる
@@ -515,19 +515,19 @@ source: specifications.md
 
 #### T-13-02: 既存出力のスキップ (R-011)
 
-- [ ] **T-13-02-01**: 出力ファイルが既存の場合にスキップしてカウンタをインクリメントする
+- [x] **T-13-02-01**: 出力ファイルが既存の場合にスキップしてカウンタをインクリメントする
   - Target: `writeOutput(outputPath, content, dryRun, stats)`
   - Scenario: Given ディスク上にすでに存在する出力パス、When `writeOutput` を呼び出す
   - Expected: Then `stats.skip` がインクリメントされ既存ファイルが上書きされない
 
 #### T-13-03: ドライランモード
 
-- [ ] **T-13-03-01**: ドライランモードではファイルを書き込まない
+- [x] **T-13-03-01**: ドライランモードではファイルを書き込まない
   - Target: `writeOutput(outputPath, content, dryRun, stats)`
   - Scenario: Given `dryRun=true` と存在しない出力パス、When `writeOutput` を呼び出す
   - Expected: Then ディスクにファイルが作成されず、ドライラン動作がログに記録される
 
-- [ ] **T-13-03-02**: 入力ファイルへの書き込みは設定に関わらず行われない (R-010)
+- [x] **T-13-03-02**: 入力ファイルへの書き込みは設定に関わらず行われない (R-010)
   - Target: `writeOutput(outputPath, content, dryRun, stats)`
   - Scenario: Given outputPath が常に `temp/normalize_logs/` 配下（入力と分離）、When `writeOutput` を呼び出す
   - Expected: Then `temp/chatlog/` 配下のパスへの書き込みは一切行われない
@@ -540,12 +540,12 @@ source: specifications.md
 
 #### T-14-01: stdout への集計レポート (R-009)
 
-- [ ] **T-14-01-01**: 成功件数を stdout に出力する
+- [x] **T-14-01-01**: 成功件数を stdout に出力する
   - Target: `reportResults(stats)`
   - Scenario: Given `success: 5, skip: 2, fail: 1` を持つ stats、When `reportResults` を呼び出す
   - Expected: Then stdout に `成功: 5`（または同等の英語表記）が含まれる
 
-- [ ] **T-14-01-02**: スキップ数と失敗数を同一レポートに出力する
+- [x] **T-14-01-02**: スキップ数と失敗数を同一レポートに出力する
   - Target: `reportResults(stats)`
   - Scenario: Given `success: 3, skip: 1, fail: 2` を持つ stats、When `reportResults` を呼び出す
   - Expected: Then スキップ数と失敗数が単一の出力行またはブロックに含まれる
@@ -554,12 +554,12 @@ source: specifications.md
 
 #### T-14-02: ゼロ件レポート
 
-- [ ] **T-14-02-01**: 全カウントがゼロでもエラーなくレポートを出力する
+- [x] **T-14-02-01**: 全カウントがゼロでもエラーなくレポートを出力する
   - Target: `reportResults(stats)`
   - Scenario: Given 全カウントが 0 の stats、When `reportResults` を呼び出す
   - Expected: Then スローされずに有効なレポートが stdout に出力される
 
-- [ ] **T-14-02-02**: 失敗数が非ゼロの場合に失敗件数を明示的に含める (R-009)
+- [x] **T-14-02-02**: 失敗数が非ゼロの場合に失敗件数を明示的に含める (R-009)
   - Target: `reportResults(stats)`
   - Scenario: Given `fail: 3` を持つ stats、When `reportResults` を呼び出す
   - Expected: Then 出力に失敗件数が明示されて呼び出し元に警告する
@@ -572,19 +572,19 @@ source: specifications.md
 
 #### T-15-01: `--dir` を使ったエンドツーエンド処理 (R-001, R-004〜R-009)
 
-- [ ] **T-15-01-01**: 収集した全 MD ファイルを処理してセグメント出力ファイルを生成する
+- [x] **T-15-01-01**: 収集した全 MD ファイルを処理してセグメント出力ファイルを生成する
   - Target: `main()`
   - Scenario: Given マルチトピック MD ファイルが 2 件あるディレクトリを指す `--dir`、When `main` を呼び出す
   - Expected: Then `temp/normalize_logs/` 配下にセグメント出力ファイルが作成され、結果レポートが表示される
 
-- [ ] **T-15-01-02**: `withConcurrency` を使ってファイルを並列処理する
+- [x] **T-15-01-02**: `withConcurrency` を使ってファイルを並列処理する
   - Target: `main()`
   - Scenario: Given 複数の MD ファイルとデフォルト並列数 4、When `main` を呼び出す
   - Expected: Then `withConcurrency` を使ってファイルが並列バッチで処理される
 
 #### T-15-02: `--agent`/`--year-month` を使ったエンドツーエンド処理 (R-002)
 
-- [ ] **T-15-02-01**: `temp/chatlog/<agent>/<year>/<year-month>/` から入力を解決してファイルを処理する
+- [x] **T-15-02-01**: `temp/chatlog/<agent>/<year>/<year-month>/` から入力を解決してファイルを処理する
   - Target: `main()`
   - Scenario: Given `--agent claude --year-month 2026-03` と解決パス配下の MD ファイル、When `main` を呼び出す
   - Expected: Then `temp/chatlog/claude/2026/2026-03/` 内のファイルが収集されて処理される
@@ -593,12 +593,12 @@ source: specifications.md
 
 #### T-15-03: 存在しない入力パスでのエラー終了 (R-003)
 
-- [ ] **T-15-03-01**: `--dir` パスが存在しない場合に exit code 1 で終了する
+- [x] **T-15-03-01**: `--dir` パスが存在しない場合に exit code 1 で終了する
   - Target: `main()`
   - Scenario: Given `--dir /nonexistent/path`、When `main` を呼び出す
   - Expected: Then エラーメッセージが表示されてプロセスが exit code 1 で終了する
 
-- [ ] **T-15-03-02**: 1 ファイルの AI 呼び出しが失敗しても残りファイルの処理を継続する (R-008)
+- [x] **T-15-03-02**: 1 ファイルの AI 呼び出しが失敗しても残りファイルの処理を継続する (R-008)
   - Target: `main()`
   - Scenario: Given 3 件の MD ファイルのうち 1 件が Claude CLI エラーを引き起こす、When `main` を呼び出す
   - Expected: Then 2 件が正常処理され 1 件の失敗が最終レポートに記録される
@@ -607,22 +607,22 @@ source: specifications.md
 
 #### T-15-04: エッジケースカバレッジ
 
-- [ ] **T-15-04-01**: 対象ディレクトリに MD ファイルが 0 件でも完了し 0 件レポートを出力する
+- [x] **T-15-04-01**: 対象ディレクトリに MD ファイルが 0 件でも完了し 0 件レポートを出力する
   - Target: `main()`
   - Scenario: Given 既存だが空の（.md なし）ディレクトリを指す `--dir`、When `main` を呼び出す
   - Expected: Then プロセスが正常完了し `成功: 0, スキップ: 0, 失敗: 0` をレポートする
 
-- [ ] **T-15-04-02**: 再実行時に既存出力ファイルをスキップしスキップ数をレポートする (R-011)
+- [x] **T-15-04-02**: 再実行時に既存出力ファイルをスキップしスキップ数をレポートする (R-011)
   - Target: `main()`
   - Scenario: Given 出力ファイルがすでに存在する処理済み入力ファイル、When `main` を同一入力で再度呼び出す
   - Expected: Then 既存出力ファイルが上書きされず、スキップ数がレポートされる
 
-- [ ] **T-15-04-03**: 実行全体を通じて入力ファイルが変更されない (R-010)
+- [x] **T-15-04-03**: 実行全体を通じて入力ファイルが変更されない (R-010)
   - Target: `main()`
   - Scenario: Given 既知の SHA-256 チェックサムを持つ入力 MD ファイル、When `main` が完了する
   - Expected: Then 全入力ファイルの SHA-256 チェックサムが変化しない
 
-- [ ] **T-15-04-04**: 単一トピックのチャットログから出力ファイルが正確に 1 件生成される
+- [x] **T-15-04-04**: 単一トピックのチャットログから出力ファイルが正確に 1 件生成される
   - Target: `main()`
   - Scenario: Given 一貫した単一トピックのチャットログファイル、When `main` を呼び出す
   - Expected: Then その入力に対してセグメント出力ファイルが正確に 1 件生成される
