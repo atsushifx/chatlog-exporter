@@ -117,11 +117,10 @@ export function parseFrontmatter(text: string): { meta: Record<string, string>; 
 
 /**
  * Extracts the base name (without extension and trailing hash) from a file path.
- * Extracts the base name (without extension and trailing hash) from a file path.
  *
  * Strips the directory, `.md` extension, and any trailing `-<7hex>` hash suffix.
- * For example: `path/to/2026-03-11-1-api-a4a84394.md` → `2026-03-11-1-api-a4a84394`
- * (hash removal is intentional only when hash matches `-[0-9a-f]{7}$` pattern)
+ * For example: `path/to/2026-03-11-1-api-a4a84394.md` → `2026-03-11-1-api`
+ * (hash removal applies when the suffix matches `-[0-9a-f]{7}$` pattern)
  *
  * @param filePath - Path to the source chatlog file
  * @returns Base name without extension and without trailing `-XXXXXXX` hash segment
@@ -133,71 +132,57 @@ export function extractBaseName(filePath: string): string {
   return withoutExt.replace(/-[0-9a-f]{7}$/, '');
 }
 
-/**
- * Generates an output file name for a segment.
- *
- * Format: `<baseName>-<XX>-<hash7>.md`
- * - baseName: source file name without extension and without trailing hash
- * - XX: zero-padded two-digit sequential index (01-based)
- * - hash7: first 7 hex chars of SHA-256( `${baseName}-${XX}` + `-` + timestamp12 + `-` + random8 )
- *   where timestamp12 is YYYYMMDDHHmmss (14 chars... wait: 12 digits = YYYYMMDDHHmm)
- *   and random8 is 8 random alphanumeric characters
- *
- * @param filePath - Path to the source chatlog file
- * @param index    - Zero-based segment index (displayed as 1-based two-digit number)
- * @returns Promise resolving to the output file name (including `.md` extension)
- * Strips the directory, `.md` extension, and any trailing `-<7hex>` hash suffix.
- * For example: `path/to/2026-03-11-1-api-a4a84394.md` → `2026-03-11-1-api-a4a84394`
- * (hash removal is intentional only when hash matches `-[0-9a-f]{7}$` pattern)
- *
- * @param filePath - Path to the source chatlog file
- * @returns Base name without extension and without trailing `-XXXXXXX` hash segment
- */
-export function extractBaseName(filePath: string): string {
-  const fileName = filePath.split('/').pop() ?? filePath;
-  const withoutExt = fileName.endsWith('.md') ? fileName.slice(0, -3) : fileName;
-  // Remove trailing -<7hex> hash if present
-  return withoutExt.replace(/-[0-9a-f]{7}$/, '');
-}
+/** Function type for generating a 7-character hex hash string. */
+export type HashProvider = () => string;
 
 /**
- * Generates an output file name for a segment.
- *
- * Format: `<baseName>-<XX>-<hash7>.md`
- * - baseName: source file name without extension and without trailing hash
- * - XX: zero-padded two-digit sequential index (01-based)
- * - hash7: first 7 hex chars of SHA-256( `${baseName}-${XX}` + `-` + timestamp12 + `-` + random8 )
- *   where timestamp12 is YYYYMMDDHHmmss (14 chars... wait: 12 digits = YYYYMMDDHHmm)
- *   and random8 is 8 random alphanumeric characters
- *
- * @param filePath - Path to the source chatlog file
- * @param index    - Zero-based segment index (displayed as 1-based two-digit number)
- * @returns Promise resolving to the output file name (including `.md` extension)
+ * Generates a 7-char hex hash from baseName and segment index using SHA-256.
+ * Input: SHA-256 of `<baseName>-<XX>-<timestamp12>-<random8>`
  */
-export async function generateLogId(
-  filePath: string,
-  agentName: string,
-  title: string,
-  index: number,
-): Promise<string> {
-  // Extract date from path: first YYYY-MM occurrence → YYYYMM01
-  const dateMatch = filePath.match(/(\d{4})-(\d{2})/);
-  const date = dateMatch ? `${dateMatch[1]}${dateMatch[2]}01` : '00000000';
+async function _computeHash7(baseName: string, xx: string): Promise<string> {
+  const now = new Date();
+  const timestamp12 = [
+    String(now.getFullYear()),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+    String(now.getSeconds()).padStart(2, '0'),
+  ].join('');
 
-  // Build slug: lowercase, replace non-alphanumeric runs with hyphens, strip edge hyphens
-  const slug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
+  const randomBytes = new Uint8Array(4);
+  crypto.getRandomValues(randomBytes);
+  const random8 = Array.from(randomBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 
-  // Compute hash: SHA-256 of concatenated inputs, take first 7 hex chars
-  const raw = filePath + agentName + title + String(index);
+  const raw = `${baseName}-${xx}-${timestamp12}-${random8}`;
   const encoded = new TextEncoder().encode(raw);
   const hashBuffer = await crypto.subtle.digest('SHA-256', encoded);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hash7 = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 7);
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 7);
+}
 
-  return `${date}-${agentName}-${slug}-${hash7}`;
+/**
+ * Generates an output file name for a segment.
+ *
+ * Format: `<baseName>-<XX>-<hash7>.md`
+ * - baseName: source file name without extension and without trailing hash
+ * - XX: zero-padded two-digit sequential index (01-based)
+ * - hash7: result of `hashFn` if provided, otherwise SHA-256-based (see `_computeHash7`)
+ *
+ * @param filePath - Path to the source chatlog file
+ * @param index    - Zero-based segment index (displayed as 1-based two-digit number)
+ * @param hashFn   - Optional hash generator (injectable for testing)
+ * @returns Promise resolving to the output file name (including `.md` extension)
+ */
+export async function generateOutputFileName(
+  filePath: string,
+  index: number,
+  hashFn?: HashProvider,
+): Promise<string> {
+  const baseName = extractBaseName(filePath);
+  const xx = String(index + 1).padStart(2, '0');
+  const hash7 = hashFn ? hashFn() : await _computeHash7(baseName, xx);
+  return `${baseName}-${xx}-${hash7}.md`;
 }
 
 // ─── JSON Parsing ─────────────────────────────────────────────────────────────
@@ -522,6 +507,29 @@ export function resolveInputDir(args: { dir?: string; agent?: string; yearMonth?
   Deno.exit(1);
 }
 
+/**
+ * Resolves the output directory from an input directory path.
+ *
+ * If inputDir matches the chatlog format `temp/chatlog/<agent>/<year>/<yearMonth>`,
+ * the output is `<outputBase>/<agent>/<year>/<yearMonth>/<project>`.
+ * Otherwise (arbitrary path), the output is `<outputBase>/<project>`.
+ * If project is undefined or empty string, "misc" is used.
+ *
+ * @param inputDir   - The resolved input directory path
+ * @param outputBase - The base output directory
+ * @param project    - Optional project name
+ * @returns The resolved output directory path
+ */
+export function resolveOutputDir(inputDir: string, outputBase: string, project: string | undefined): string {
+  const effectiveProject = project || 'misc';
+  const chatlogMatch = inputDir.match(/temp\/chatlog\/([^/]+)\/(\d{4})\/(\d{4}-\d{2})(?:\/|$)/);
+  if (chatlogMatch) {
+    const [, agent, year, yearMonth] = chatlogMatch;
+    return `${outputBase}/${agent}/${year}/${yearMonth}/${effectiveProject}`;
+  }
+  return `${outputBase}/${effectiveProject}`;
+}
+
 // ─── Argument Parsing ─────────────────────────────────────────────────────────
 
 /**
@@ -643,9 +651,10 @@ const AGENT_NAME = 'claude';
  * Flow: parseArgs → resolveInputDir → findMdFiles → withConcurrency(per-file:
  *   segmentChatlog → generateSegmentFile + attachFrontmatter + writeOutput) → reportResults
  *
- * @param argv - CLI argument array; defaults to `Deno.args` when omitted
+ * @param argv   - CLI argument array; defaults to `Deno.args` when omitted
+ * @param hashFn - Optional hash generator for output file names (injectable for testing)
  */
-export async function main(argv?: string[]): Promise<void> {
+export async function main(argv?: string[], hashFn?: HashProvider): Promise<void> {
   const args = parseArgs(argv ?? Deno.args);
   const inputDir = resolveInputDir(args);
   const outputDir = args.output ?? DEFAULT_OUTPUT_DIR;
@@ -668,14 +677,14 @@ export async function main(argv?: string[]): Promise<void> {
 
     for (let i = 0; i < segments.length; i++) {
       const segment = segments[i];
-      const logId = await generateLogId(filePath, AGENT_NAME, segment.title, i);
+      const outputFileName = await generateOutputFileName(filePath, i, hashFn);
       const segmentContent = generateSegmentFile(segment);
       const fullContent = attachFrontmatter(segmentContent, sourceMeta, {
         title: segment.title,
-        log_id: logId,
+        log_id: outputFileName.replace(/\.md$/, ''),
         summary: segment.summary,
       });
-      const outputPath = `${outputDir}/${logId}.md`;
+      const outputPath = `${outputDir}/${outputFileName}`;
       await writeOutput(outputPath, fullContent, args.dryRun, stats);
     }
   });
