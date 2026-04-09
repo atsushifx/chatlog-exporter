@@ -13,7 +13,7 @@
     "lib": ["deno.ns", "es2022", "dom"]
   },
   "tasks": {
-    "test": "deno test --allow-read --allow-write .",
+    "test": "deno test --allow-read --allow-write **/__tests__/",
     "test:unit": "deno test --allow-read --allow-write **/__tests__/unit/",
     "test:integration": "deno test --allow-read --allow-write **/__tests__/integration/",
     "test:functional": "deno test --allow-read --allow-write **/__tests__/functional/",
