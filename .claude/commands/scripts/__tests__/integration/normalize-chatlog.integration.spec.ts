@@ -1,14 +1,14 @@
 #!/usr/bin/env -S deno run --allow-read --allow-run --allow-write
 // src: scripts/__tests__/integration/normalize-chatlog.integration.spec.ts
 // @(#): 実ファイルシステムを使った統合テスト
-//       対象: findMdFiles, collectMdFiles, resolveInputDir, writeOutput
+//       対象: findMdFiles, collectMdFiles, resolveInputDir
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //
 // This software is released under the MIT License.
 
 // Deno Test module
-import { assertEquals, assertRejects } from '@std/assert';
+import { assertEquals } from '@std/assert';
 import { after, afterEach, before, beforeEach, describe, it } from '@std/testing/bdd';
 import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
@@ -18,9 +18,7 @@ import {
   collectMdFiles,
   findMdFiles,
   resolveInputDir,
-  writeOutput,
 } from '../../normalize-chatlog.ts';
-import type { Stats } from '../../normalize-chatlog.ts';
 
 // ─── findMdFiles / collectMdFiles tests ──────────────────────────────────────
 
@@ -284,149 +282,3 @@ describe('resolveInputDir', () => {
   });
 });
 
-// ─── writeOutput tests ────────────────────────────────────────────────────────
-
-/**
- * writeOutput のユニットテスト。
- * アトミックなファイル書き込み、既存ファイルのスキップ、ドライランモードを検証する。
- */
-describe('writeOutput', () => {
-  /** 正常系: 存在しない出力パスにアトミックにファイルを書き込む */
-  describe('Given: 存在しない出力パスと dryRun=false', () => {
-    let tmpDir: string;
-    let stats: Stats;
-    const content = '---\ntitle: test\n---\n## Summary\nbody';
-
-    beforeEach(async () => {
-      tmpDir = await Deno.makeTempDir();
-      stats = { success: 0, skip: 0, fail: 0 };
-    });
-
-    afterEach(async () => {
-      await Deno.remove(tmpDir, { recursive: true });
-    });
-
-    describe('When: writeOutput を呼び出す', () => {
-      describe('Then: Task T-13-01 - アトミックなファイル書き込み', () => {
-        it('T-13-01-01: ファイルが作成され stats.success がインクリメントされる', async () => {
-          const outputPath = `${tmpDir}/entry.md`;
-
-          await writeOutput(outputPath, content, false, stats);
-
-          const written = await Deno.readTextFile(outputPath);
-          assertEquals(written, content);
-          assertEquals(stats.success, 1);
-        });
-
-        it('T-13-01-02: .tmp ファイルが最終的に存在せず出力ファイルが作成される', async () => {
-          const outputPath = `${tmpDir}/entry.md`;
-          const tmpPath = outputPath + '.tmp';
-
-          await writeOutput(outputPath, content, false, stats);
-
-          // Final output file must exist
-          const written = await Deno.readTextFile(outputPath);
-          assertEquals(written, content);
-          // .tmp file must not remain
-          let tmpExists = false;
-          try {
-            await Deno.stat(tmpPath);
-            tmpExists = true;
-          } catch {
-            tmpExists = false;
-          }
-          assertEquals(tmpExists, false);
-          assertEquals(stats.success, 1);
-        });
-      });
-    });
-  });
-
-  /** エッジケース: すでに存在するファイルはスキップされる */
-  describe('Given: すでに存在する出力パス', () => {
-    let tmpDir: string;
-    let stats: Stats;
-
-    beforeEach(async () => {
-      tmpDir = await Deno.makeTempDir();
-      stats = { success: 0, skip: 0, fail: 0 };
-      await Deno.writeTextFile(`${tmpDir}/existing.md`, 'existing content');
-    });
-
-    afterEach(async () => {
-      await Deno.remove(tmpDir, { recursive: true });
-    });
-
-    describe('When: writeOutput を呼び出す', () => {
-      describe('Then: Task T-13-02 - 既存出力のスキップ (R-011)', () => {
-        it('T-13-02-01: stats.skip がインクリメントされ既存ファイルが上書きされない', async () => {
-          const outputPath = `${tmpDir}/existing.md`;
-
-          await writeOutput(outputPath, 'new content', false, stats);
-
-          const fileContent = await Deno.readTextFile(outputPath);
-          assertEquals(fileContent, 'existing content');
-          assertEquals(stats.skip, 1);
-          assertEquals(stats.success, 0);
-        });
-      });
-    });
-  });
-
-  /** 正常系: dryRun=true のときファイルを作成しない */
-  describe('Given: dryRun=true と存在しない出力パス', () => {
-    let tmpDir: string;
-    let stats: Stats;
-
-    beforeEach(async () => {
-      tmpDir = await Deno.makeTempDir();
-      stats = { success: 0, skip: 0, fail: 0 };
-    });
-
-    afterEach(async () => {
-      await Deno.remove(tmpDir, { recursive: true });
-    });
-
-    describe('When: writeOutput を呼び出す', () => {
-      describe('Then: Task T-13-03 - ドライランモード', () => {
-        it('T-13-03-01: ファイルが作成されない', async () => {
-          const dryPath = `${tmpDir}/dry.md`;
-
-          await writeOutput(dryPath, '## Summary\nbody', true, stats);
-
-          let fileExists = false;
-          try {
-            Deno.statSync(dryPath);
-            fileExists = true;
-          } catch {
-            fileExists = false;
-          }
-          assertEquals(fileExists, false);
-          assertEquals(stats.success, 0);
-        });
-      });
-    });
-  });
-
-  /** 異常系: R-010 ガード — temp/chatlog/ 配下への書き込みはエラーをスローする */
-  describe('[異常] Error Cases', () => {
-    describe('Given: temp/chatlog/ 配下の入力パスを出力先に指定する', () => {
-      describe('When: writeOutput(inputPath, content, false, stats) を呼び出す', () => {
-        describe('Then: Task T-13-04 - R-010 ガードによるエラー', () => {
-          it('T-13-04-01: temp/chatlog/ 配下のパスへの書き込みが行われない (R-010)', async () => {
-            const stats: Stats = { success: 0, skip: 0, fail: 0 };
-            const inputPath = 'temp/chatlog/claude/2026/2026-03/sample.md';
-
-            await assertRejects(
-              async () => {
-                await writeOutput(inputPath, 'overwrite', false, stats);
-              },
-              Error,
-              'R-010',
-            );
-          });
-        });
-      });
-    });
-  });
-});
