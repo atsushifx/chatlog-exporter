@@ -25,14 +25,14 @@ import type { HashProvider } from '../../normalize-chatlog.ts';
 // ─── 再現性テスト ──────────────────────────────────────────────────────────────
 
 /**
- * 再実行時のスキップ動作と入力ファイル不変保証の検証。
- * R-011: 既存出力ファイルはスキップされる。
+ * 再実行時のバックアップ動作と入力ファイル不変保証の検証。
+ * R-011: 既存出力ファイルは .old-NN.md にリネームされてから再書き込みされる。
  * R-010: 入力ファイルは処理後も変化しない。
  */
 describe('main - reproducibility', () => {
-  // ─── T-15-04-02: 再実行時のスキップ ─────────────────────────────────────────
+  // ─── T-15-04-02: 再実行時のバックアップ ──────────────────────────────────────
 
-  /** エッジケース: 再実行時に既存出力ファイルをスキップする (R-011) */
+  /** エッジケース: 再実行時に既存出力ファイルをバックアップして再書き込みする (R-011) */
   describe('Given: 出力ファイルがすでに存在する処理済み入力ファイル', () => {
     let inputDir: string;
     let outputDir: string;
@@ -63,8 +63,8 @@ describe('main - reproducibility', () => {
     });
 
     describe('When: main() を同一入力で 2 回呼び出す', () => {
-      describe('Then: Task T-15-04-02 - 再実行時に既存出力ファイルをスキップする', () => {
-        it('T-15-04-02-01: 2 回目の呼び出しで skip=1 がレポートに含まれる', async () => {
+      describe('Then: Task T-15-04-02 - 再実行時に既存出力ファイルをバックアップして再書き込みする', () => {
+        it('T-15-04-02-01: 2 回目の呼び出しで success=1 がレポートに含まれ、旧ファイルが .old-01.md としてバックアップされる', async () => {
           // Fixed hash so both runs generate the same output filename
           const fixedHash: HashProvider = () => '0000000';
 
@@ -74,10 +74,18 @@ describe('main - reproducibility', () => {
           // Reset log capture for second run
           logCapture.calls.splice(0);
 
-          // Second run: should skip existing output
+          // Second run: should backup existing file and rewrite
           await main(['--dir', inputDir, '--output', outputDir], fixedHash);
 
-          assertMatch(logCapture.calls.join('\n'), /skip=1/);
+          assertMatch(logCapture.calls.join('\n'), /success=1/);
+
+          // Verify the old file was backed up as .old-01.md
+          const outputFiles: string[] = [];
+          for await (const entry of Deno.readDir(outputDir)) {
+            outputFiles.push(entry.name);
+          }
+          const backupExists = outputFiles.some((name) => name.includes('.old-01.md'));
+          assertEquals(backupExists, true);
         });
       });
     });
