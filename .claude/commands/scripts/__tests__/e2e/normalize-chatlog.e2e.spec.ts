@@ -17,30 +17,15 @@ import { stub } from '@std/testing/mock';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-/** outputDir 配下の .md ファイルを再帰的に収集する */
-async function collectMdFilesRecursive(dir: string): Promise<string[]> {
-  const files: string[] = [];
-  for await (const entry of Deno.readDir(dir)) {
-    const fullPath = `${dir}/${entry.name}`;
-    if (entry.isDirectory) {
-      const nested = await collectMdFilesRecursive(fullPath);
-      files.push(...nested);
-    } else if (entry.isFile && entry.name.endsWith('.md')) {
-      files.push(fullPath);
-    }
-  }
-  return files;
-}
-
 // test helpers
 import {
   makeSuccessMock,
 } from '../_helpers/deno-command-mock.ts';
+import { assertAllOutputFiles } from '../_helpers/output-validator.ts';
 
 // test target
-import {
-  main,
-} from '../../normalize-chatlog.ts';
+import { findMdFiles, main } from '../../normalize-chatlog.ts';
+import type { HashProvider } from '../../normalize-chatlog.ts';
 
 // ─── main() tests ─────────────────────────────────────────────────────────────
 
@@ -102,18 +87,15 @@ describe('main', () => {
         it('T-15-01-01-01: outputDir 配下に 2 件以上のセグメント出力ファイルが生成される', async () => {
           await main(['--dir', inputDir, '--output', outputDir]);
 
-          const files = await collectMdFilesRecursive(outputDir);
+          const files = await findMdFiles(outputDir);
           assertEquals(files.length >= 2, true);
         });
 
         it('T-15-01-01-02: 各出力ファイルが ---\\n で始まる YAML frontmatter を含む', async () => {
           await main(['--dir', inputDir, '--output', outputDir]);
 
-          const files = await collectMdFilesRecursive(outputDir);
-          for (const filePath of files) {
-            const content = await Deno.readTextFile(filePath);
-            assertEquals(content.startsWith('---\n'), true);
-          }
+          const files = await findMdFiles(outputDir);
+          await assertAllOutputFiles(files);
         });
       });
     });
@@ -425,7 +407,7 @@ describe('main', () => {
       describe('Then: Task T-15-04-02 - 再実行時に既存出力ファイルをスキップする', () => {
         it('T-15-04-02-01: 2 回目の呼び出しで skip=1 がレポートに含まれる', async () => {
           // Fixed hash so both runs generate the same output filename
-          const fixedHash = () => '0000000';
+          const fixedHash: HashProvider = () => '0000000';
 
           // First run: creates output
           await main(['--dir', inputDir, '--output', outputDir], fixedHash);
@@ -535,7 +517,7 @@ describe('main', () => {
         it('T-15-04-04-01: outputDir 配下に正確に 1 件の .md ファイルが生成される', async () => {
           await main(['--dir', inputDir, '--output', outputDir]);
 
-          const files = await collectMdFilesRecursive(outputDir);
+          const files = await findMdFiles(outputDir);
           assertEquals(files.length, 1);
         });
       });

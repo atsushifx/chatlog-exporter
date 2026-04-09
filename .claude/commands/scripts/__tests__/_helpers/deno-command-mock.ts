@@ -162,3 +162,52 @@ export function makeCountingMock(responseText: string, counter: { calls: number 
     }
   } as unknown as DenoCommandLike;
 }
+
+// ─── Deno.Command 差し替え管理 ────────────────────────────────────────────────
+
+/** installCommandMock が返すハンドル。restore() で元の Deno.Command を復元する。 */
+export interface CommandMockHandle {
+  restore(): void;
+}
+
+/**
+ * Deno.Command を指定モックに差し替え、復元ハンドルを返す。
+ * beforeEach で呼び出し、afterEach で handle.restore() する。
+ */
+export function installCommandMock(mock: DenoCommandLike): CommandMockHandle {
+  const saved = (Deno as unknown as Record<string, unknown>).Command;
+  (Deno as unknown as Record<string, unknown>).Command = mock;
+  return {
+    restore() {
+      (Deno as unknown as Record<string, unknown>).Command = saved;
+    },
+  };
+}
+
+/**
+ * n 番目の呼び出しだけ失敗させるモックを返す。
+ * それ以外の呼び出しは successBytes を返す正常終了モックとして動作する。
+ */
+export function makeSelectiveFailMock(
+  failOnNthCall: number,
+  successBytes: Uint8Array,
+): DenoCommandLike {
+  let callCount = 0;
+
+  return class extends BaseMockCommand {
+    private readonly shouldFail: boolean;
+
+    constructor(_cmd: string, _opts: unknown) {
+      super();
+      callCount++;
+      this.shouldFail = callCount === failOnNthCall;
+    }
+
+    protected makeOutput(): Promise<{ success: boolean; code: number; stdout: Uint8Array }> {
+      if (this.shouldFail) {
+        return Promise.resolve({ success: false, code: 1, stdout: new Uint8Array() });
+      }
+      return Promise.resolve({ success: true, code: 0, stdout: successBytes });
+    }
+  } as unknown as DenoCommandLike;
+}
