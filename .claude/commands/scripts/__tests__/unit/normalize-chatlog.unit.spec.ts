@@ -1,8 +1,9 @@
 #!/usr/bin/env -S deno run --allow-read --allow-run --allow-write
 // src: scripts/__tests__/unit/normalize-chatlog.unit.spec.ts
 // @(#): 純粋関数・副作用なし関数のユニットテスト
-//       対象: withConcurrency, cleanYaml, parseFrontmatter, generateLogId,
-//             parseArgs, parseJsonArray, generateSegmentFile, attachFrontmatter, reportResults
+//       対象: withConcurrency, cleanYaml, parseFrontmatter, extractBaseName,
+//             generateOutputFileName, parseArgs, parseJsonArray, generateSegmentFile,
+//             attachFrontmatter, reportResults
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //
@@ -20,14 +21,17 @@ import { stub } from '@std/testing/mock';
 import {
   attachFrontmatter,
   cleanYaml,
-  generateLogId,
+  extractBaseName,
+  generateOutputFileName,
   generateSegmentFile,
   parseArgs,
   parseFrontmatter,
   parseJsonArray,
   reportResults,
+  resolveOutputDir,
   withConcurrency,
 } from '../../normalize-chatlog.ts';
+// Note: generateLogId was removed from normalize-chatlog.ts and replaced by generateOutputFileName
 import type { Stats } from '../../normalize-chatlog.ts';
 
 /**
@@ -242,74 +246,191 @@ describe('parseFrontmatter', () => {
   });
 });
 
-// ─── generateLogId tests ──────────────────────────────────────────────────────
+// ─── extractBaseName tests ────────────────────────────────────────────────────
 
 /**
- * generateLogId のユニットテスト。
- * ファイルパス・エージェント名・タイトル・インデックスから
- * `<date>-<agent>-<title-slug>-<hash7>` 形式の一意な ID を生成する関数の
- * 正常系・決定論的動作・スラッグ正規化を検証する。
+ * extractBaseName のユニットテスト。
+ * ファイルパスからディレクトリ・拡張子・末尾ハッシュ(-XXXXXXX)を除去して
+ * ベース名を返す純粋関数の正常系・エッジケースを検証する。
  */
-describe('generateLogId', () => {
-  /** 正常系: `<date>-<agent>-<title-slug>-<hash7>` 形式の ID を生成する */
-  describe('Given: 標準的な chatlog ファイルパス・エージェント名・タイトル・インデックス', () => {
-    describe('When: generateLogId(filePath, agentName, title, index) を呼び出す', () => {
-      describe('Then: Task T-05-01 - 標準的な log_id 生成', () => {
-        it('<date>-<agent>-<title-slug>-<hash7> 形式の ID を返す', async () => {
-          const filePath = 'temp/chatlog/claude/2026/2026-03/test.md';
-          const agentName = 'claude';
-          const title = 'CI/CD Pipeline Fix';
-          const index = 0;
+describe('extractBaseName', () => {
+  /** 正常系: ディレクトリ・.md 拡張子・末尾 7 桁ハッシュを除去する */
+  describe('Given: ディレクトリパスと .md 拡張子を含むファイルパス', () => {
+    describe('When: extractBaseName(filePath) を呼び出す', () => {
+      describe('Then: Task T-05-01 - ベース名の抽出', () => {
+        it('T-05-01-01: ディレクトリと .md 拡張子を除去したファイル名を返す', () => {
+          const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
 
-          const result = await generateLogId(filePath, agentName, title, index);
+          const result = extractBaseName(filePath);
 
-          assertMatch(result, /^\d{8}-claude-[a-z0-9-]+-[0-9a-f]{7}$/);
+          assertEquals(result, 'test-file');
         });
 
-        it('タイトルスラッグが小文字ハイフン区切りになる', async () => {
-          const filePath = 'temp/chatlog/claude/2026/2026-03/test.md';
-          const agentName = 'claude';
-          const title = 'Deno/TypeScript Setup & Config';
-          const index = 0;
+        it('T-05-01-02: 末尾の -XXXXXXX (7桁 hex) を除去する', () => {
+          const filePath = 'temp/chatlog/claude/2026/2026-03/2026-03-11-topic-abc1234.md';
 
-          const result = await generateLogId(filePath, agentName, title, index);
+          const result = extractBaseName(filePath);
 
-          // Format: YYYYMMDD-agentName-<slug>-<hash7>
-          // Verify the slug segment (between agentName and hash7) contains only lowercase
-          // alphanumeric chars and hyphens — no uppercase, `/`, `&`, or spaces
-          assertMatch(result, /^\d{8}-[^-]+-[a-z0-9][a-z0-9-]*[a-z0-9]-[0-9a-f]{7}$/);
+          assertEquals(result, '2026-03-11-topic');
+        });
+
+        it('T-05-01-03: 末尾が 7 桁 hex でない場合はハッシュ除去しない', () => {
+          const filePath = 'path/to/2026-03-11-topic.md';
+
+          const result = extractBaseName(filePath);
+
+          assertEquals(result, '2026-03-11-topic');
         });
       });
     });
   });
 
-  /** 正常系: index が異なれば hash7 が変わり、同一入力では常に同一 ID を返す（決定論的） */
-  describe('Given: 同一の filePath・agentName・title で index だけ異なる', () => {
-    describe('When: index=0 と index=1 でそれぞれ generateLogId を呼び出す', () => {
-      describe('Then: Task T-05-02 - ハッシュの安定性とインデックス差別化', () => {
-        it('index が異なれば hash7 が異なる', async () => {
-          const filePath = 'temp/chatlog/claude/2026/2026-03/test.md';
-          const agentName = 'claude';
-          const title = 'CI/CD Pipeline Fix';
+  /** エッジケース: ディレクトリなし・拡張子なし */
+  describe('Given: ディレクトリなしのファイル名', () => {
+    describe('When: extractBaseName(filePath) を呼び出す', () => {
+      describe('Then: Task T-05-02 - エッジケースの処理', () => {
+        it('T-05-02-01: ディレクトリなしでも .md 拡張子を除去して返す', () => {
+          const result = extractBaseName('simple-file.md');
 
-          const id0 = await generateLogId(filePath, agentName, title, 0);
-          const id1 = await generateLogId(filePath, agentName, title, 1);
-
-          const hash0 = id0.split('-').at(-1);
-          const hash1 = id1.split('-').at(-1);
-          assertNotEquals(hash0, hash1);
+          assertEquals(result, 'simple-file');
         });
 
-        it('同一入力は常に同一の log_id を返す（決定論的）', async () => {
-          const filePath = 'temp/chatlog/claude/2026/2026-03/test.md';
-          const agentName = 'claude';
-          const title = 'CI/CD Pipeline Fix';
-          const index = 0;
+        it('T-05-02-02: 拡張子がない場合はファイル名をそのまま返す', () => {
+          const result = extractBaseName('no-extension');
 
-          const first = await generateLogId(filePath, agentName, title, index);
-          const second = await generateLogId(filePath, agentName, title, index);
+          assertEquals(result, 'no-extension');
+        });
+      });
+    });
+  });
+});
 
-          assertEquals(first, second);
+// ─── generateOutputFileName tests ─────────────────────────────────────────────
+
+/**
+ * generateOutputFileName のユニットテスト。
+ * `<baseName>-<XX>-<hash7>.md` 形式の出力ファイル名を生成する関数の
+ * フォーマット・連番・ハッシュのランダム性を検証する。
+ *
+ * hash7 は `<baseName>-<XX>-<timestamp12>-<random8>` の SHA-256 先頭 7 文字。
+ * ランダム要素を含むため、`crypto.getRandomValues` をスタブして再現性を担保する。
+ */
+describe('generateOutputFileName', () => {
+  let cryptoStub: Stub | null = null;
+
+  /** 固定バイト列スタブをセットする。テストが自前で restore した場合は null にしておく。 */
+  function setupCryptoStub(): void {
+    cryptoStub = stub(crypto, 'getRandomValues', (arr: ArrayBufferView) => {
+      const u8 = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+      for (let i = 0; i < u8.length; i++) {
+        u8[i] = i;
+      }
+      return arr;
+    });
+  }
+
+  beforeEach(() => {
+    setupCryptoStub();
+  });
+
+  afterEach(() => {
+    if (cryptoStub !== null) {
+      cryptoStub.restore();
+      cryptoStub = null;
+    }
+  });
+
+  /** 正常系: `<baseName>-<XX>-<hash7>.md` 形式のファイル名を返す */
+  describe('Given: 標準的な chatlog ファイルパスと index', () => {
+    describe('When: generateOutputFileName(filePath, index) を呼び出す', () => {
+      describe('Then: Task T-06-01 - 標準的なファイル名生成', () => {
+        it('T-06-01-01: index=0 のとき <baseName>-01-<hash7>.md 形式のファイル名を返す', async () => {
+          const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
+
+          const result = await generateOutputFileName(filePath, 0);
+
+          assertMatch(result, /^test-file-01-[0-9a-f]{7}\.md$/);
+        });
+
+        it('T-06-01-02: index=1 のとき連番が "02" になる', async () => {
+          const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
+
+          const result = await generateOutputFileName(filePath, 1);
+
+          assertMatch(result, /^test-file-02-[0-9a-f]{7}\.md$/);
+        });
+
+        it('T-06-01-03: index=9 のとき連番が "10" になる', async () => {
+          const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
+
+          const result = await generateOutputFileName(filePath, 9);
+
+          assertMatch(result, /^test-file-10-[0-9a-f]{7}\.md$/);
+        });
+      });
+    });
+  });
+
+  /** 正常系: スタブ固定 + 日付固定で同一入力が同一結果を返す（再現性） */
+  describe('Given: crypto と Date をスタブして固定した状態', () => {
+    describe('When: 同一 filePath と同一 index で 2 回呼び出す', () => {
+      describe('Then: Task T-06-02 - スタブによる再現性', () => {
+        it('T-06-02-01: 同一タイムスタンプと固定ランダム値で常に同じファイル名が返る', async () => {
+          const dateStubs = [
+            stub(Date.prototype, 'getFullYear', () => 2026),
+            stub(Date.prototype, 'getMonth', () => 2),
+            stub(Date.prototype, 'getDate', () => 11),
+            stub(Date.prototype, 'getHours', () => 10),
+            stub(Date.prototype, 'getMinutes', () => 30),
+            stub(Date.prototype, 'getSeconds', () => 0),
+          ];
+
+          try {
+            const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
+
+            const first = await generateOutputFileName(filePath, 0);
+            const second = await generateOutputFileName(filePath, 0);
+
+            assertEquals(first, second);
+            assertMatch(first, /^test-file-01-[0-9a-f]{7}\.md$/);
+          } finally {
+            dateStubs.forEach((s) => s.restore());
+          }
+        });
+      });
+    });
+  });
+
+  /** 正常系: スタブなしで同一入力でも異なるハッシュが生成される（ランダム性） */
+  describe('Given: crypto.getRandomValues をスタブせず実際の乱数を使う', () => {
+    describe('When: 同一 filePath と同一 index で 2 回連続して呼び出す', () => {
+      describe('Then: Task T-06-03 - ランダム性によるハッシュの変化', () => {
+        it('T-06-03-01: スタブなしで 2 回呼ぶと異なるファイル名が生成される', async () => {
+          cryptoStub!.restore();
+          cryptoStub = null;
+          const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
+
+          const first = await generateOutputFileName(filePath, 0);
+          const second = await generateOutputFileName(filePath, 0);
+
+          assertNotEquals(first, second);
+          assertMatch(first, /^test-file-01-[0-9a-f]{7}\.md$/);
+          assertMatch(second, /^test-file-01-[0-9a-f]{7}\.md$/);
+        });
+      });
+    });
+  });
+
+  /** 正常系: 末尾ハッシュ付きのソースファイルでもベース名が正しく抽出される */
+  describe('Given: 末尾に -XXXXXXX ハッシュを含むソースファイルパス', () => {
+    describe('When: generateOutputFileName(filePath, 0) を呼び出す', () => {
+      describe('Then: Task T-06-04 - ハッシュ付きソースファイルのベース名処理', () => {
+        it('T-06-04-01: ソースの末尾ハッシュを除去したベース名で出力名を生成する', async () => {
+          const filePath = 'temp/chatlog/claude/2026/2026-03/2026-03-11-topic-abc1234.md';
+
+          const result = await generateOutputFileName(filePath, 0);
+
+          assertMatch(result, /^2026-03-11-topic-01-[0-9a-f]{7}\.md$/);
         });
       });
     });
@@ -675,6 +796,81 @@ describe('attachFrontmatter', () => {
 
           const contentOccurrences = result.split('## Summary\ntext').length - 1;
           assertEquals(contentOccurrences, 1);
+        });
+      });
+    });
+  });
+});
+
+// ─── resolveOutputDir tests ──────────────────────────────────────────────────
+
+/**
+ * resolveOutputDir のユニットテスト。
+ * InputDir と outputBase、project から OutputDir を解決する関数の
+ * 正常系 (chatlog形式/任意パス)・エッジケース (project未指定) を検証する。
+ */
+describe('resolveOutputDir', () => {
+  /** 正常系: chatlog形式のinputDirから agent/<yyyy>/<yyyy-mm>/<project> を組み立てる */
+  describe('[正常] Normal Cases', () => {
+    describe('Given: chatlog形式のinputDir "temp/chatlog/claude/2026/2026-03" と project "myapp"', () => {
+      describe('When: resolveOutputDir(inputDir, outputBase, project) を呼び出す', () => {
+        describe('Then: Task T-15-01 - chatlog形式のOutputDir生成', () => {
+          it('T-15-01-01: Given chatlog形式のinputDir "temp/chatlog/claude/2026/2026-03" と project "myapp", When resolveOutputDir, Then "base/claude/2026/2026-03/myapp" を返す', () => {
+            const result = resolveOutputDir('temp/chatlog/claude/2026/2026-03', 'base', 'myapp');
+
+            assertEquals(result, 'base/claude/2026/2026-03/myapp');
+          });
+        });
+      });
+    });
+
+    describe('Given: chatlog形式のinputDir と project が undefined', () => {
+      describe('When: resolveOutputDir(inputDir, outputBase, undefined) を呼び出す', () => {
+        describe('Then: Task T-15-02 - projectがundefinedのとき "misc" を使う', () => {
+          it('T-15-02-01: Given projectがundefined, When resolveOutputDir, Then "base/claude/2026/2026-03/misc" を返す', () => {
+            const result = resolveOutputDir('temp/chatlog/claude/2026/2026-03', 'base', undefined);
+
+            assertEquals(result, 'base/claude/2026/2026-03/misc');
+          });
+        });
+      });
+    });
+
+    describe('Given: chatlog形式のinputDir と project が空文字', () => {
+      describe('When: resolveOutputDir(inputDir, outputBase, "") を呼び出す', () => {
+        describe('Then: Task T-15-03 - projectが空文字のとき "misc" を使う', () => {
+          it('T-15-03-01: Given projectが空文字, When resolveOutputDir, Then "base/claude/2026/2026-03/misc" を返す', () => {
+            const result = resolveOutputDir('temp/chatlog/claude/2026/2026-03', 'base', '');
+
+            assertEquals(result, 'base/claude/2026/2026-03/misc');
+          });
+        });
+      });
+    });
+  });
+
+  /** 正常系: 任意パスのinputDirは outputBase/<project> を返す */
+  describe('[正常] Arbitrary Path Cases', () => {
+    describe('Given: 任意パスのinputDir "some/custom/path" と project "proj"', () => {
+      describe('When: resolveOutputDir(inputDir, outputBase, project) を呼び出す', () => {
+        describe('Then: Task T-15-04 - 任意パスのOutputDir生成', () => {
+          it('T-15-04-01: Given 任意パスのinputDir "some/custom/path" と project "proj", When resolveOutputDir, Then "base/proj" を返す', () => {
+            const result = resolveOutputDir('some/custom/path', 'base', 'proj');
+
+            assertEquals(result, 'base/proj');
+          });
+        });
+      });
+    });
+
+    describe('Given: 任意パスのinputDir と project が undefined', () => {
+      describe('When: resolveOutputDir(inputDir, outputBase, undefined) を呼び出す', () => {
+        describe('Then: Task T-15-05 - 任意パス + projectがundefinedのとき "misc" を使う', () => {
+          it('T-15-05-01: Given 任意パスのinputDir と projectがundefined, When resolveOutputDir, Then "base/misc" を返す', () => {
+            const result = resolveOutputDir('some/custom/path', 'base', undefined);
+
+            assertEquals(result, 'base/misc');
+          });
         });
       });
     });
