@@ -465,7 +465,7 @@ async function _backupOldPath(
     .map((m) => Number(m![1]));
 
   const next = usedSlots.length === 0 ? 1 : Math.max(...usedSlots) + 1;
-  if (next > 99) throw new Error(`too many backups for: ${outputPath}`);
+  if (next > 99) { throw new Error(`too many backups for: ${outputPath}`); }
 
   const idx = String(next).padStart(2, '0');
   await Deno.rename(outputPath, `${base}.old-${idx}.md`);
@@ -561,10 +561,11 @@ export function resolveInputDir(
  */
 export function validateInputDir(
   dir: string,
-  statFn: (path: string) => unknown = Deno.statSync,
+  statFn?: (path: string) => unknown,
 ): boolean {
+  const fn = statFn || Deno.statSync;
   try {
-    statFn(dir);
+    fn(dir);
     return true;
   } catch {
     return false;
