@@ -46,6 +46,9 @@ const DEFAULT_CONCURRENCY = 4;
 /** Maximum number of segments returned by {@link segmentChatlog}. */
 const MAX_SEGMENTS = 10;
 
+/** Markdown heading that marks the start of the body section in a segment file. */
+export const START_BODY_HEADING = '## Excerpt';
+
 /** Model IDs and aliases accepted by the Claude Code CLI. */
 const VALID_MODELS = new Set([
   'claude-opus-4-6',
@@ -261,7 +264,7 @@ export function parseJsonArray(raw: string): unknown[] | null {
  * @returns Markdown string containing the Summary and Excerpt sections
  */
 export function generateSegmentFile(segment: Segment): string {
-  return `## Summary\n${segment.summary}\n\n## Excerpt\n${segment.body}`;
+  return `## Summary\n\n${segment.summary}\n\n${START_BODY_HEADING}\n\n${segment.body}`;
 }
 
 /**
@@ -288,7 +291,7 @@ export function attachFrontmatter(
   fields.push(`title: ${segmentMeta.title}`);
   fields.push(`log_id: ${segmentMeta.log_id}`);
   fields.push(`summary: ${segmentMeta.summary}`);
-  return `---\n${fields.join('\n')}\n---\n${content}`;
+  return `---\n${fields.join('\n')}\n---\n\n${content}`;
 }
 
 // ─── AI Execution ─────────────────────────────────────────────────────────────
@@ -311,6 +314,7 @@ export async function runAI(model: string, systemPrompt: string, userPrompt: str
   const cmd = new Deno.Command('claude', {
     args: [
       '-p',
+      '--system-prompt',
       systemPrompt,
       '--output-format',
       'text',
@@ -353,6 +357,9 @@ export async function segmentChatlog(filePath: string, content: string): Promise
   const systemPrompt = 'You are a chatlog analyst. Split the given chatlog into topic-based segments. '
     + 'Return ONLY a JSON array where each element has exactly three string fields: '
     + '"title" (short topic title), "summary" (one-sentence summary), and "body" (relevant text). '
+    + 'For "body": copy the relevant conversation verbatim — do NOT rewrite, paraphrase, or reformat. '
+    + 'Preserve all original line breaks, blank lines, code blocks, and list formatting exactly as they appear. '
+    + 'Preserve ### User and ### Assistant headings to distinguish speakers. '
     + 'Do not include any explanation or markdown fences — respond with the JSON array only.';
 
   const userPrompt = `File: ${filePath}\n\n${content}`;
