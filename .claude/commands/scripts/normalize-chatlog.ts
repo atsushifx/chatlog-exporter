@@ -33,6 +33,11 @@ export type Stats = {
   fail: number;
 };
 
+/** Result of {@link resolveInputDir}: either a resolved directory path or an error message. */
+export type ResolveResult =
+  | { ok: true; dir: string }
+  | { ok: false; error: string };
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Default maximum number of concurrent tasks for {@link parseArgs}. */
@@ -373,6 +378,7 @@ export async function segmentChatlog(filePath: string, content: string): Promise
 /**
  * Recursively collects all `.md` file paths under `dir`, appending to `results`.
  * Silently returns if `dir` does not exist.
+ * Symbolic links are not collected; only regular files are included.
  *
  * @param dir     - Directory path to scan
  * @param results - Accumulator array; `.md` file paths are pushed here
@@ -398,6 +404,7 @@ export function collectMdFiles(
 
 /**
  * Returns a sorted list of all `.md` file paths found recursively under `dir`.
+ * Symbolic links are not collected; only regular files are included.
  *
  * @param dir - Directory path to scan
  * @returns Sorted array of `.md` file paths
@@ -521,44 +528,47 @@ export function reportResults(stats: Stats): void {
 // ─── Directory Resolution ─────────────────────────────────────────────────────
 
 /**
- * Verifies that `dirPath` exists on the filesystem; exits with code 1 if not.
- *
- * @param dirPath - The directory path to check
- */
-function assertDirExists(dirPath: string): void {
-  try {
-    Deno.statSync(dirPath);
-  } catch {
-    console.error(`Error: directory not found: ${dirPath}`);
-    Deno.exit(1);
-  }
-}
-
-/**
- * Resolves the input directory based on provided args.
+ * Resolves the input directory based on provided args (pure function, no FS side effects).
  *
  * Resolution order:
- * 1. If `args.dir` is provided and exists, return it as-is.
+ * 1. If `args.dir` is provided, return `{ ok: true, dir: args.dir }`.
  * 2. If `args.agent` and `args.yearMonth` are provided, construct
- *    `temp/chatlog/<agent>/<year>/<yearMonth>` and return it if it exists.
- * 3. Otherwise exit with usage error.
+ *    `temp/chatlog/<agent>/<year>/<yearMonth>` and return `{ ok: true, dir: ... }`.
+ * 3. Otherwise return `{ ok: false, error: ... }`.
  *
  * @param args - Object with optional `dir`, `agent`, and `yearMonth` fields
- * @returns The resolved directory path as a string
+ * @returns ResolveResult: `{ ok: true, dir }` on success, `{ ok: false, error }` on failure
  */
-export function resolveInputDir(args: { dir?: string; agent?: string; yearMonth?: string }): string {
+export function resolveInputDir(
+  args: { dir?: string; agent?: string; yearMonth?: string },
+): ResolveResult {
   if (args.dir !== undefined) {
-    assertDirExists(args.dir);
-    return args.dir;
+    return { ok: true, dir: args.dir };
   }
   if (args.agent !== undefined && args.yearMonth !== undefined) {
     const year = args.yearMonth.slice(0, 4);
-    const resolvedPath = `temp/chatlog/${args.agent}/${year}/${args.yearMonth}`;
-    assertDirExists(resolvedPath);
-    return resolvedPath;
+    return { ok: true, dir: `temp/chatlog/${args.agent}/${year}/${args.yearMonth}` };
   }
-  console.error('Error: --dir or (--agent and --year-month) must be specified');
-  Deno.exit(1);
+  return { ok: false, error: '--dir or (--agent and --year-month) must be specified' };
+}
+
+/**
+ * Validates that `dir` exists on the filesystem by calling `statFn`.
+ *
+ * @param dir    - The directory path to check
+ * @param statFn - Injectable stat function; defaults to `Deno.statSync`
+ * @returns `true` if `statFn(dir)` succeeds without throwing, `false` otherwise
+ */
+export function validateInputDir(
+  dir: string,
+  statFn: (path: string) => unknown = Deno.statSync,
+): boolean {
+  try {
+    statFn(dir);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -707,7 +717,16 @@ const DEFAULT_OUTPUT_DIR = 'temp/normalize_logs';
  */
 export async function main(argv?: string[], hashFn?: HashProvider): Promise<void> {
   const args = parseArgs(argv ?? Deno.args);
-  const inputDir = resolveInputDir(args);
+  const resolved = resolveInputDir(args);
+  if (!resolved.ok) {
+    console.error(`Error: ${resolved.error}`);
+    Deno.exit(1);
+  }
+  if (!validateInputDir(resolved.dir)) {
+    console.error(`Error: directory not found: ${resolved.dir}`);
+    Deno.exit(1);
+  }
+  const inputDir = resolved.dir;
   const outputDir = args.output ?? DEFAULT_OUTPUT_DIR;
 
   // Ensure output directory exists
