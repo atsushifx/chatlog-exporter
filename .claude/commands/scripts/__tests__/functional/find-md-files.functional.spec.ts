@@ -196,9 +196,7 @@ describe('findMdFiles', () => {
           const result = findMdFiles('/mock/dir', mockReadDir);
 
           assertEquals(
-            result.some((p) =>
-              p.endsWith('.txt') || p.endsWith('.yaml') || p.endsWith('.json')
-            ),
+            result.some((p) => p.endsWith('.txt') || p.endsWith('.yaml') || p.endsWith('.json')),
             false,
           );
         });
