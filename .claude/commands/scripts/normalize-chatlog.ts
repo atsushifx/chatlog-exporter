@@ -377,12 +377,16 @@ export async function segmentChatlog(filePath: string, content: string): Promise
  * @param dir     - Directory path to scan
  * @param results - Accumulator array; `.md` file paths are pushed here
  */
-export function collectMdFiles(dir: string, results: string[]): void {
+export function collectMdFiles(
+  dir: string,
+  results: string[],
+  readDir: (path: string | URL) => Iterable<Deno.DirEntry> = Deno.readDirSync,
+): void {
   try {
-    for (const entry of Deno.readDirSync(dir)) {
+    for (const entry of readDir(dir)) {
       const fullPath = `${dir}/${entry.name}`;
       if (entry.isDirectory) {
-        collectMdFiles(fullPath, results);
+        collectMdFiles(fullPath, results, readDir);
       } else if (entry.isFile && entry.name.endsWith('.md')) {
         results.push(fullPath);
       }
@@ -398,10 +402,66 @@ export function collectMdFiles(dir: string, results: string[]): void {
  * @param dir - Directory path to scan
  * @returns Sorted array of `.md` file paths
  */
-export function findMdFiles(dir: string): string[] {
+export function findMdFiles(
+  dir: string,
+  readDir: (path: string | URL) => Iterable<Deno.DirEntry> = Deno.readDirSync,
+): string[] {
   const results: string[] = [];
-  collectMdFiles(dir, results);
+  collectMdFiles(dir, results, readDir);
   return results.sort();
+}
+
+/**
+ * Backs up an existing output file by renaming it to the first available
+ * backup slot `<basename>.old-NN.md` (01–99).
+ *
+ * Behavior:
+ * - `outputPath` does not exist → returns immediately without any action.
+ * - `outputPath` exists → renames it to the first available `.old-NN.md` slot.
+ *
+ * For example:
+ * - `entry.md` (no backups) → renames to `entry.old-01.md`
+ * - `entry.md` (`entry.old-01.md` exists) → renames to `entry.old-02.md`
+ *
+ * @param outputPath - Destination file path (must end with `.md`)
+ * @returns A promise resolving to void
+ * @throws {Error} When all 99 backup slots are already occupied
+ */
+async function _defaultListDir(dir: string): Promise<string[]> {
+  const names: string[] = [];
+  for await (const entry of Deno.readDir(dir)) {
+    names.push(entry.name);
+  }
+  return names;
+}
+
+async function _backupOldPath(
+  outputPath: string,
+  listDir: (dir: string) => Promise<string[]> = _defaultListDir,
+): Promise<void> {
+  try {
+    await Deno.stat(outputPath);
+  } catch {
+    // File does not exist → nothing to back up
+    return;
+  }
+
+  const base = outputPath.endsWith('.md') ? outputPath.slice(0, -3) : outputPath;
+  const dir = base.includes('/') ? base.slice(0, base.lastIndexOf('/')) : '.';
+  const baseName = base.includes('/') ? base.slice(base.lastIndexOf('/') + 1) : base;
+  const backupPattern = new RegExp(`^${baseName}\\.old-(\\d{2})\\.md$`);
+
+  const files = await listDir(dir);
+  const usedSlots = files
+    .map((name) => backupPattern.exec(name))
+    .filter((m) => m !== null)
+    .map((m) => Number(m![1]));
+
+  const next = usedSlots.length === 0 ? 1 : Math.max(...usedSlots) + 1;
+  if (next > 99) throw new Error(`too many backups for: ${outputPath}`);
+
+  const idx = String(next).padStart(2, '0');
+  await Deno.rename(outputPath, `${base}.old-${idx}.md`);
 }
 
 /**
@@ -410,7 +470,7 @@ export function findMdFiles(dir: string): string[] {
  * Behavior:
  * 1. `dryRun=true` → log and return without writing.
  * 2. `outputPath` contains `temp/chatlog/` → throw Error (R-010 guard).
- * 3. `outputPath` already exists → `stats.skip++` and return (R-011).
+ * 3. `outputPath` already exists → backup via `_backupOldPath` (rename to `<basename>.old-NN.md`, first available slot 01–99), then write new file, `stats.success++`.
  * 4. Write to `outputPath + ".tmp"`, then rename to `outputPath`, `stats.success++`.
  *
  * @param outputPath - Destination file path
@@ -423,6 +483,7 @@ export async function writeOutput(
   content: string,
   dryRun: boolean,
   stats: Stats,
+  listDir: (dir: string) => Promise<string[]> = _defaultListDir,
 ): Promise<void> {
   if (dryRun) {
     console.log(`[dry-run] would write: ${outputPath}`);
@@ -433,14 +494,7 @@ export async function writeOutput(
     throw new Error(`R-010: writing to input directory is forbidden: ${outputPath}`);
   }
 
-  try {
-    await Deno.stat(outputPath);
-    // File exists → skip
-    stats.skip++;
-    return;
-  } catch {
-    // File does not exist → proceed with write
-  }
+  await _backupOldPath(outputPath, listDir);
 
   const tmpPath = outputPath + '.tmp';
   await Deno.writeTextFile(tmpPath, content);
@@ -641,9 +695,6 @@ export async function withConcurrency<T>(
 
 /** Default output directory for normalized segment files. */
 const DEFAULT_OUTPUT_DIR = 'temp/normalize_logs';
-
-/** Hardcoded agent name used for log ID generation. */
-const AGENT_NAME = 'claude';
 
 /**
  * Orchestrates the full normalize-chatlog pipeline.

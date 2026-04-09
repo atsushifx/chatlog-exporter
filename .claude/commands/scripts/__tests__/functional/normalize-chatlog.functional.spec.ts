@@ -1,7 +1,8 @@
 #!/usr/bin/env -S deno run --allow-read --allow-run --allow-write
 // src: scripts/__tests__/functional/normalize-chatlog.functional.spec.ts
-// @(#): 外部依存をモックで代替する関数テスト
-//       対象: runAI (Deno.Command モック), segmentChatlog (runAI モック経由)
+// @(#): 複数関数を組み合わせた機能テスト
+//       対象: segmentChatlog (runAI モック経由),
+//             writeOutput (Deno.stat/rename モック, _backupOldPath を内部利用)
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //
@@ -10,6 +11,8 @@
 // Deno Test module
 import { assertEquals, assertRejects } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
+import type { Stub } from '@std/testing/mock';
+import { stub } from '@std/testing/mock';
 
 // test helpers
 import {
@@ -21,155 +24,10 @@ import {
 
 // test target
 import {
-  runAI,
   segmentChatlog,
+  writeOutput,
 } from '../../normalize-chatlog.ts';
-
-// ─── runAI tests ──────────────────────────────────────────────────────────────
-
-/**
- * runAI のユニットテスト。
- * Claude CLI をサブプロセスとして起動し、stdout をデコードして返す関数の
- * 正常系・異常系・出力トリミングを検証する。
- */
-describe('runAI', () => {
-  /** 正常系: Claude CLI が exit code 0 で終了し、stdout テキストが返る */
-  describe('Given: Claude CLI が exit code 0 で正常終了する', () => {
-    /**
-     * When: 標準的な model・systemPrompt・userPrompt を渡して runAI を呼び出す。
-     */
-    describe('When: runAI("claude-sonnet-4-6", "You are a helper.", "Summarize this") を呼び出す', () => {
-      /**
-       * Task T-02-01: Claude CLI の正常呼び出し。
-       * exit code 0 のとき stdout テキストをデコードして返し、渡した引数が CLI に正しく伝わることを確認する。
-       */
-      describe('Then: Task T-02-01 - Claude CLI の正常呼び出し', () => {
-        let savedCommand: unknown;
-        beforeEach(() => {
-          savedCommand = (Deno as unknown as Record<string, unknown>).Command;
-        });
-        afterEach(() => {
-          (Deno as unknown as Record<string, unknown>).Command = savedCommand;
-        });
-
-        it('exit code 0 のとき stdout テキストをデコードして返す', async () => {
-          const stdoutText = 'Summary result';
-          const mock = makeSuccessMock(new TextEncoder().encode(stdoutText));
-          (Deno as unknown as Record<string, unknown>).Command = mock;
-
-          const result = await runAI('claude-sonnet-4-6', 'You are a helper.', 'Summarize this');
-
-          assertEquals(result, stdoutText);
-        });
-
-        it('model・systemPrompt・安全オプションが CLI に渡される', async () => {
-          const captured = { value: [] as string[] };
-          const mock = makeSuccessMock(new TextEncoder().encode('ok'), captured);
-          (Deno as unknown as Record<string, unknown>).Command = mock;
-
-          await runAI('claude-sonnet-4-6', 'You are a helper.', 'Summarize this');
-
-          assertEquals(captured.value, [
-            '-p',
-            'You are a helper.',
-            '--output-format',
-            'text',
-            '--permission-mode',
-            'acceptEdits',
-            '--strict-mcp-config',
-            '--mcp-config',
-            '{"mcpServers":{}}',
-            '--model',
-            'claude-sonnet-4-6',
-          ]);
-        });
-      });
-    });
-  });
-
-  /** 異常系: CLI が非ゼロ exit code で終了したとき Error をスローする */
-  describe('Given: Claude CLI が非ゼロ exit code で終了する', () => {
-    describe('When: runAI("claude-sonnet-4-6", "sys", "user") を呼び出す', () => {
-      /**
-       * Task T-02-02: Claude CLI 失敗時の処理。
-       * 非ゼロ exit code のとき、exit code を含む Error がスローされることを確認する。
-       */
-      describe('Then: Task T-02-02 - Claude CLI 失敗時の処理', () => {
-        let savedCommand: unknown;
-        beforeEach(() => {
-          savedCommand = (Deno as unknown as Record<string, unknown>).Command;
-          (Deno as unknown as Record<string, unknown>).Command = makeFailMock(1);
-        });
-        afterEach(() => {
-          (Deno as unknown as Record<string, unknown>).Command = savedCommand;
-        });
-
-        it('非ゼロ exit code のとき exit code を含む Error をスローする', async () => {
-          await assertRejects(
-            () => runAI('claude-sonnet-4-6', 'sys', 'user'),
-            Error,
-            '1',
-          );
-        });
-      });
-    });
-  });
-
-  /** 異常系: `claude` コマンドが見つからず Deno.errors.NotFound が伝播する */
-  describe('Given: `claude` コマンドが存在しない', () => {
-    describe('When: runAI("claude-sonnet-4-6", "sys", "user") を呼び出す', () => {
-      /**
-       * Task T-02-03: Claude CLI 失敗時の処理（コマンド不在）。
-       * spawn が NotFound をスローした場合、そのエラーが呼び出し元に伝播することを確認する。
-       */
-      describe('Then: Task T-02-03 - Claude CLI 失敗時の処理（コマンド不在）', () => {
-        let savedCommand: unknown;
-        beforeEach(() => {
-          savedCommand = (Deno as unknown as Record<string, unknown>).Command;
-          (Deno as unknown as Record<string, unknown>).Command = makeNotFoundMock();
-        });
-        afterEach(() => {
-          (Deno as unknown as Record<string, unknown>).Command = savedCommand;
-        });
-
-        it('spawn が Deno.errors.NotFound をスローしたとき、エラーが呼び出し元に伝播する', async () => {
-          await assertRejects(
-            () => runAI('claude-sonnet-4-6', 'sys', 'user'),
-            Deno.errors.NotFound,
-          );
-        });
-      });
-    });
-  });
-
-  /** 正常系: stdout の前後空白・改行を trim して返す */
-  describe('Given: Claude CLI の stdout に前後の空白が含まれる', () => {
-    describe('When: runAI("claude-sonnet-4-6", "sys", "user") を呼び出す', () => {
-      /**
-       * Task T-02-04: 出力のトリミング。
-       * stdout の前後に空白や改行が含まれる場合、trim した文字列が返ることを確認する。
-       */
-      describe('Then: Task T-02-04 - 出力のトリミング', () => {
-        let savedCommand: unknown;
-        beforeEach(() => {
-          savedCommand = (Deno as unknown as Record<string, unknown>).Command;
-          (Deno as unknown as Record<string, unknown>).Command = makeSuccessMock(
-            new TextEncoder().encode('  Summary result\n'),
-          );
-        });
-        afterEach(() => {
-          (Deno as unknown as Record<string, unknown>).Command = savedCommand;
-        });
-
-        it('stdout の前後の空白を除去した文字列を返す', async () => {
-          const result = await runAI('claude-sonnet-4-6', 'sys', 'user');
-
-          assertEquals(result, 'Summary result');
-        });
-      });
-    });
-  });
-});
+import type { Stats } from '../../normalize-chatlog.ts';
 
 // ─── segmentChatlog tests ─────────────────────────────────────────────────────
 
@@ -293,6 +151,181 @@ describe('segmentChatlog', () => {
           const result = await segmentChatlog('path/to/file.md', 'some chat content');
 
           assertEquals((result as unknown[]).length, 10);
+        });
+      });
+    });
+  });
+});
+
+// ─── writeOutput tests ────────────────────────────────────────────────────────
+
+/**
+ * writeOutput の機能テスト。
+ * Deno.stat / Deno.rename / Deno.writeTextFile をモック化し、
+ * ファイル書き込み、既存ファイルのリネーム、ドライランモードを検証する。
+ */
+describe('writeOutput', () => {
+  let statStub: Stub | null = null;
+  let renameStub: Stub | null = null;
+  let writeTextFileStub: Stub | null = null;
+
+  afterEach(() => {
+    statStub?.restore();
+    statStub = null;
+    renameStub?.restore();
+    renameStub = null;
+    writeTextFileStub?.restore();
+    writeTextFileStub = null;
+  });
+
+  /** 正常系: 存在しない出力パスにアトミックにファイルを書き込む */
+  describe('Given: 存在しない出力パスと dryRun=false', () => {
+    describe('When: writeOutput を呼び出す', () => {
+      describe('Then: Task T-13-01 - アトミックなファイル書き込み', () => {
+        it('T-13-01-01: stats.success がインクリメントされる', async () => {
+          // stat → NotFound (ファイル未存在)
+          statStub = stub(Deno, 'stat', () => Promise.reject(new Deno.errors.NotFound('not found')));
+          const writtenPaths: string[] = [];
+          writeTextFileStub = stub(Deno, 'writeTextFile', (path: string | URL) => {
+            writtenPaths.push(String(path));
+            return Promise.resolve();
+          });
+          renameStub = stub(Deno, 'rename', () => Promise.resolve());
+          const stats: Stats = { success: 0, skip: 0, fail: 0 };
+
+          await writeOutput('output/entry.md', 'content', false, stats);
+
+          assertEquals(stats.success, 1);
+          // .tmp ファイルに書いて rename するアトミック書き込みを確認
+          assertEquals(writtenPaths.includes('output/entry.md.tmp'), true);
+        });
+
+        it('T-13-01-02: .tmp パスに書き込んでから outputPath にリネームする', async () => {
+          statStub = stub(Deno, 'stat', () => Promise.reject(new Deno.errors.NotFound('not found')));
+          const writtenPaths: string[] = [];
+          writeTextFileStub = stub(Deno, 'writeTextFile', (path: string | URL) => {
+            writtenPaths.push(String(path));
+            return Promise.resolve();
+          });
+          const renamedArgs: Array<[string, string]> = [];
+          renameStub = stub(Deno, 'rename', (from: string | URL, to: string | URL) => {
+            renamedArgs.push([String(from), String(to)]);
+            return Promise.resolve();
+          });
+          const stats: Stats = { success: 0, skip: 0, fail: 0 };
+
+          await writeOutput('output/entry.md', 'content', false, stats);
+
+          assertEquals(writtenPaths[0], 'output/entry.md.tmp');
+          assertEquals(renamedArgs[renamedArgs.length - 1], ['output/entry.md.tmp', 'output/entry.md']);
+        });
+      });
+    });
+  });
+
+  /** 正常系: すでに存在するファイルを .old-01.md にリネームしてから新規書き込みする */
+  describe('Given: すでに存在する出力パス', () => {
+    describe('When: writeOutput を呼び出す', () => {
+      describe('Then: Task T-13-02 - 既存ファイルのリネームと新規書き込み', () => {
+        it('T-13-02-01: 既存ファイルを .old-01.md にリネームしてから書き込む', async () => {
+          statStub = stub(Deno, 'stat', () => Promise.resolve({} as Deno.FileInfo));
+          const renamedArgs: Array<[string, string]> = [];
+          renameStub = stub(Deno, 'rename', (from: string | URL, to: string | URL) => {
+            renamedArgs.push([String(from), String(to)]);
+            return Promise.resolve();
+          });
+          writeTextFileStub = stub(Deno, 'writeTextFile', () => Promise.resolve());
+          const stats: Stats = { success: 0, skip: 0, fail: 0 };
+
+          // バックアップファイルなし → old-01.md に
+          await writeOutput('output/existing.md', 'new content', false, stats, () => Promise.resolve([]));
+
+          // 1回目のリネームが既存ファイル → old-01.md であること
+          assertEquals(renamedArgs[0], ['output/existing.md', 'output/existing.old-01.md']);
+          assertEquals(stats.success, 1);
+          assertEquals(stats.skip, 0);
+        });
+
+        it('T-13-02-02: .old-01.md が既にある場合は .old-02.md にリネームする', async () => {
+          statStub = stub(Deno, 'stat', () => Promise.resolve({} as Deno.FileInfo));
+          const renamedArgs: Array<[string, string]> = [];
+          renameStub = stub(Deno, 'rename', (from: string | URL, to: string | URL) => {
+            renamedArgs.push([String(from), String(to)]);
+            return Promise.resolve();
+          });
+          writeTextFileStub = stub(Deno, 'writeTextFile', () => Promise.resolve());
+          const stats: Stats = { success: 0, skip: 0, fail: 0 };
+
+          // old-01.md が既存 → old-02.md に
+          await writeOutput(
+            'output/existing.md',
+            'new content',
+            false,
+            stats,
+            () => Promise.resolve(['existing.old-01.md']),
+          );
+
+          assertEquals(renamedArgs[0], ['output/existing.md', 'output/existing.old-02.md']);
+          assertEquals(stats.success, 1);
+        });
+      });
+    });
+  });
+
+  /** 正常系: dryRun=true のときファイル操作を行わない */
+  describe('Given: dryRun=true', () => {
+    describe('When: writeOutput を呼び出す', () => {
+      describe('Then: Task T-13-03 - ドライランモード', () => {
+        it('T-13-03-01: Deno.writeTextFile が呼ばれず stats.success が 0 のまま', async () => {
+          writeTextFileStub = stub(Deno, 'writeTextFile', () => Promise.resolve());
+          const stats: Stats = { success: 0, skip: 0, fail: 0 };
+
+          await writeOutput('output/dry.md', '## Summary\nbody', true, stats);
+
+          assertEquals((writeTextFileStub as unknown as { calls: unknown[] }).calls.length, 0);
+          assertEquals(stats.success, 0);
+        });
+      });
+    });
+  });
+
+  /** 異常系: R-010 ガード — temp/chatlog/ 配下への書き込みはエラーをスローする */
+  describe('[異常] Error Cases', () => {
+    describe('Given: temp/chatlog/ 配下の入力パスを出力先に指定する', () => {
+      describe('When: writeOutput(inputPath, content, false, stats) を呼び出す', () => {
+        describe('Then: Task T-13-04 - R-010 ガードによるエラー', () => {
+          it('T-13-04-01: temp/chatlog/ 配下のパスへの書き込みが行われない (R-010)', async () => {
+            const stats: Stats = { success: 0, skip: 0, fail: 0 };
+            const inputPath = 'temp/chatlog/claude/2026/2026-03/sample.md';
+
+            await assertRejects(
+              async () => {
+                await writeOutput(inputPath, 'overwrite', false, stats);
+              },
+              Error,
+              'R-010',
+            );
+          });
+        });
+      });
+    });
+
+    /** 異常系: バックアップスロット 01〜99 がすべて埋まっている場合は Error をスローする */
+    describe('Given: outputPath と old-01〜old-99 が全て存在する', () => {
+      describe('When: writeOutput を呼び出す', () => {
+        describe('Then: Task T-13-05 - バックアップスロット上限超過で Error をスローする', () => {
+          it('T-13-05-01: "too many backups" エラーをスローする', async () => {
+            statStub = stub(Deno, 'stat', () => Promise.resolve({} as Deno.FileInfo));
+            renameStub = stub(Deno, 'rename', () => Promise.resolve());
+            const allSlots = Array.from({ length: 99 }, (_, i) => `entry.old-${String(i + 1).padStart(2, '0')}.md`);
+            const stats: Stats = { success: 0, skip: 0, fail: 0 };
+
+            await assertRejects(
+              () => writeOutput('output/entry.md', 'content', false, stats, () => Promise.resolve(allSlots)),
+              Error,
+              'too many backups',
+            );
+          });
         });
       });
     });
