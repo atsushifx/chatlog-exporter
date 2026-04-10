@@ -19,6 +19,7 @@ import {
   attachFrontmatter,
   generateOutputFileName,
   generateSegmentFile,
+  START_BODY_HEADING,
   withConcurrency,
 } from '../../normalize-chatlog.ts';
 
@@ -239,38 +240,38 @@ describe('generateSegmentFile', () => {
 
           const result = generateSegmentFile(seg);
 
-          assertEquals(result.includes('## Summary\nFix CI pipeline'), true);
+          assertEquals(result.includes('## Summary\n\nFix CI pipeline'), true);
         });
       });
     });
   });
 
-  /** 正常系: body フィールドが `## Excerpt` セクションとして出力される */
+  /** 正常系: body フィールドが START_BODY_HEADING セクションとして出力される */
   describe('Given: { title: "Debug session", summary: "Debug session", body: "### User\\nHow do I..." } を持つセグメントオブジェクト', () => {
     describe('When: generateSegmentFile を呼び出す', () => {
       describe('Then: Task T-11-01 - セグメントファイルの MD コンテンツ生成', () => {
-        it('T-11-01-02: 返却文字列に `## Excerpt\\n### User\\nHow do I...` が含まれる', () => {
+        it('T-11-01-02: 返却文字列に START_BODY_HEADING + "\\n### User\\nHow do I..." が含まれる', () => {
           const seg = { title: 'Debug session', summary: 'Debug session', body: '### User\nHow do I...' };
 
           const result = generateSegmentFile(seg);
 
-          assertEquals(result.includes('## Excerpt\n### User\nHow do I...'), true);
+          assertEquals(result.includes(START_BODY_HEADING + '\n\n### User\nHow do I...'), true);
         });
       });
     });
   });
 
-  /** エッジケース: 全フィールドが空でも `## Summary` と `## Excerpt` 見出しを含む文字列を返す */
+  /** エッジケース: 全フィールドが空でも `## Summary` と START_BODY_HEADING 見出しを含む文字列を返す */
   describe('Given: { title: "", summary: "", body: "" } を持つセグメント', () => {
     describe('When: generateSegmentFile を呼び出す', () => {
       describe('Then: Task T-11-02 - 空フィールド', () => {
-        it('T-11-02-01: 返却文字列に `## Summary` と `## Excerpt` の両セクション見出しが含まれる', () => {
+        it('T-11-02-01: 返却文字列に `## Summary` と START_BODY_HEADING の両セクション見出しが含まれる', () => {
           const seg = { title: '', summary: '', body: '' };
 
           const result = generateSegmentFile(seg);
 
           assertEquals(result.includes('## Summary'), true);
-          assertEquals(result.includes('## Excerpt'), true);
+          assertEquals(result.includes(START_BODY_HEADING), true);
         });
       });
     });
