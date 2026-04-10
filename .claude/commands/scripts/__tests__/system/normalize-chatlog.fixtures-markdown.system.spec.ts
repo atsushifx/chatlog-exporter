@@ -90,6 +90,9 @@ for (const _dirName of _fixtureDirs) {
   const _inputPath = `${_bodyDir}/input.md`;
   const _bodyOutputFiles = await _collectOutputFiles(_bodyDir);
 
+  // output-*.md が存在しないディレクトリはスキップ（異常系フィクスチャ等）
+  if (_bodyOutputFiles.length === 0) continue;
+
   describe(`generateSegmentFile — runai-body/${_dirName}`, () => {
     describe(`Given: ${_dirName}/input.md と ${_bodyOutputFiles.length} 件の body fixture`, () => {
       let _segments: Segment[];
