@@ -1,16 +1,13 @@
----
-session_id: a4a84394-6140-4668-b1ed-de0b50d8ffb1
-date: 2026-03-11
-project: aplys
-slug: sharded-questing-starfish
-title: Issue下書きの更新方針
-log_id: system-fixture-chatlog-03-913ce11
-summary: ユーザーがtemp配下のissue下書きをコアとして更新し、詳細仕様はdocs/specsに分離する方針を指示した。
----
+# 1 API設計
+
+<!-- markdownlint-disable no-duplicate-heading -->
+
 ## Summary
+
 ユーザーがtemp配下のissue下書きをコアとして更新し、詳細仕様はdocs/specsに分離する方針を指示した。
 
 ## Excerpt
+
 ### User
 
 temp\idd\issues\new-20260311-000000-task-aplys-runner-spec.mdがissueの下描きなので、coreを既存と見なし更新する。また、上記の議論全てをissueには書かず、詳細はdocs/specsなどに作成する

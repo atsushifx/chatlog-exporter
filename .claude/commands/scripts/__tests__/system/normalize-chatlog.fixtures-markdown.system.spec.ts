@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run --allow-read --allow-run --allow-write
 // src: scripts/__tests__/system/normalize-chatlog.fixtures-markdown.system.spec.ts
 // @(#): ファイル駆動システムテスト（markdown 本文検証）
-//       対象: generateSegmentFile() — _fixtures/runai-body/ 下の各ディレクトリを自動スキャンし
+//       対象: generateSegmentFile() — _fixtures/runai-markdown/ 下の各ディレクトリを自動スキャンし
 //             同一ディレクトリの input.md を入力、output-<N>.md の START_BODY_HEADING 以降を期待本文として照合する
 //       責務: generateSegmentFile() が生成する markdown 本文の完全一致のみ検証する
 //             フロントマター・セグメント構造検証は別テストで行う
@@ -23,7 +23,7 @@ import type { Segment } from '../../normalize-chatlog.ts';
 
 // ─── fixtures ルートパス ──────────────────────────────────────────────────────
 
-const RUNAI_BODY_DIR = new URL('../_fixtures/runai-body', import.meta.url).pathname.replace(
+const RUNAI_MARKDOWN_DIR = new URL('../_fixtures/runai-markdown', import.meta.url).pathname.replace(
   /^\/([A-Z]:)/,
   '$1',
 );
@@ -31,7 +31,7 @@ const RUNAI_BODY_DIR = new URL('../_fixtures/runai-body', import.meta.url).pathn
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * runai-body fixture から START_BODY_HEADING 以降の本文を抽出する。
+ * runai-markdown fixture から START_BODY_HEADING 以降の本文を抽出する。
  */
 function _extractBodyFromFixture(content: string): string {
   const marker = START_BODY_HEADING + '\n';
@@ -40,7 +40,7 @@ function _extractBodyFromFixture(content: string): string {
   return content.slice(idx + marker.length).replace(/^\n+/, '');
 }
 
-/** runai-body fixture の output-<N>.md から body のみを持つ Segment を構築する（モック注入用） */
+/** runai-markdown fixture の output-<N>.md から body のみを持つ Segment を構築する（モック注入用） */
 async function _loadOutputSegment(filePath: string): Promise<Segment> {
   const content = await Deno.readTextFile(filePath);
   const marker = START_BODY_HEADING + '\n';
@@ -83,14 +83,27 @@ async function _collectFixtureDirs(rootDir: string): Promise<string[]> {
 
 // ─── ファイル駆動 system fixtures-markdown tests ──────────────────────────────
 
-const _fixtureDirs = await _collectFixtureDirs(RUNAI_BODY_DIR);
+const _fixtureDirs = await _collectFixtureDirs(RUNAI_MARKDOWN_DIR);
 
 for (const _dirName of _fixtureDirs) {
-  const _bodyDir = `${RUNAI_BODY_DIR}/${_dirName}`;
+  const _bodyDir = `${RUNAI_MARKDOWN_DIR}/${_dirName}`;
   const _inputPath = `${_bodyDir}/input.md`;
   const _bodyOutputFiles = await _collectOutputFiles(_bodyDir);
 
-  describe(`generateSegmentFile — runai-body/${_dirName}`, () => {
+  // output-*.md が存在しないディレクトリはフィクスチャ欠損としてテスト失敗させる
+  if (_bodyOutputFiles.length === 0) {
+    describe(`generateSegmentFile — runai-markdown/${_dirName}`, () => {
+      it(`SFM-${_dirName}-fixture-error: output-*.md が存在しない（フィクスチャ定義漏れ）`, () => {
+        throw new Error(
+          `runai-markdown/${_dirName} に output-*.md がありません。` +
+            `正常系なら output-N.md を、異常系なら runai-segments/error/ で管理してください。`,
+        );
+      });
+    });
+    continue;
+  }
+
+  describe(`generateSegmentFile — runai-markdown/${_dirName}`, () => {
     describe(`Given: ${_dirName}/input.md と ${_bodyOutputFiles.length} 件の body fixture`, () => {
       let _segments: Segment[];
       let _expectedSegments: Segment[];
@@ -120,7 +133,7 @@ for (const _dirName of _fixtureDirs) {
           const _idx = _i;
           const _n = _idx + 1;
 
-          it(`SFM-${_dirName}-${_n}-body: 生成した本文が runai-body/output-${_n} の START_BODY_HEADING 以降と完全一致する`, () => {
+          it(`SFM-${_dirName}-${_n}-body: 生成した本文が runai-markdown/output-${_n} の START_BODY_HEADING 以降と完全一致する`, () => {
             const _generated = generateSegmentFile(_segments[_idx]);
             const _actual = _extractBodyFromFixture(_generated);
             const _expected = _extractBodyFromFixture(_bodyFixtureContents[_idx]);

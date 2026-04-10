@@ -5,7 +5,9 @@ project: aplys
 slug: sharded-questing-starfish
 ---
 
-# 1 API設計 現在 aplys <domain>/<target> <action> [files...] これは 良い設計。 理由 filesystem dispatch と一致 na
+<!-- markdownlint-disable no-duplicate-heading -->
+
+# 1 API設計 現在 `aplys <domain>/<target> <action> [files...]` これは 良い設計。 理由 filesystem dispatch と一致 na
 
 ## 会話ログ
 
@@ -15,7 +17,9 @@ slug: sharded-questing-starfish
 
 現在
 
+```bash
 aplys <domain>/<target> <action> [files...]
+```
 
 これは 良い設計。
 
@@ -100,7 +104,9 @@ exec "$script" "$@"
 
 現在
 
+```bash
 git ls-files <dir> '*.sh'
+```
 
 となっている。
 
@@ -118,7 +124,7 @@ git ls-files "$dir" | grep '\.shに対応
 
 issueには
 
-<ext> は target に依存
+`<ext>` は target に依存
 
 とあるが
 
@@ -149,7 +155,7 @@ APLYS_LIBS="$APLYS_ROOT/_libs"
 
 issueに
 
-aplyss/aplys
+aplys/aplys
 
 の仕様がほぼ書かれていない。
 
@@ -186,12 +192,14 @@ issueには 安全仕様がない。
 
 最低限これを書く。
 
+```bash
 path validation
 ^[a-z][a-z0-9_-]*$
 dispatcher safety
 set -euo pipefail
 PATH=/usr/bin:/bin
 10 shellcheck runner
+```
 
 ここは 非常に良い。
 
