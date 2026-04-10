@@ -22,6 +22,7 @@ import { captureLog, makeTempDirs, removeTempDirs, silenceLog } from '../_helper
 
 // test target
 import { findMdFiles, main } from '../../normalize-chatlog.ts';
+import type { HashProvider } from '../../normalize-chatlog.ts';
 
 // ─── I/O テスト ────────────────────────────────────────────────────────────────
 
@@ -153,6 +154,155 @@ describe('main - I/O', () => {
 
           assertEquals(exitStub.calls.length >= 1, true);
           assertEquals(exitStub.calls[0].args[0], 1);
+        });
+      });
+    });
+  });
+
+  // ─── T-15-05: chatlog形式入力パスに応じた出力パス構造 ────────────────────────
+
+  /** 正常系: chatlog形式の入力パス (temp/chatlog/<agent>/<yyyy>/<yyyy-mm>) に対して
+   *  出力が normalized-logs/<agent>/<yyyy>/<yyyy-mm>/<project>/ 以下に生成される */
+  describe('Given: chatlog形式ディレクトリ (temp/chatlog/claude/2026/2026-04) と project フロントマターを持つ MD ファイル', () => {
+    const CHATLOG_INPUT_DIR = 'temp/chatlog/claude/2026/2026-04';
+    let outputBase: string;
+    let commandHandle: CommandMockHandle;
+    let logSilencer: LogSilencer;
+
+    before(async () => {
+      await Deno.mkdir(CHATLOG_INPUT_DIR, { recursive: true });
+      await Deno.writeTextFile(
+        `${CHATLOG_INPUT_DIR}/chat.md`,
+        '---\nproject: my-app\n---\n### User\nHello\n\n### AI\nHi',
+      );
+    });
+
+    after(async () => {
+      await Deno.remove('temp/chatlog/claude/2026', { recursive: true });
+    });
+
+    beforeEach(async () => {
+      outputBase = await Deno.makeTempDir();
+
+      const segmentResponse = JSON.stringify([
+        { title: 'Topic', summary: 'Summary', body: 'Body' },
+      ]);
+      commandHandle = installCommandMock(
+        makeSuccessMock(new TextEncoder().encode(segmentResponse)),
+      );
+      logSilencer = silenceLog();
+    });
+
+    afterEach(async () => {
+      commandHandle.restore();
+      logSilencer.restore();
+      await Deno.remove(outputBase, { recursive: true });
+    });
+
+    describe('When: main(["--dir", CHATLOG_INPUT_DIR, "--output", outputBase]) を呼び出す', () => {
+      describe('Then: Task T-15-05-01 - 出力が <outputBase>/claude/2026/2026-04/my-app/ 以下に生成される', () => {
+        it('T-15-05-01-01: 出力ファイルのパスが <outputBase>/claude/2026/2026-04/my-app/ を含む', async () => {
+          const fixedHash: HashProvider = () => 'abc1234';
+          await main(['--dir', CHATLOG_INPUT_DIR, '--output', outputBase], fixedHash);
+
+          const files = findMdFiles(outputBase);
+          assertEquals(files.length >= 1, true);
+          const expectedSubPath = `claude/2026/2026-04/my-app`;
+          const allUnderExpected = files.every((f) => f.replace(/\\/g, '/').includes(expectedSubPath));
+          assertEquals(allUnderExpected, true);
+        });
+      });
+    });
+  });
+
+  // ─── T-15-06: 任意ディレクトリ入力時は <outputBase>/<project>/ 以下に出力 ───
+
+  /** 正常系: 任意パスの入力ディレクトリに対して出力が <outputBase>/<project>/ 以下に生成される */
+  describe('Given: 任意パスのディレクトリと project フロントマターを持つ MD ファイル', () => {
+    let inputDir: string;
+    let outputBase: string;
+    let commandHandle: CommandMockHandle;
+    let logSilencer: LogSilencer;
+
+    beforeEach(async () => {
+      ({ inputDir, outputDir: outputBase } = await makeTempDirs());
+
+      await Deno.writeTextFile(
+        `${inputDir}/chat.md`,
+        '---\nproject: custom-project\n---\n### User\nHello\n\n### AI\nHi',
+      );
+
+      const segmentResponse = JSON.stringify([
+        { title: 'Topic', summary: 'Summary', body: 'Body' },
+      ]);
+      commandHandle = installCommandMock(
+        makeSuccessMock(new TextEncoder().encode(segmentResponse)),
+      );
+      logSilencer = silenceLog();
+    });
+
+    afterEach(async () => {
+      commandHandle.restore();
+      logSilencer.restore();
+      await removeTempDirs(inputDir, outputBase);
+    });
+
+    describe('When: main(["--dir", inputDir, "--output", outputBase]) を呼び出す', () => {
+      describe('Then: Task T-15-06-01 - 出力が <outputBase>/custom-project/ 以下に生成される', () => {
+        it('T-15-06-01-01: 出力ファイルのパスが <outputBase>/custom-project/ を含む', async () => {
+          const fixedHash: HashProvider = () => 'def5678';
+          await main(['--dir', inputDir, '--output', outputBase], fixedHash);
+
+          const files = findMdFiles(outputBase);
+          assertEquals(files.length >= 1, true);
+          const allUnderProject = files.every((f) => f.replace(/\\/g, '/').includes('custom-project'));
+          assertEquals(allUnderProject, true);
+        });
+      });
+    });
+  });
+
+  // ─── T-15-07: project なし（misc フォールバック）────────────────────────────
+
+  /** エッジケース: project フィールドなしの場合、出力が <outputBase>/misc/ 以下に生成される */
+  describe('Given: project フロントマターなしの MD ファイル', () => {
+    let inputDir: string;
+    let outputBase: string;
+    let commandHandle: CommandMockHandle;
+    let logSilencer: LogSilencer;
+
+    beforeEach(async () => {
+      ({ inputDir, outputDir: outputBase } = await makeTempDirs());
+
+      await Deno.writeTextFile(
+        `${inputDir}/chat.md`,
+        '### User\nHello\n\n### AI\nHi',
+      );
+
+      const segmentResponse = JSON.stringify([
+        { title: 'Topic', summary: 'Summary', body: 'Body' },
+      ]);
+      commandHandle = installCommandMock(
+        makeSuccessMock(new TextEncoder().encode(segmentResponse)),
+      );
+      logSilencer = silenceLog();
+    });
+
+    afterEach(async () => {
+      commandHandle.restore();
+      logSilencer.restore();
+      await removeTempDirs(inputDir, outputBase);
+    });
+
+    describe('When: main(["--dir", inputDir, "--output", outputBase]) を呼び出す', () => {
+      describe('Then: Task T-15-07-01 - project なし時は misc サブディレクトリに出力される', () => {
+        it('T-15-07-01-01: 出力ファイルのパスが <outputBase>/misc/ を含む', async () => {
+          await main(['--dir', inputDir, '--output', outputBase]);
+
+          const files = findMdFiles(outputBase);
+          assertEquals(files.length >= 1, true);
+          const allUnderMisc = files.every((f) => f.replace(/\\/g, '/').includes('/misc/'));
+          assertEquals(allUnderMisc, true);
         });
       });
     });
