@@ -3,6 +3,8 @@
 // @(#): ファイル駆動システムテスト
 //       対象: segmentChatlog() — _fixtures/runai/ 下の各ディレクトリを自動スキャンし
 //             input.md を入力、output-<N>.md を期待セグメントとして照合する
+//       責務: セグメント構造（title / summary / body）のみ検証する
+//             markdown 生成・フロントマター検証は別テストで行う
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //
@@ -16,18 +18,8 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import { installCommandMock, makeSuccessMock } from '../_helpers/deno-command-mock.ts';
 
 // test target
-import {
-  attachFrontmatter,
-  generateOutputFileName,
-  generateSegmentFile,
-  parseFrontmatter,
-  segmentChatlog,
-} from '../../normalize-chatlog.ts';
+import { segmentChatlog } from '../../normalize-chatlog.ts';
 import type { Segment } from '../../normalize-chatlog.ts';
-
-// ─── フロントマター検証対象フィールド ────────────────────────────────────────
-
-const FRONTMATTER_KEYS = ['title', 'log_id', 'summary'] as const;
 
 // ─── fixtures ルートパス ──────────────────────────────────────────────────────
 
@@ -60,31 +52,6 @@ async function _loadOutputSegment(filePath: string): Promise<Segment> {
     summary: _extractFrontmatterField(content, 'summary'),
     body: _extractBody(content),
   };
-}
-
-/** output-<N>.md の生テキストをそのまま返す */
-async function _loadOutputRaw(filePath: string): Promise<string> {
-  return await Deno.readTextFile(filePath);
-}
-
-/**
- * Segment と sourceMeta から attachFrontmatter + generateSegmentFile で
- * 期待される出力テキストを生成する。
- * hashFn に () => 'XXXXXXX' を渡すことで fixture の log_id と完全一致する。
- */
-async function _buildExpectedOutput(
-  segment: Segment,
-  sourceMeta: Record<string, string>,
-  inputPath: string,
-  index: number,
-): Promise<string> {
-  const log_id = (await generateOutputFileName(inputPath, index, () => 'XXXXXXX')).replace(/\.md$/, '');
-  const segmentContent = generateSegmentFile(segment);
-  return attachFrontmatter(segmentContent, sourceMeta, {
-    title: segment.title,
-    log_id,
-    summary: segment.summary,
-  });
 }
 
 /**
@@ -129,19 +96,15 @@ for (const _dirName of _fixtureDirs) {
     describe(`Given: ${_dirName}/input.md と ${_outputFiles.length} 件の output fixture`, () => {
       let _segments: Segment[];
       let _expectedSegments: Segment[];
-      let _expectedRaws: string[];
-      let _sourceMeta: Record<string, string>;
       let _mockHandle: ReturnType<typeof installCommandMock>;
 
       beforeEach(async () => {
         _expectedSegments = await Promise.all(_outputFiles.map(_loadOutputSegment));
-        _expectedRaws = await Promise.all(_outputFiles.map(_loadOutputRaw));
 
         const _stdout = new TextEncoder().encode(JSON.stringify(_expectedSegments));
         _mockHandle = installCommandMock(makeSuccessMock(_stdout));
 
         const _inputContent = await Deno.readTextFile(_inputPath);
-        _sourceMeta = parseFrontmatter(_inputContent).meta;
         const _result = await segmentChatlog(_inputPath, _inputContent);
         _segments = _result ?? [];
       });
@@ -170,20 +133,6 @@ for (const _dirName of _fixtureDirs) {
           it(`SF-${_dirName}-${_n}-body: segments[${_idx}].body が output-${_n} の Excerpt と一致する`, () => {
             assertEquals(_segments[_idx].body, _expectedSegments[_idx].body);
           });
-
-          it(`SF-${_dirName}-${_n}-output: 生成した本文が output-${_n}.md と完全一致する`, async () => {
-            const _actual = await _buildExpectedOutput(_segments[_idx], _sourceMeta, _inputPath, _idx);
-            assertEquals(_actual, _expectedRaws[_idx]);
-          });
-
-          for (const _key of FRONTMATTER_KEYS) {
-            it(`SF-${_dirName}-${_n}-frontmatter-${_key}: フロントマターの ${_key} が output-${_n} と一致する`, async () => {
-              const _actual = await _buildExpectedOutput(_segments[_idx], _sourceMeta, _inputPath, _idx);
-              const { meta: _actualMeta } = parseFrontmatter(_actual);
-              const { meta: _expectedMeta } = parseFrontmatter(_expectedRaws[_idx]);
-              assertEquals(_actualMeta[_key], _expectedMeta[_key]);
-            });
-          }
         }
       });
     });
