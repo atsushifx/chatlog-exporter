@@ -19,7 +19,7 @@ import type { LogCapture, LogSilencer } from '../_helpers/e2e-setup.ts';
 import { captureLog, makeTempDirs, removeTempDirs, silenceLog } from '../_helpers/e2e-setup.ts';
 
 // test target
-import { main } from '../../normalize-chatlog.ts';
+import { findMdFiles, main } from '../../normalize-chatlog.ts';
 import type { HashProvider } from '../../normalize-chatlog.ts';
 
 // ─── 再現性テスト ──────────────────────────────────────────────────────────────
@@ -79,12 +79,9 @@ describe('main - reproducibility', () => {
 
           assertMatch(logCapture.calls.join('\n'), /success=1/);
 
-          // Verify the old file was backed up as .old-01.md
-          const outputFiles: string[] = [];
-          for await (const entry of Deno.readDir(outputDir)) {
-            outputFiles.push(entry.name);
-          }
-          const backupExists = outputFiles.some((name) => name.includes('.old-01.md'));
+          // Verify the old file was backed up as .old-01.md (search recursively under outputDir)
+          const allFiles = findMdFiles(outputDir);
+          const backupExists = allFiles.some((path) => path.includes('.old-01.md'));
           assertEquals(backupExists, true);
         });
       });
