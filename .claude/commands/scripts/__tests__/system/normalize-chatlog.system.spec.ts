@@ -3,80 +3,21 @@
 // @(#): 実ファイルを使ったシステムテスト
 //       対象: segmentChatlog() — fixtures/chatlog/ の実 MD ファイルを入力として
 //             Deno.Command モック経由でセグメント配列を検証する
-//             （ファイル生成前にコンテンツを直接確認する）
-//       注意: S-01-01-06 のみ main() を使い入力ファイル不変 (R-010) を確認する
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //
 // This software is released under the MIT License.
-
-// cspell:words aplys
 
 // Deno Test module
 import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // test helpers
-import { findMdFiles } from '../../normalize-chatlog.ts';
-import { assertAllOutputFiles } from '../_helpers/output-validator.ts';
 import { installCommandMock, makeSuccessMock } from '../_helpers/deno-command-mock.ts';
 
 // test target
-import { main, segmentChatlog } from '../../normalize-chatlog.ts';
+import { segmentChatlog } from '../../normalize-chatlog.ts';
 import type { Segment } from '../../normalize-chatlog.ts';
-
-// ─── fixtures パス ────────────────────────────────────────────────────────────
-
-/** fixtures/chatlog/ に置いた実 chatlog ファイルのディレクトリ */
-const FIXTURE_DIR = new URL('../_fixtures/chatlog', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
-
-/** 事前生成済み出力を保存する固定ディレクトリ */
-const FIXTURE_OUTPUT_DIR = new URL('../_fixtures/chatlog/outputs', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
-
-// ─── system tests ─────────────────────────────────────────────────────────────
-
-/**
- * R-010 ガード確認のみ main() を使うシステムテスト。
- * 入力ファイルが main() 実行後も変化しないこと (R-010) を実 MD ファイルで検証する。
- * セグメント分割の詳細検証は S-02 の segmentChatlog ブロックで行う。
- */
-describe('main — 実ファイルを使った正規化パイプライン', () => {
-  /** S-01-01-06 のみ有効: 入力ファイル不変 (R-010) の確認 */
-  describe('Given: fixtures/chatlog/ に実 MD ファイルが 1 件存在する', () => {
-
-    describe('When: FIXTURE_OUTPUT_DIR に出力ファイルが存在する', () => {
-      describe('Then: S-01-01 - 実ファイルから正規化されたセグメント出力が生成される', () => {
-        it.ignore('S-01-01-01: outputDir に 1 件以上の .md ファイルが生成される', async () => {
-          const files = await findMdFiles(FIXTURE_OUTPUT_DIR);
-          assertEquals(files.length >= 1, true);
-        });
-
-        it.ignore('S-01-01-02: 各出力ファイルが YAML frontmatter (---\\n) で始まり ## Summary を含む', async () => {
-          const files = await findMdFiles(FIXTURE_OUTPUT_DIR);
-          await assertAllOutputFiles(files);
-        });
-
-        it.ignore('S-01-01-04: frontmatter に project フィールドが伝播している', async () => {
-          const files = await findMdFiles(FIXTURE_OUTPUT_DIR);
-          // 実ファイルの frontmatter に project: aplys があるため伝播するはず
-          await assertAllOutputFiles(files, { expectFrontmatterField: { key: 'project', value: 'aplys' } });
-        });
-
-        it.ignore('S-01-01-05: 処理結果レポートに success>=1 が含まれる（新規生成時のみ）', () => {
-          // main() ベーステストは S-02 に移行済みのためスキップ
-        });
-
-        it('S-01-01-06: 入力ファイルの内容が main() 実行後も変化しない (R-010)', async () => {
-          const inputFile = `${FIXTURE_DIR}/system-fixture-chatlog.md`;
-          const content = await Deno.readTextFile(inputFile);
-          // frontmatter が存在し session_id を含む基本構造であることを確認
-          assertEquals(content.startsWith('---\n'), true);
-          assertEquals(content.includes('session_id:'), true);
-        });
-      });
-    });
-  });
-});
 
 // ─── S-02: segmentChatlog セグメント配列の検証 ──────────────────────────────────
 
