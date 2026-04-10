@@ -181,6 +181,7 @@ describe('runAI', () => {
 
           assertEquals(captured.value, [
             '-p',
+            '--system-prompt',
             'You are a helper.',
             '--output-format',
             'text',
@@ -192,6 +193,21 @@ describe('runAI', () => {
             '--model',
             'claude-sonnet-4-6',
           ]);
+        });
+
+        it('-p と --system-prompt が分離されており systemPrompt が -p の引数になっていない', async () => {
+          const captured = { value: [] as string[] };
+          const mock = makeSuccessMock(new TextEncoder().encode('ok'), captured);
+          (Deno as unknown as Record<string, unknown>).Command = mock;
+
+          await runAI('claude-sonnet-4-6', 'You are a helper.', 'Summarize this');
+
+          const pIdx = captured.value.indexOf('-p');
+          const spIdx = captured.value.indexOf('--system-prompt');
+          // -p は単独フラグ（直後が --system-prompt であること）
+          assertEquals(captured.value[pIdx + 1], '--system-prompt');
+          // --system-prompt の直後に systemPrompt の値があること
+          assertEquals(captured.value[spIdx + 1], 'You are a helper.');
         });
       });
     });

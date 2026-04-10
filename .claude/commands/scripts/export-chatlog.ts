@@ -208,7 +208,7 @@ function renderMarkdown(meta: SessionMeta, turns: Turn[]): string {
     const label = turn.role === 'user' ? 'User' : 'Assistant';
     lines.push(`### ${label}`);
     lines.push('');
-    lines.push(turn.text.trim());
+    lines.push(turn.text.trim().replace(/\n{3,}/g, '\n\n'));
     lines.push('');
   }
   return lines.join('\n');
