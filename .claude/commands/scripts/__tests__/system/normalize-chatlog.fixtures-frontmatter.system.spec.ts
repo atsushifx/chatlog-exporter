@@ -3,7 +3,9 @@
 // @(#): ファイル駆動システムテスト（フロントマター検証）
 //       対象: attachFrontmatter() — _fixtures/runai-frontmatter/ 下の各ディレクトリを自動スキャンし
 //             同一ディレクトリの input.md を入力、output-<N>.md を期待フロントマターとして各フィールドを照合する
-//       責務: フロントマターフィールド（title / log_id / summary）の完全一致のみ検証する
+//       責務: フロントマターフィールド（title / summary）の完全一致のみ検証する
+//             log_id は generateOutputFileName() が生成するランダム値を含むため、このテストでは検証しない
+//             log_id の生成ルールは normalize-chatlog.file-gen.unit.spec.ts で検証する
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //
@@ -27,7 +29,8 @@ import type { Segment } from '../../normalize-chatlog.ts';
 
 // ─── フロントマター検証対象フィールド ────────────────────────────────────────
 
-const FRONTMATTER_KEYS = ['title', 'log_id', 'summary'] as const;
+// log_id はランダムハッシュを含むためここでは検証しない（file-gen.unit.spec.ts で検証）
+const FRONTMATTER_KEYS = ['title', 'summary'] as const;
 
 // ─── fixtures ルートパス ──────────────────────────────────────────────────────
 
@@ -55,22 +58,18 @@ async function _loadOutputSegment(filePath: string): Promise<Segment> {
 /**
  * Segment と sourceMeta から attachFrontmatter + generateSegmentFile で
  * フロントマター付き出力テキストを生成する。
- * log_id は frontmatter fixture から直接読み取った値を注入する。
+ * log_id は検証対象外のためダミー値を使用する。
  */
 function _buildOutput(
   segment: Segment,
   sourceMeta: Record<string, string>,
-  fixtureDir: string,
-): (fixtureContent: string) => string {
-  return (fixtureContent: string) => {
-    const log_id = _extractFrontmatterField(fixtureContent, 'log_id');
-    const segmentContent = generateSegmentFile(segment);
-    return attachFrontmatter(segmentContent, sourceMeta, {
-      title: segment.title,
-      log_id,
-      summary: segment.summary,
-    });
-  };
+): string {
+  const segmentContent = generateSegmentFile(segment);
+  return attachFrontmatter(segmentContent, sourceMeta, {
+    title: segment.title,
+    log_id: 'dummy',
+    summary: segment.summary,
+  });
 }
 
 /**
@@ -111,6 +110,9 @@ for (const _dirName of _fixtureDirs) {
   const _inputPath = `${_frontmatterDir}/input.md`;
   const _outputFiles = await _collectOutputFiles(_frontmatterDir);
 
+  // output-*.md が存在しないディレクトリはスキップ（異常系フィクスチャ等）
+  if (_outputFiles.length === 0) continue;
+
   describe(`attachFrontmatter — runai-frontmatter/${_dirName}`, () => {
     describe(`Given: ${_dirName}/input.md と ${_outputFiles.length} 件の frontmatter fixture`, () => {
       let _segments: Segment[];
@@ -145,8 +147,7 @@ for (const _dirName of _fixtureDirs) {
 
           for (const _key of FRONTMATTER_KEYS) {
             it(`SFF-${_dirName}-${_n}-${_key}: フロントマターの ${_key} が output-${_n} と一致する`, () => {
-              const _build = _buildOutput(_segments[_idx], _sourceMeta, _frontmatterDir);
-              const _actual = _build(_fixtureContents[_idx]);
+              const _actual = _buildOutput(_segments[_idx], _sourceMeta);
               const { meta: _actualMeta } = parseFrontmatter(_actual);
               const { meta: _expectedMeta } = parseFrontmatter(_fixtureContents[_idx]);
               assertEquals(_actualMeta[_key], _expectedMeta[_key]);
