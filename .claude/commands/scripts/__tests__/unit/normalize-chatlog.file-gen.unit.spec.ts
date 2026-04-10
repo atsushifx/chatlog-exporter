@@ -32,61 +32,49 @@ import {
 describe('withConcurrency', () => {
   /** 正常系: 並列数内のタスクを全件処理し、入力インデックス順に結果を返す */
   describe('[正常] Normal Cases', () => {
-    describe('Given: タスク配列と並列数が与えられる', () => {
-      describe('When: withConcurrency(tasks, concurrency) を呼び出す', () => {
-        describe('Then: Task T-01-01 - 並列実行の基本動作', () => {
-          it('T-01-01-01: Given 4タスク並列数4, When withConcurrency, Then 全4件が入力順に返る', async () => {
-            const tasks = [
-              () => Promise.resolve(1),
-              () => Promise.resolve(2),
-              () => Promise.resolve(3),
-              () => Promise.resolve(4),
-            ];
+    it('T-01-01-01: Given 4タスク並列数4, When withConcurrency, Then 全4件が入力順に返る', async () => {
+      const tasks = [
+        () => Promise.resolve(1),
+        () => Promise.resolve(2),
+        () => Promise.resolve(3),
+        () => Promise.resolve(4),
+      ];
 
-            const result = await withConcurrency(tasks, 4);
+      const result = await withConcurrency(tasks, 4);
 
-            assertEquals(result, [1, 2, 3, 4]);
-          });
+      assertEquals(result, [1, 2, 3, 4]);
+    });
 
-          it('T-01-01-02: Given 6タスク(遅延時間が異なる)並列数2, When withConcurrency, Then 完了順に関わらず入力インデックス順に返る', async () => {
-            const tasks = [0, 1, 2, 3, 4, 5].map((i) => () =>
-              new Promise<number>((resolve) => setTimeout(() => resolve(i), (6 - i) * 10))
-            );
+    it('T-01-01-02: Given 6タスク(遅延時間が異なる)並列数2, When withConcurrency, Then 完了順に関わらず入力インデックス順に返る', async () => {
+      const tasks = [0, 1, 2, 3, 4, 5].map((i) => () =>
+        new Promise<number>((resolve) => setTimeout(() => resolve(i), (6 - i) * 10))
+      );
 
-            const result = await withConcurrency(tasks, 2);
+      const result = await withConcurrency(tasks, 2);
 
-            assertEquals(result, [0, 1, 2, 3, 4, 5]);
-          });
-        });
-      });
+      assertEquals(result, [0, 1, 2, 3, 4, 5]);
     });
   });
 
   /** エッジケース: 空配列・並列数超過など境界条件でも正常動作する */
   describe('[エッジケース] Edge Cases', () => {
-    describe('Given: 空配列または並列数がタスク数を超えるケース', () => {
-      describe('When: withConcurrency(tasks, concurrency) を呼び出す', () => {
-        describe('Then: Task T-01-02 - エッジケースの処理', () => {
-          it('T-01-02-01: Given 空のタスク配列と並列数4, When withConcurrency, Then エラーなく空配列が返される', async () => {
-            const tasks: (() => Promise<never>)[] = [];
+    it('T-01-02-01: Given 空のタスク配列と並列数4, When withConcurrency, Then エラーなく空配列が返される', async () => {
+      const tasks: (() => Promise<never>)[] = [];
 
-            const result = await withConcurrency(tasks, 4);
+      const result = await withConcurrency(tasks, 4);
 
-            assertEquals(result, []);
-          });
+      assertEquals(result, []);
+    });
 
-          it('T-01-02-02: Given 2タスクと並列数10, When withConcurrency, Then 両タスクが完了し結果が返される', async () => {
-            const tasks = [
-              () => Promise.resolve('a'),
-              () => Promise.resolve('b'),
-            ];
+    it('T-01-02-02: Given 2タスクと並列数10, When withConcurrency, Then 両タスクが完了し結果が返される', async () => {
+      const tasks = [
+        () => Promise.resolve('a'),
+        () => Promise.resolve('b'),
+      ];
 
-            const result = await withConcurrency(tasks, 10);
+      const result = await withConcurrency(tasks, 10);
 
-            assertEquals(result, ['a', 'b']);
-          });
-        });
-      });
+      assertEquals(result, ['a', 'b']);
     });
   });
 });
@@ -128,97 +116,81 @@ describe('generateOutputFileName', () => {
 
   /** 正常系: `<baseName>-<XX>-<hash7>.md` 形式のファイル名を返す */
   describe('Given: 標準的な chatlog ファイルパスと index', () => {
-    describe('When: generateOutputFileName(filePath, index) を呼び出す', () => {
-      describe('Then: Task T-06-01 - 標準的なファイル名生成', () => {
-        it('T-06-01-01: index=0 のとき <baseName>-01-<hash7>.md 形式のファイル名を返す', async () => {
-          const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
+    it('T-06-01-01: index=0 のとき <baseName>-01-<hash7>.md 形式のファイル名を返す', async () => {
+      const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
 
-          const result = await generateOutputFileName(filePath, 0);
+      const result = await generateOutputFileName(filePath, 0);
 
-          assertMatch(result, /^test-file-01-[0-9a-f]{7}\.md$/);
-        });
+      assertMatch(result, /^test-file-01-[0-9a-f]{7}\.md$/);
+    });
 
-        it('T-06-01-02: index=1 のとき連番が "02" になる', async () => {
-          const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
+    it('T-06-01-02: index=1 のとき連番が "02" になる', async () => {
+      const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
 
-          const result = await generateOutputFileName(filePath, 1);
+      const result = await generateOutputFileName(filePath, 1);
 
-          assertMatch(result, /^test-file-02-[0-9a-f]{7}\.md$/);
-        });
+      assertMatch(result, /^test-file-02-[0-9a-f]{7}\.md$/);
+    });
 
-        it('T-06-01-03: index=9 のとき連番が "10" になる', async () => {
-          const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
+    it('T-06-01-03: index=9 のとき連番が "10" になる', async () => {
+      const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
 
-          const result = await generateOutputFileName(filePath, 9);
+      const result = await generateOutputFileName(filePath, 9);
 
-          assertMatch(result, /^test-file-10-[0-9a-f]{7}\.md$/);
-        });
-      });
+      assertMatch(result, /^test-file-10-[0-9a-f]{7}\.md$/);
     });
   });
 
   /** 正常系: スタブ固定 + 日付固定で同一入力が同一結果を返す（再現性） */
   describe('Given: crypto と Date をスタブして固定した状態', () => {
-    describe('When: 同一 filePath と同一 index で 2 回呼び出す', () => {
-      describe('Then: Task T-06-02 - スタブによる再現性', () => {
-        it('T-06-02-01: 同一タイムスタンプと固定ランダム値で常に同じファイル名が返る', async () => {
-          const dateStubs = [
-            stub(Date.prototype, 'getFullYear', () => 2026),
-            stub(Date.prototype, 'getMonth', () => 2),
-            stub(Date.prototype, 'getDate', () => 11),
-            stub(Date.prototype, 'getHours', () => 10),
-            stub(Date.prototype, 'getMinutes', () => 30),
-            stub(Date.prototype, 'getSeconds', () => 0),
-          ];
+    it('T-06-02-01: 同一タイムスタンプと固定ランダム値で常に同じファイル名が返る', async () => {
+      const dateStubs = [
+        stub(Date.prototype, 'getFullYear', () => 2026),
+        stub(Date.prototype, 'getMonth', () => 2),
+        stub(Date.prototype, 'getDate', () => 11),
+        stub(Date.prototype, 'getHours', () => 10),
+        stub(Date.prototype, 'getMinutes', () => 30),
+        stub(Date.prototype, 'getSeconds', () => 0),
+      ];
 
-          try {
-            const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
+      try {
+        const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
 
-            const first = await generateOutputFileName(filePath, 0);
-            const second = await generateOutputFileName(filePath, 0);
+        const first = await generateOutputFileName(filePath, 0);
+        const second = await generateOutputFileName(filePath, 0);
 
-            assertEquals(first, second);
-            assertMatch(first, /^test-file-01-[0-9a-f]{7}\.md$/);
-          } finally {
-            dateStubs.forEach((s) => s.restore());
-          }
-        });
-      });
+        assertEquals(first, second);
+        assertMatch(first, /^test-file-01-[0-9a-f]{7}\.md$/);
+      } finally {
+        dateStubs.forEach((s) => s.restore());
+      }
     });
   });
 
   /** 正常系: スタブなしで同一入力でも異なるハッシュが生成される（ランダム性） */
   describe('Given: crypto.getRandomValues をスタブせず実際の乱数を使う', () => {
-    describe('When: 同一 filePath と同一 index で 2 回連続して呼び出す', () => {
-      describe('Then: Task T-06-03 - ランダム性によるハッシュの変化', () => {
-        it('T-06-03-01: スタブなしで 2 回呼ぶと異なるファイル名が生成される', async () => {
-          cryptoStub!.restore();
-          cryptoStub = null;
-          const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
+    it('T-06-03-01: スタブなしで 2 回呼ぶと異なるファイル名が生成される', async () => {
+      cryptoStub!.restore();
+      cryptoStub = null;
+      const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
 
-          const first = await generateOutputFileName(filePath, 0);
-          const second = await generateOutputFileName(filePath, 0);
+      const first = await generateOutputFileName(filePath, 0);
+      const second = await generateOutputFileName(filePath, 0);
 
-          assertNotEquals(first, second);
-          assertMatch(first, /^test-file-01-[0-9a-f]{7}\.md$/);
-          assertMatch(second, /^test-file-01-[0-9a-f]{7}\.md$/);
-        });
-      });
+      assertNotEquals(first, second);
+      assertMatch(first, /^test-file-01-[0-9a-f]{7}\.md$/);
+      assertMatch(second, /^test-file-01-[0-9a-f]{7}\.md$/);
     });
   });
 
   /** 正常系: 末尾ハッシュ付きのソースファイルでもベース名が正しく抽出される */
   describe('Given: 末尾に -XXXXXXX ハッシュを含むソースファイルパス', () => {
-    describe('When: generateOutputFileName(filePath, 0) を呼び出す', () => {
-      describe('Then: Task T-06-04 - ハッシュ付きソースファイルのベース名処理', () => {
-        it('T-06-04-01: ソースの末尾ハッシュを除去したベース名で出力名を生成する', async () => {
-          const filePath = 'temp/chatlog/claude/2026/2026-03/2026-03-11-topic-abc1234.md';
+    it('T-06-04-01: ソースの末尾ハッシュを除去したベース名で出力名を生成する', async () => {
+      const filePath = 'temp/chatlog/claude/2026/2026-03/2026-03-11-topic-abc1234.md';
 
-          const result = await generateOutputFileName(filePath, 0);
+      const result = await generateOutputFileName(filePath, 0);
 
-          assertMatch(result, /^2026-03-11-topic-01-[0-9a-f]{7}\.md$/);
-        });
-      });
+      assertMatch(result, /^2026-03-11-topic-01-[0-9a-f]{7}\.md$/);
     });
   });
 });
@@ -232,48 +204,36 @@ describe('generateOutputFileName', () => {
  */
 describe('generateSegmentFile', () => {
   /** 正常系: summary フィールドが `## Summary` セクションとして出力される */
-  describe('Given: { title: "Fix CI pipeline", summary: "Fix CI pipeline", body: "### User\\nHow do I fix CI?" } を持つセグメントオブジェクト', () => {
-    describe('When: generateSegmentFile を呼び出す', () => {
-      describe('Then: Task T-11-01 - セグメントファイルの MD コンテンツ生成', () => {
-        it('T-11-01-01: 返却文字列に `## Summary\\nFix CI pipeline` が含まれる', () => {
-          const seg = { title: 'Fix CI pipeline', summary: 'Fix CI pipeline', body: '### User\nHow do I fix CI?' };
+  describe('Given: { title: "Fix CI pipeline", summary: "Fix CI pipeline", body: "..." } を持つセグメント', () => {
+    it('T-11-01-01: 返却文字列に `## Summary\\nFix CI pipeline` が含まれる', () => {
+      const seg = { title: 'Fix CI pipeline', summary: 'Fix CI pipeline', body: '### User\nHow do I fix CI?' };
 
-          const result = generateSegmentFile(seg);
+      const result = generateSegmentFile(seg);
 
-          assertEquals(result.includes('## Summary\n\nFix CI pipeline'), true);
-        });
-      });
+      assertEquals(result.includes('## Summary\n\nFix CI pipeline'), true);
     });
   });
 
   /** 正常系: body フィールドが START_BODY_HEADING セクションとして出力される */
-  describe('Given: { title: "Debug session", summary: "Debug session", body: "### User\\nHow do I..." } を持つセグメントオブジェクト', () => {
-    describe('When: generateSegmentFile を呼び出す', () => {
-      describe('Then: Task T-11-01 - セグメントファイルの MD コンテンツ生成', () => {
-        it('T-11-01-02: 返却文字列に START_BODY_HEADING + "\\n### User\\nHow do I..." が含まれる', () => {
-          const seg = { title: 'Debug session', summary: 'Debug session', body: '### User\nHow do I...' };
+  describe('Given: { title: "Debug session", summary: "Debug session", body: "..." } を持つセグメント', () => {
+    it('T-11-01-02: 返却文字列に START_BODY_HEADING + "\\n### User\\nHow do I..." が含まれる', () => {
+      const seg = { title: 'Debug session', summary: 'Debug session', body: '### User\nHow do I...' };
 
-          const result = generateSegmentFile(seg);
+      const result = generateSegmentFile(seg);
 
-          assertEquals(result.includes(START_BODY_HEADING + '\n\n### User\nHow do I...'), true);
-        });
-      });
+      assertEquals(result.includes(START_BODY_HEADING + '\n\n### User\nHow do I...'), true);
     });
   });
 
   /** エッジケース: 全フィールドが空でも `## Summary` と START_BODY_HEADING 見出しを含む文字列を返す */
   describe('Given: { title: "", summary: "", body: "" } を持つセグメント', () => {
-    describe('When: generateSegmentFile を呼び出す', () => {
-      describe('Then: Task T-11-02 - 空フィールド', () => {
-        it('T-11-02-01: 返却文字列に `## Summary` と START_BODY_HEADING の両セクション見出しが含まれる', () => {
-          const seg = { title: '', summary: '', body: '' };
+    it('T-11-02-01: 返却文字列に `## Summary` と START_BODY_HEADING の両セクション見出しが含まれる', () => {
+      const seg = { title: '', summary: '', body: '' };
 
-          const result = generateSegmentFile(seg);
+      const result = generateSegmentFile(seg);
 
-          assertEquals(result.includes('## Summary'), true);
-          assertEquals(result.includes(START_BODY_HEADING), true);
-        });
-      });
+      assertEquals(result.includes('## Summary'), true);
+      assertEquals(result.includes(START_BODY_HEADING), true);
     });
   });
 });
@@ -288,79 +248,67 @@ describe('generateSegmentFile', () => {
 describe('attachFrontmatter', () => {
   /** 正常系: sourceMeta の project フィールドを引き継ぎ、AI 生成フィールドを付加する */
   describe('Given: project を含む sourceMeta と title・log_id・summary を含む segmentMeta', () => {
-    describe('When: attachFrontmatter(content, sourceMeta, segmentMeta) を呼び出す', () => {
-      describe('Then: Task T-12-01 - ソースメタデータ引き継ぎによるフロントマター合成', () => {
-        it('T-12-01-01: 出力フロントマターに project: ci-platform が含まれる', () => {
-          const sourceMeta = { project: 'ci-platform', date: '2026-03-01' };
-          const segmentMeta = { title: 'Fix CI', log_id: 'abc1234', summary: 'CI fix' };
-          const content = '## Summary\nFix CI';
+    it('T-12-01-01: 出力フロントマターに project: ci-platform が含まれる', () => {
+      const sourceMeta = { project: 'ci-platform', date: '2026-03-01' };
+      const segmentMeta = { title: 'Fix CI', log_id: 'abc1234', summary: 'CI fix' };
+      const content = '## Summary\nFix CI';
 
-          const result = attachFrontmatter(content, sourceMeta, segmentMeta);
+      const result = attachFrontmatter(content, sourceMeta, segmentMeta);
 
-          assertEquals(result.includes('project: ci-platform'), true);
-        });
+      assertEquals(result.includes('project: ci-platform'), true);
+    });
 
-        it('T-12-01-02: 出力フロントマターに title・log_id・summary が含まれる', () => {
-          const sourceMeta = { project: 'ci-platform' };
-          const segmentMeta = { title: 'Fix CI', log_id: 'abc1234', summary: 'CI fix' };
-          const content = '## Summary\nFix CI';
+    it('T-12-01-02: 出力フロントマターに title・log_id・summary が含まれる', () => {
+      const sourceMeta = { project: 'ci-platform' };
+      const segmentMeta = { title: 'Fix CI', log_id: 'abc1234', summary: 'CI fix' };
+      const content = '## Summary\nFix CI';
 
-          const result = attachFrontmatter(content, sourceMeta, segmentMeta);
+      const result = attachFrontmatter(content, sourceMeta, segmentMeta);
 
-          assertEquals(result.includes('title: Fix CI'), true);
-          assertEquals(result.includes('log_id: abc1234'), true);
-          assertEquals(result.includes('summary: CI fix'), true);
-        });
-      });
+      assertEquals(result.includes('title: Fix CI'), true);
+      assertEquals(result.includes('log_id: abc1234'), true);
+      assertEquals(result.includes('summary: CI fix'), true);
     });
   });
 
   /** エッジケース: sourceMeta が空の場合は AI 生成フィールドのみを含む */
   describe('Given: 空の sourceMeta と title・log_id・summary を含む segmentMeta', () => {
-    describe('When: attachFrontmatter(content, {}, segmentMeta) を呼び出す', () => {
-      describe('Then: Task T-12-02 - ソースフロントマターなし', () => {
-        it('T-12-02-01: 出力フロントマターが AI 生成フィールド（title・log_id・summary）のみを含む', () => {
-          const sourceMeta = {};
-          const segmentMeta = { title: 'Topic', log_id: 'aaabbbb', summary: 'Summary' };
-          const content = '## Summary\nTopic content';
+    it('T-12-02-01: 出力フロントマターが AI 生成フィールド（title・log_id・summary）のみを含む', () => {
+      const sourceMeta = {};
+      const segmentMeta = { title: 'Topic', log_id: 'aaabbbb', summary: 'Summary' };
+      const content = '## Summary\nTopic content';
 
-          const result = attachFrontmatter(content, sourceMeta, segmentMeta);
+      const result = attachFrontmatter(content, sourceMeta, segmentMeta);
 
-          assertEquals(result.includes('title: Topic'), true);
-          assertEquals(result.includes('log_id: aaabbbb'), true);
-          assertEquals(result.includes('summary: Summary'), true);
-          assertEquals(result.includes('project:'), false);
-        });
-      });
+      assertEquals(result.includes('title: Topic'), true);
+      assertEquals(result.includes('log_id: aaabbbb'), true);
+      assertEquals(result.includes('summary: Summary'), true);
+      assertEquals(result.includes('project:'), false);
     });
   });
 
   /** 正常系: 出力が `---` デリミタで囲まれた有効な Markdown フロントマターになる */
   describe('Given: 任意の sourceMeta と segmentMeta', () => {
-    describe('When: attachFrontmatter(content, sourceMeta, segmentMeta) を呼び出す', () => {
-      describe('Then: Task T-12-03 - フロントマターデリミタ', () => {
-        it('T-12-03-01: 出力が `---\\n` で始まりフロントマターブロックが `\\n---\\n` で終わる', () => {
-          const sourceMeta = { project: 'test' };
-          const segmentMeta = { title: 'T', log_id: 'x', summary: 'S' };
-          const content = '## Summary\ntext';
+    it('T-12-03-01: 出力が `---\\n` で始まりフロントマターブロックが `\\n---\\n` で終わる', () => {
+      const sourceMeta = { project: 'test' };
+      const segmentMeta = { title: 'T', log_id: 'x', summary: 'S' };
+      const content = '## Summary\ntext';
 
-          const result = attachFrontmatter(content, sourceMeta, segmentMeta);
+      const result = attachFrontmatter(content, sourceMeta, segmentMeta);
 
-          assertEquals(result.startsWith('---\n'), true);
-          assertEquals(result.includes('\n---\n'), true);
-        });
+      assertEquals(result.startsWith('---\n'), true);
+      assertEquals(result.includes('\n---\n'), true);
+    });
 
-        it('T-12-03-02: コンテンツボディがフロントマターブロックの後に重複なく続く', () => {
-          const sourceMeta = {};
-          const segmentMeta = { title: 'T', log_id: 'x', summary: 'S' };
-          const content = '## Summary\ntext';
+    it('T-12-03-02: コンテンツボディがフロントマターブロックの後に重複なく続く', () => {
+      const sourceMeta = {};
+      const segmentMeta = { title: 'T', log_id: 'x', summary: 'S' };
+      const content = '## Summary\ntext';
 
-          const result = attachFrontmatter(content, sourceMeta, segmentMeta);
+      const result = attachFrontmatter(content, sourceMeta, segmentMeta);
 
-          const contentOccurrences = result.split('## Summary\ntext').length - 1;
-          assertEquals(contentOccurrences, 1);
-        });
-      });
+      const contentOccurrences = result.split('## Summary\ntext').length - 1;
+      assertEquals(contentOccurrences, 1);
     });
   });
 });
