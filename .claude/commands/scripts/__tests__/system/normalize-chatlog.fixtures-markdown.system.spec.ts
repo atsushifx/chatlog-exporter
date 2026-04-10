@@ -90,8 +90,18 @@ for (const _dirName of _fixtureDirs) {
   const _inputPath = `${_bodyDir}/input.md`;
   const _bodyOutputFiles = await _collectOutputFiles(_bodyDir);
 
-  // output-*.md が存在しないディレクトリはスキップ（異常系フィクスチャ等）
-  if (_bodyOutputFiles.length === 0) continue;
+  // output-*.md が存在しないディレクトリはフィクスチャ欠損としてテスト失敗させる
+  if (_bodyOutputFiles.length === 0) {
+    describe(`generateSegmentFile — runai-body/${_dirName}`, () => {
+      it(`SFM-${_dirName}-fixture-error: output-*.md が存在しない（フィクスチャ定義漏れ）`, () => {
+        throw new Error(
+          `runai-body/${_dirName} に output-*.md がありません。` +
+            `正常系なら output-N.md を、異常系なら runai-segments/error/ で管理してください。`,
+        );
+      });
+    });
+    continue;
+  }
 
   describe(`generateSegmentFile — runai-body/${_dirName}`, () => {
     describe(`Given: ${_dirName}/input.md と ${_bodyOutputFiles.length} 件の body fixture`, () => {
