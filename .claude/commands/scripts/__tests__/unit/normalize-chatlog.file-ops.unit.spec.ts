@@ -62,101 +62,77 @@ function makeThrowingReadDir(): (path: string | URL) => Iterable<Deno.DirEntry> 
 describe('collectMdFiles', () => {
   /** 正常系: .md ファイルのみが results に追加される */
   describe('[正常] Normal Cases', () => {
-    describe('Given: .md ファイルと .txt ファイルが混在するディレクトリ', () => {
-      describe('When: collectMdFiles(dir, results, fakeReadDir) を呼び出す', () => {
-        describe('Then: Task T-CMF-01 - .md ファイルのみが収集される', () => {
-          it('T-CMF-01-01: .md ファイルのみが results に追加される', () => {
-            // arrange
-            const fakeReadDir = makeFakeReadDir([
-              { name: 'chat1.md', isFile: true, isDirectory: false, isSymlink: false },
-              { name: 'notes.txt', isFile: true, isDirectory: false, isSymlink: false },
-              { name: 'readme.md', isFile: true, isDirectory: false, isSymlink: false },
-              { name: 'image.png', isFile: true, isDirectory: false, isSymlink: false },
-            ]);
-            const results: string[] = [];
+    it('T-CMF-01-01: .md ファイルのみが results に追加される', () => {
+      // arrange
+      const fakeReadDir = makeFakeReadDir([
+        { name: 'chat1.md', isFile: true, isDirectory: false, isSymlink: false },
+        { name: 'notes.txt', isFile: true, isDirectory: false, isSymlink: false },
+        { name: 'readme.md', isFile: true, isDirectory: false, isSymlink: false },
+        { name: 'image.png', isFile: true, isDirectory: false, isSymlink: false },
+      ]);
+      const results: string[] = [];
 
-            // act
-            collectMdFiles('testdir', results, fakeReadDir);
+      // act
+      collectMdFiles('testdir', results, fakeReadDir);
 
-            // assert
-            assertEquals(results, ['testdir/chat1.md', 'testdir/readme.md']);
-          });
-        });
-      });
+      // assert
+      assertEquals(results, ['testdir/chat1.md', 'testdir/readme.md']);
     });
 
-    describe('Given: サブディレクトリを含むディレクトリ構造', () => {
-      describe('When: collectMdFiles を呼び出す', () => {
-        describe('Then: Task T-CMF-02 - サブディレクトリを再帰的に収集する', () => {
-          it('T-CMF-02-01: サブディレクトリの .md ファイルも収集される', () => {
-            // arrange
-            const subDirEntries = [
-              { name: 'sub.md', isFile: true, isDirectory: false, isSymlink: false },
-            ];
-            const rootEntries = [
-              { name: 'root.md', isFile: true, isDirectory: false, isSymlink: false },
-              { name: 'subdir', isFile: false, isDirectory: true, isSymlink: false },
-            ];
-            const fakeReadDir = (path: string | URL): Iterable<Deno.DirEntry> => {
-              const pathStr = String(path);
-              const entries = pathStr.endsWith('subdir') ? subDirEntries : rootEntries;
-              return entries.map((e) => makeDirEntry(e.name, e)) as Iterable<Deno.DirEntry>;
-            };
-            const results: string[] = [];
+    it('T-CMF-02-01: サブディレクトリの .md ファイルも収集される', () => {
+      // arrange
+      const subDirEntries = [
+        { name: 'sub.md', isFile: true, isDirectory: false, isSymlink: false },
+      ];
+      const rootEntries = [
+        { name: 'root.md', isFile: true, isDirectory: false, isSymlink: false },
+        { name: 'subdir', isFile: false, isDirectory: true, isSymlink: false },
+      ];
+      const fakeReadDir = (path: string | URL): Iterable<Deno.DirEntry> => {
+        const pathStr = String(path);
+        const entries = pathStr.endsWith('subdir') ? subDirEntries : rootEntries;
+        return entries.map((e) => makeDirEntry(e.name, e)) as Iterable<Deno.DirEntry>;
+      };
+      const results: string[] = [];
 
-            // act
-            collectMdFiles('testdir', results, fakeReadDir);
+      // act
+      collectMdFiles('testdir', results, fakeReadDir);
 
-            // assert
-            assertEquals(results, ['testdir/root.md', 'testdir/subdir/sub.md']);
-          });
-        });
-      });
+      // assert
+      assertEquals(results, ['testdir/root.md', 'testdir/subdir/sub.md']);
     });
   });
 
   /** 異常系: 存在しないディレクトリは例外をスローせず何も追加しない */
   describe('[異常] Error Cases', () => {
-    describe('Given: 存在しないディレクトリパスが与えられる', () => {
-      describe('When: collectMdFiles を呼び出す', () => {
-        describe('Then: Task T-CMF-03 - 例外をスローせず results が空のまま', () => {
-          it('T-CMF-03-01: NotFound 例外をスローせず results に何も追加しない', () => {
-            // arrange
-            const throwingReadDir = makeThrowingReadDir();
-            const results: string[] = [];
+    it('T-CMF-03-01: NotFound 例外をスローせず results に何も追加しない', () => {
+      // arrange
+      const throwingReadDir = makeThrowingReadDir();
+      const results: string[] = [];
 
-            // act (例外がスローされないことを確認)
-            collectMdFiles('nonexistent/dir', results, throwingReadDir);
+      // act (例外がスローされないことを確認)
+      collectMdFiles('nonexistent/dir', results, throwingReadDir);
 
-            // assert
-            assertEquals(results, []);
-          });
-        });
-      });
+      // assert
+      assertEquals(results, []);
     });
   });
 
   /** エッジケース: .md ファイルが1件もないとき */
   describe('[エッジケース] Edge Cases', () => {
-    describe('Given: .md ファイルが1件もないディレクトリ', () => {
-      describe('When: collectMdFiles を呼び出す', () => {
-        describe('Then: Task T-CMF-04 - results が空のまま', () => {
-          it('T-CMF-04-01: .md ファイルがないとき results が空配列のまま', () => {
-            // arrange
-            const fakeReadDir = makeFakeReadDir([
-              { name: 'notes.txt', isFile: true, isDirectory: false, isSymlink: false },
-              { name: 'image.png', isFile: true, isDirectory: false, isSymlink: false },
-            ]);
-            const results: string[] = [];
+    it('T-CMF-04-01: .md ファイルがないとき results が空配列のまま', () => {
+      // arrange
+      const fakeReadDir = makeFakeReadDir([
+        { name: 'notes.txt', isFile: true, isDirectory: false, isSymlink: false },
+        { name: 'image.png', isFile: true, isDirectory: false, isSymlink: false },
+      ]);
+      const results: string[] = [];
 
-            // act
-            collectMdFiles('testdir', results, fakeReadDir);
+      // act
+      collectMdFiles('testdir', results, fakeReadDir);
 
-            // assert
-            assertEquals(results, []);
-          });
-        });
-      });
+      // assert
+      assertEquals(results, []);
     });
   });
 });
@@ -170,50 +146,38 @@ describe('collectMdFiles', () => {
 describe('findMdFiles', () => {
   /** 正常系: .md ファイルが複数あるとき、ソートされた配列を返す */
   describe('[正常] Normal Cases', () => {
-    describe('Given: 複数の .md ファイルを含むディレクトリ', () => {
-      describe('When: findMdFiles(dir, fakeReadDir) を呼び出す', () => {
-        describe('Then: Task T-FMF-01 - ソートされた .md ファイルパス配列を返す', () => {
-          it('T-FMF-01-01: ソートされた .md ファイルパスの配列を返す', () => {
-            // arrange
-            const fakeReadDir = makeFakeReadDir([
-              { name: 'chat-b.md', isFile: true, isDirectory: false, isSymlink: false },
-              { name: 'chat-a.md', isFile: true, isDirectory: false, isSymlink: false },
-              { name: 'notes.txt', isFile: true, isDirectory: false, isSymlink: false },
-              { name: 'chat-c.md', isFile: true, isDirectory: false, isSymlink: false },
-            ]);
+    it('T-FMF-01-01: ソートされた .md ファイルパスの配列を返す', () => {
+      // arrange
+      const fakeReadDir = makeFakeReadDir([
+        { name: 'chat-b.md', isFile: true, isDirectory: false, isSymlink: false },
+        { name: 'chat-a.md', isFile: true, isDirectory: false, isSymlink: false },
+        { name: 'notes.txt', isFile: true, isDirectory: false, isSymlink: false },
+        { name: 'chat-c.md', isFile: true, isDirectory: false, isSymlink: false },
+      ]);
 
-            // act
-            const result = findMdFiles('testdir', fakeReadDir);
+      // act
+      const result = findMdFiles('testdir', fakeReadDir);
 
-            // assert
-            assertEquals(result, [
-              'testdir/chat-a.md',
-              'testdir/chat-b.md',
-              'testdir/chat-c.md',
-            ]);
-          });
-        });
-      });
+      // assert
+      assertEquals(result, [
+        'testdir/chat-a.md',
+        'testdir/chat-b.md',
+        'testdir/chat-c.md',
+      ]);
     });
   });
 
   /** エッジケース: ディレクトリが空のとき、空配列を返す */
   describe('[エッジケース] Edge Cases', () => {
-    describe('Given: .md ファイルが存在しないディレクトリ', () => {
-      describe('When: findMdFiles を呼び出す', () => {
-        describe('Then: Task T-FMF-02 - 空配列を返す', () => {
-          it('T-FMF-02-01: ディレクトリが空のとき空配列を返す', () => {
-            // arrange
-            const fakeReadDir = makeFakeReadDir([]);
+    it('T-FMF-02-01: ディレクトリが空のとき空配列を返す', () => {
+      // arrange
+      const fakeReadDir = makeFakeReadDir([]);
 
-            // act
-            const result = findMdFiles('emptydir', fakeReadDir);
+      // act
+      const result = findMdFiles('emptydir', fakeReadDir);
 
-            // assert
-            assertEquals(result, []);
-          });
-        });
-      });
+      // assert
+      assertEquals(result, []);
     });
   });
 });
@@ -237,101 +201,77 @@ describe('writeOutput', () => {
 
   /** 正常系: dryRun=false のとき、ファイルが書き込まれ stats.success が 1 増える */
   describe('[正常] Normal Cases', () => {
-    describe('Given: dryRun=false で有効な outputPath が与えられる', () => {
-      describe('When: writeOutput を呼び出す', () => {
-        describe('Then: Task T-WO-01 - ファイルが書き込まれ stats.success が増える', () => {
-          it('T-WO-01-01: ファイルが書き込まれ stats.success が 1 増える', async () => {
-            // arrange
-            const outputPath = `${tmpDir}/output.md`;
-            const content = '# Test Content\nHello World';
-            const stats: Stats = { success: 0, skip: 0, fail: 0 };
+    it('T-WO-01-01: ファイルが書き込まれ stats.success が 1 増える', async () => {
+      // arrange
+      const outputPath = `${tmpDir}/output.md`;
+      const content = '# Test Content\nHello World';
+      const stats: Stats = { success: 0, skip: 0, fail: 0 };
 
-            // act
-            await writeOutput(outputPath, content, false, stats);
+      // act
+      await writeOutput(outputPath, content, false, stats);
 
-            // assert
-            const written = await Deno.readTextFile(outputPath);
-            assertEquals(written, content);
-            assertEquals(stats.success, 1);
-          });
-        });
-      });
+      // assert
+      const written = await Deno.readTextFile(outputPath);
+      assertEquals(written, content);
+      assertEquals(stats.success, 1);
     });
 
-    describe('Given: 既存ファイルが存在する outputPath が与えられる', () => {
-      describe('When: writeOutput を呼び出す', () => {
-        describe('Then: Task T-WO-02 - バックアップを作成して新ファイルを書く', () => {
-          it('T-WO-02-01: 既存ファイルが .old-01.md にバックアップされ新ファイルが書かれる', async () => {
-            // arrange
-            const outputPath = `${tmpDir}/output.md`;
-            const oldContent = 'old content';
-            const newContent = 'new content';
-            await Deno.writeTextFile(outputPath, oldContent);
-            const stats: Stats = { success: 0, skip: 0, fail: 0 };
+    it('T-WO-02-01: 既存ファイルが .old-01.md にバックアップされ新ファイルが書かれる', async () => {
+      // arrange
+      const outputPath = `${tmpDir}/output.md`;
+      const oldContent = 'old content';
+      const newContent = 'new content';
+      await Deno.writeTextFile(outputPath, oldContent);
+      const stats: Stats = { success: 0, skip: 0, fail: 0 };
 
-            // act
-            await writeOutput(outputPath, newContent, false, stats);
+      // act
+      await writeOutput(outputPath, newContent, false, stats);
 
-            // assert
-            const backupPath = `${tmpDir}/output.old-01.md`;
-            const backupContent = await Deno.readTextFile(backupPath);
-            const written = await Deno.readTextFile(outputPath);
-            assertEquals(backupContent, oldContent);
-            assertEquals(written, newContent);
-            assertEquals(stats.success, 1);
-          });
-        });
-      });
+      // assert
+      const backupPath = `${tmpDir}/output.old-01.md`;
+      const backupContent = await Deno.readTextFile(backupPath);
+      const written = await Deno.readTextFile(outputPath);
+      assertEquals(backupContent, oldContent);
+      assertEquals(written, newContent);
+      assertEquals(stats.success, 1);
     });
   });
 
   /** 異常系: dryRun=true のとき、ファイルは書き込まれず stats が変化しない */
   describe('[異常] Dry-run Cases', () => {
-    describe('Given: dryRun=true が指定される', () => {
-      describe('When: writeOutput を呼び出す', () => {
-        describe('Then: Task T-WO-03 - ファイルは書き込まれず stats.success が増えない', () => {
-          it('T-WO-03-01: dryRun=true のときファイルは書き込まれず stats.success が増えない', async () => {
-            // arrange
-            const outputPath = `${tmpDir}/output-dryrun.md`;
-            const stats: Stats = { success: 0, skip: 0, fail: 0 };
+    it('T-WO-03-01: dryRun=true のときファイルは書き込まれず stats.success が増えない', async () => {
+      // arrange
+      const outputPath = `${tmpDir}/output-dryrun.md`;
+      const stats: Stats = { success: 0, skip: 0, fail: 0 };
 
-            // act
-            await writeOutput(outputPath, 'content', true, stats);
+      // act
+      await writeOutput(outputPath, 'content', true, stats);
 
-            // assert
-            let fileExists = true;
-            try {
-              await Deno.stat(outputPath);
-            } catch {
-              fileExists = false;
-            }
-            assertEquals(fileExists, false);
-            assertEquals(stats.success, 0);
-          });
-        });
-      });
+      // assert
+      let fileExists = true;
+      try {
+        await Deno.stat(outputPath);
+      } catch {
+        fileExists = false;
+      }
+      assertEquals(fileExists, false);
+      assertEquals(stats.success, 0);
     });
   });
 
   /** 異常系: R-010 ガード — outputPath に temp/chatlog/ が含まれるとき Error をスロー */
   describe('[異常] R-010 Guard Cases', () => {
-    describe('Given: outputPath が temp/chatlog/ を含む', () => {
-      describe('When: writeOutput を呼び出す', () => {
-        describe('Then: Task T-WO-04 - R-010 ガードで Error をスローする', () => {
-          it('T-WO-04-01: outputPath に temp/chatlog/ が含まれるとき Error をスロー', async () => {
-            // arrange
-            const outputPath = 'temp/chatlog/agent/2026/2026-01/output.md';
-            const stats: Stats = { success: 0, skip: 0, fail: 0 };
+    it('T-WO-04-01: outputPath に temp/chatlog/ が含まれるとき Error をスロー', async () => {
+      // arrange
+      const outputPath = 'temp/chatlog/agent/2026/2026-01/output.md';
+      const stats: Stats = { success: 0, skip: 0, fail: 0 };
 
-            // act & assert
-            await assertRejects(
-              () => writeOutput(outputPath, 'content', false, stats),
-              Error,
-              'R-010',
-            );
-          });
-        });
-      });
+      // act & assert
+      await assertRejects(
+        () => writeOutput(outputPath, 'content', false, stats),
+        Error,
+        'R-010',
+      );
     });
   });
 });
@@ -353,92 +293,68 @@ describe('segmentChatlog', () => {
 
   /** 正常系: AI が有効な JSON 配列を返すとき Segment 配列を返す */
   describe('[正常] Normal Cases', () => {
-    describe('Given: AI が有効な JSON 配列を返す', () => {
-      describe('When: segmentChatlog(filePath, content) を呼び出す', () => {
-        describe('Then: Task T-SC-01 - Segment 配列を返す', () => {
-          it('T-SC-01-01: AI が有効な JSON 配列を返すとき Segment 配列を返す', async () => {
-            // arrange
-            const segments = [
-              { title: 'Topic 1', summary: 'Summary 1', body: 'Body 1' },
-              { title: 'Topic 2', summary: 'Summary 2', body: 'Body 2' },
-            ];
-            const stdout = new TextEncoder().encode(JSON.stringify(segments));
-            mockHandle = installCommandMock(makeSuccessMock(stdout));
+    it('T-SC-01-01: AI が有効な JSON 配列を返すとき Segment 配列を返す', async () => {
+      // arrange
+      const segments = [
+        { title: 'Topic 1', summary: 'Summary 1', body: 'Body 1' },
+        { title: 'Topic 2', summary: 'Summary 2', body: 'Body 2' },
+      ];
+      const stdout = new TextEncoder().encode(JSON.stringify(segments));
+      mockHandle = installCommandMock(makeSuccessMock(stdout));
 
-            // act
-            const result = await segmentChatlog('test.md', 'content');
+      // act
+      const result = await segmentChatlog('test.md', 'content');
 
-            // assert
-            assertEquals(result, segments);
-          });
-        });
-      });
+      // assert
+      assertEquals(result, segments);
     });
   });
 
   /** 異常系: AI が非ゼロ exit code で終了するとき null を返す */
   describe('[異常] Error Cases', () => {
-    describe('Given: AI が非ゼロ exit code で終了する', () => {
-      describe('When: segmentChatlog(filePath, content) を呼び出す', () => {
-        describe('Then: Task T-SC-02 - null を返す', () => {
-          it('T-SC-02-01: AI が非ゼロ exit code で終了するとき null を返す', async () => {
-            // arrange
-            mockHandle = installCommandMock(makeFailMock(1));
+    it('T-SC-02-01: AI が非ゼロ exit code で終了するとき null を返す', async () => {
+      // arrange
+      mockHandle = installCommandMock(makeFailMock(1));
 
-            // act
-            const result = await segmentChatlog('test.md', 'content');
+      // act
+      const result = await segmentChatlog('test.md', 'content');
 
-            // assert
-            assertEquals(result, null);
-          });
-        });
-      });
+      // assert
+      assertEquals(result, null);
     });
 
-    describe('Given: AI が JSON でない文字列を返す', () => {
-      describe('When: segmentChatlog(filePath, content) を呼び出す', () => {
-        describe('Then: Task T-SC-03 - null を返す', () => {
-          it('T-SC-03-01: AI が JSON でない文字列を返すとき null を返す', async () => {
-            // arrange
-            const stdout = new TextEncoder().encode('This is not JSON at all.');
-            mockHandle = installCommandMock(makeSuccessMock(stdout));
+    it('T-SC-03-01: AI が JSON でない文字列を返すとき null を返す', async () => {
+      // arrange
+      const stdout = new TextEncoder().encode('This is not JSON at all.');
+      mockHandle = installCommandMock(makeSuccessMock(stdout));
 
-            // act
-            const result = await segmentChatlog('test.md', 'content');
+      // act
+      const result = await segmentChatlog('test.md', 'content');
 
-            // assert
-            assertEquals(result, null);
-          });
-        });
-      });
+      // assert
+      assertEquals(result, null);
     });
   });
 
   /** エッジケース: セグメントが MAX_SEGMENTS(10) を超えるとき先頭10件のみ返す */
   describe('[エッジケース] Edge Cases', () => {
-    describe('Given: AI が MAX_SEGMENTS(10) を超えるセグメントを返す', () => {
-      describe('When: segmentChatlog(filePath, content) を呼び出す', () => {
-        describe('Then: Task T-SC-04 - 先頭10件のみ返す', () => {
-          it('T-SC-04-01: 12件のセグメントが返るとき先頭10件のみに制限される', async () => {
-            // arrange
-            const segments = Array.from({ length: 12 }, (_, i) => ({
-              title: `Topic ${i + 1}`,
-              summary: `Summary ${i + 1}`,
-              body: `Body ${i + 1}`,
-            }));
-            const stdout = new TextEncoder().encode(JSON.stringify(segments));
-            mockHandle = installCommandMock(makeSuccessMock(stdout));
+    it('T-SC-04-01: 12件のセグメントが返るとき先頭10件のみに制限される', async () => {
+      // arrange
+      const segments = Array.from({ length: 12 }, (_, i) => ({
+        title: `Topic ${i + 1}`,
+        summary: `Summary ${i + 1}`,
+        body: `Body ${i + 1}`,
+      }));
+      const stdout = new TextEncoder().encode(JSON.stringify(segments));
+      mockHandle = installCommandMock(makeSuccessMock(stdout));
 
-            // act
-            const result = await segmentChatlog('test.md', 'content');
+      // act
+      const result = await segmentChatlog('test.md', 'content');
 
-            // assert
-            assertEquals(result?.length, 10);
-            assertEquals(result?.[0].title, 'Topic 1');
-            assertEquals(result?.[9].title, 'Topic 10');
-          });
-        });
-      });
+      // assert
+      assertEquals(result?.length, 10);
+      assertEquals(result?.[0].title, 'Topic 1');
+      assertEquals(result?.[9].title, 'Topic 10');
     });
   });
 });
