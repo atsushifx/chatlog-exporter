@@ -28,75 +28,59 @@ import {
 describe('cleanYaml', () => {
   /** 正常系: コードフェンスや前置テキストを除去してクリーンな YAML を返す */
   describe('Given: ```yaml...``` コードフェンスで囲まれた YAML 文字列', () => {
-    describe('When: cleanYaml(raw, "title") を呼び出す', () => {
-      describe('Then: Task T-03-01 - コードフェンスの除去', () => {
-        it('開始フェンス行と終了フェンス行を除去して YAML コンテンツだけを返す', () => {
-          const raw = '```yaml\ntitle: foo\ndate: 2026-04-05\n```';
+    it('開始フェンス行と終了フェンス行を除去して YAML コンテンツだけを返す', () => {
+      const raw = '```yaml\ntitle: foo\ndate: 2026-04-05\n```';
 
-          const result = cleanYaml(raw, 'title');
+      const result = cleanYaml(raw, 'title');
 
-          assertEquals(result, 'title: foo\ndate: 2026-04-05');
-        });
+      assertEquals(result, 'title: foo\ndate: 2026-04-05');
+    });
 
-        it('firstField より前の非 YAML 行をすべて除去する', () => {
-          const raw = 'Here is the YAML:\ntitle: foo\ndate: 2026-04-05';
+    it('firstField より前の非 YAML 行をすべて除去する', () => {
+      const raw = 'Here is the YAML:\ntitle: foo\ndate: 2026-04-05';
 
-          const result = cleanYaml(raw, 'title');
+      const result = cleanYaml(raw, 'title');
 
-          assertEquals(result, 'title: foo\ndate: 2026-04-05');
-        });
-      });
+      assertEquals(result, 'title: foo\ndate: 2026-04-05');
     });
   });
 
   /** エッジケース: フェンスなし・末尾改行のみの入力でも正しく trim する */
   describe('Given: フェンスも余分な行もなく末尾に改行がある YAML 文字列', () => {
-    describe('When: cleanYaml(raw, "title") を呼び出す', () => {
-      describe('Then: Task T-03-02 - エッジケースの処理', () => {
-        it('末尾の改行をトリムしてクリーンな YAML コンテンツを返す', () => {
-          const raw = 'title: foo\ndate: 2026-04-05\n';
+    it('末尾の改行をトリムしてクリーンな YAML コンテンツを返す', () => {
+      const raw = 'title: foo\ndate: 2026-04-05\n';
 
-          const result = cleanYaml(raw, 'title');
+      const result = cleanYaml(raw, 'title');
 
-          assertEquals(result, 'title: foo\ndate: 2026-04-05');
-        });
-      });
+      assertEquals(result, 'title: foo\ndate: 2026-04-05');
     });
   });
 
   /** エッジケース: 空文字列入力でスローされず空文字列を返す */
   describe('Given: raw が空文字列', () => {
-    describe('When: cleanYaml("", "title") を呼び出す', () => {
-      describe('Then: Task T-03-03 - エッジケースの処理（空文字列）', () => {
-        it('例外をスローせず空文字列を返す', () => {
-          const result = cleanYaml('', 'title');
+    it('例外をスローせず空文字列を返す', () => {
+      const result = cleanYaml('', 'title');
 
-          assertEquals(result, '');
-        });
-      });
+      assertEquals(result, '');
     });
   });
 
   /** エッジケース: firstField が存在しないケース */
   describe('Given: firstField を含まない YAML 文字列が与えられる', () => {
-    describe('When: cleanYaml(raw, "nonexistent") を呼び出す', () => {
-      describe('Then: stripped 全体を trim して返す', () => {
-        it('T-CY-E-01: firstField が見つからないとき、stripped 全体を trim して返す', () => {
-          const raw = 'some: value\nother: data';
+    it('T-CY-E-01: firstField が見つからないとき、stripped 全体を trim して返す', () => {
+      const raw = 'some: value\nother: data';
 
-          const result = cleanYaml(raw, 'nonexistent');
+      const result = cleanYaml(raw, 'nonexistent');
 
-          assertEquals(result, 'some: value\nother: data');
-        });
+      assertEquals(result, 'some: value\nother: data');
+    });
 
-        it('T-CY-E-02: コードフェンスがあっても stripped してから全体を返す', () => {
-          const raw = '```yaml\nsome: value\nother: data\n```';
+    it('T-CY-E-02: コードフェンスがあっても stripped してから全体を返す', () => {
+      const raw = '```yaml\nsome: value\nother: data\n```';
 
-          const result = cleanYaml(raw, 'nonexistent');
+      const result = cleanYaml(raw, 'nonexistent');
 
-          assertEquals(result, 'some: value\nother: data');
-        });
-      });
+      assertEquals(result, 'some: value\nother: data');
     });
   });
 });
@@ -111,63 +95,51 @@ describe('cleanYaml', () => {
 describe('parseFrontmatter', () => {
   /** 正常系: `---` で囲まれたフロントマターを meta と fullBody に分解する */
   describe('Given: フロントマターブロックを含む Markdown テキスト', () => {
-    describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: Task T-04-01 - フロントマターありのファイル', () => {
-        it('meta に project と date フィールドが含まれる', () => {
-          const text = '---\nproject: ci-platform\ndate: 2026-03-01\n---\n# Body';
+    it('meta に project と date フィールドが含まれる', () => {
+      const text = '---\nproject: ci-platform\ndate: 2026-03-01\n---\n# Body';
 
-          const { meta } = parseFrontmatter(text);
+      const { meta } = parseFrontmatter(text);
 
-          assertEquals(meta, { project: 'ci-platform', date: '2026-03-01' });
-        });
+      assertEquals(meta, { project: 'ci-platform', date: '2026-03-01' });
+    });
 
-        it('fullBody に閉じ --- 以降のテキストが含まれる', () => {
-          const text = '---\nproject: ci-platform\ndate: 2026-03-01\n---\n# Body';
+    it('fullBody に閉じ --- 以降のテキストが含まれる', () => {
+      const text = '---\nproject: ci-platform\ndate: 2026-03-01\n---\n# Body';
 
-          const { fullBody } = parseFrontmatter(text);
+      const { fullBody } = parseFrontmatter(text);
 
-          assertEquals(fullBody, '\n# Body');
-        });
-      });
+      assertEquals(fullBody, '\n# Body');
     });
   });
 
   /** 正常系: フロントマターなしの場合は meta を空にして fullBody を元テキスト全体とする */
   describe('Given: --- で始まらない Markdown テキスト', () => {
-    describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: Task T-04-02 - フロントマターなしのファイル', () => {
-        it('meta が空のレコードである', () => {
-          const text = '# No Frontmatter\n\nSome content.';
+    it('meta が空のレコードである', () => {
+      const text = '# No Frontmatter\n\nSome content.';
 
-          const { meta } = parseFrontmatter(text);
+      const { meta } = parseFrontmatter(text);
 
-          assertEquals(meta, {});
-        });
+      assertEquals(meta, {});
+    });
 
-        it('fullBody が元のテキスト全体と等しい', () => {
-          const text = '# No Frontmatter\n\nSome content.';
+    it('fullBody が元のテキスト全体と等しい', () => {
+      const text = '# No Frontmatter\n\nSome content.';
 
-          const { fullBody } = parseFrontmatter(text);
+      const { fullBody } = parseFrontmatter(text);
 
-          assertEquals(fullBody, text);
-        });
-      });
+      assertEquals(fullBody, text);
     });
   });
 
   /** 異常系: 開き `---` はあるが閉じ `---` がない不正なフロントマターは無視する */
   describe('Given: --- で始まるが閉じ --- がない Markdown テキスト', () => {
-    describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: Task T-04-03 - 不正なフロントマター', () => {
-        it('meta が空で fullBody が元のテキスト全体を含む', () => {
-          const text = '---\nproject: ci-platform\n';
+    it('meta が空で fullBody が元のテキスト全体を含む', () => {
+      const text = '---\nproject: ci-platform\n';
 
-          const { meta, fullBody } = parseFrontmatter(text);
+      const { meta, fullBody } = parseFrontmatter(text);
 
-          assertEquals(meta, {});
-          assertEquals(fullBody, text);
-        });
-      });
+      assertEquals(meta, {});
+      assertEquals(fullBody, text);
     });
   });
 });
@@ -182,51 +154,43 @@ describe('parseFrontmatter', () => {
 describe('extractBaseName', () => {
   /** 正常系: ディレクトリ・.md 拡張子・末尾 7 桁ハッシュを除去する */
   describe('Given: ディレクトリパスと .md 拡張子を含むファイルパス', () => {
-    describe('When: extractBaseName(filePath) を呼び出す', () => {
-      describe('Then: Task T-05-01 - ベース名の抽出', () => {
-        it('T-05-01-01: ディレクトリと .md 拡張子を除去したファイル名を返す', () => {
-          const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
+    it('T-05-01-01: ディレクトリと .md 拡張子を除去したファイル名を返す', () => {
+      const filePath = 'temp/chatlog/claude/2026/2026-03/test-file.md';
 
-          const result = extractBaseName(filePath);
+      const result = extractBaseName(filePath);
 
-          assertEquals(result, 'test-file');
-        });
+      assertEquals(result, 'test-file');
+    });
 
-        it('T-05-01-02: 末尾の -XXXXXXX (7桁 hex) を除去する', () => {
-          const filePath = 'temp/chatlog/claude/2026/2026-03/2026-03-11-topic-abc1234.md';
+    it('T-05-01-02: 末尾の -XXXXXXX (7桁 hex) を除去する', () => {
+      const filePath = 'temp/chatlog/claude/2026/2026-03/2026-03-11-topic-abc1234.md';
 
-          const result = extractBaseName(filePath);
+      const result = extractBaseName(filePath);
 
-          assertEquals(result, '2026-03-11-topic');
-        });
+      assertEquals(result, '2026-03-11-topic');
+    });
 
-        it('T-05-01-03: 末尾が 7 桁 hex でない場合はハッシュ除去しない', () => {
-          const filePath = 'path/to/2026-03-11-topic.md';
+    it('T-05-01-03: 末尾が 7 桁 hex でない場合はハッシュ除去しない', () => {
+      const filePath = 'path/to/2026-03-11-topic.md';
 
-          const result = extractBaseName(filePath);
+      const result = extractBaseName(filePath);
 
-          assertEquals(result, '2026-03-11-topic');
-        });
-      });
+      assertEquals(result, '2026-03-11-topic');
     });
   });
 
   /** エッジケース: ディレクトリなし・拡張子なし */
   describe('Given: ディレクトリなしのファイル名', () => {
-    describe('When: extractBaseName(filePath) を呼び出す', () => {
-      describe('Then: Task T-05-02 - エッジケースの処理', () => {
-        it('T-05-02-01: ディレクトリなしでも .md 拡張子を除去して返す', () => {
-          const result = extractBaseName('simple-file.md');
+    it('T-05-02-01: ディレクトリなしでも .md 拡張子を除去して返す', () => {
+      const result = extractBaseName('simple-file.md');
 
-          assertEquals(result, 'simple-file');
-        });
+      assertEquals(result, 'simple-file');
+    });
 
-        it('T-05-02-02: 拡張子がない場合はファイル名をそのまま返す', () => {
-          const result = extractBaseName('no-extension');
+    it('T-05-02-02: 拡張子がない場合はファイル名をそのまま返す', () => {
+      const result = extractBaseName('no-extension');
 
-          assertEquals(result, 'no-extension');
-        });
-      });
+      assertEquals(result, 'no-extension');
     });
   });
 });
@@ -241,76 +205,60 @@ describe('extractBaseName', () => {
 describe('parseJsonArray', () => {
   /** 正常系: `[` 始まりの JSON 配列を直接パースして返す */
   describe('Given: `[` で始まる有効な JSON 配列文字列', () => {
-    describe('When: parseJsonArray を呼び出す', () => {
-      describe('Then: Task T-10-01 - 直接 JSON 配列パース', () => {
-        it('T-10-01-01: 1 オブジェクトを含む配列が返される', () => {
-          const rawDirect = '[{"title":"T1","summary":"S1","body":"B1"}]';
+    it('T-10-01-01: 1 オブジェクトを含む配列が返される', () => {
+      const rawDirect = '[{"title":"T1","summary":"S1","body":"B1"}]';
 
-          const result = parseJsonArray(rawDirect);
+      const result = parseJsonArray(rawDirect);
 
-          assertEquals(Array.isArray(result), true);
-          assertEquals((result as unknown[]).length, 1);
-          assertEquals((result as { title: string }[])[0].title, 'T1');
-        });
-      });
+      assertEquals(Array.isArray(result), true);
+      assertEquals((result as unknown[]).length, 1);
+      assertEquals((result as { title: string }[])[0].title, 'T1');
     });
   });
 
   /** 正常系: 前置テキストがあっても正規表現フォールバックで JSON 配列を抽出する */
   describe('Given: 前置テキストを含む文字列（非貪欲マッチで JSON 配列を抽出可能）', () => {
-    describe('When: parseJsonArray を呼び出す', () => {
-      describe('Then: Task T-10-02 - テキスト混在時のフォールバック抽出', () => {
-        it('T-10-02-01: 配列が抽出されて返される', () => {
-          const rawWithPrefix = 'Here is the result:\n[{"title":"T"}]';
+    it('T-10-02-01: 配列が抽出されて返される', () => {
+      const rawWithPrefix = 'Here is the result:\n[{"title":"T"}]';
 
-          const result = parseJsonArray(rawWithPrefix);
+      const result = parseJsonArray(rawWithPrefix);
 
-          assertEquals(Array.isArray(result), true);
-          assertEquals((result as unknown[]).length, 1);
-          assertEquals((result as { title: string }[])[0].title, 'T');
-        });
-      });
+      assertEquals(Array.isArray(result), true);
+      assertEquals((result as unknown[]).length, 1);
+      assertEquals((result as { title: string }[])[0].title, 'T');
     });
   });
 
   /** 正常系: 非貪欲マッチが失敗した場合は貪欲マッチで配列全体を抽出する */
   describe('Given: 非貪欲マッチでは不完全な配列しか取れない文字列（貪欲マッチが必要）', () => {
-    describe('When: parseJsonArray を呼び出す', () => {
-      describe('Then: Task T-10-02 - テキスト混在時のフォールバック抽出', () => {
-        it('T-10-02-02: 貪欲マッチの結果 length 2 の配列が返される', () => {
-          const rawGreedy = 'result: [{"title":"A"},{"title":"B"}] and more text';
+    it('T-10-02-02: 貪欲マッチの結果 length 2 の配列が返される', () => {
+      const rawGreedy = 'result: [{"title":"A"},{"title":"B"}] and more text';
 
-          const result = parseJsonArray(rawGreedy);
+      const result = parseJsonArray(rawGreedy);
 
-          assertEquals(Array.isArray(result), true);
-          assertEquals((result as unknown[]).length, 2);
-          assertEquals((result as { title: string }[])[0].title, 'A');
-          assertEquals((result as { title: string }[])[1].title, 'B');
-        });
-      });
+      assertEquals(Array.isArray(result), true);
+      assertEquals((result as unknown[]).length, 2);
+      assertEquals((result as { title: string }[])[0].title, 'A');
+      assertEquals((result as { title: string }[])[1].title, 'B');
     });
   });
 
   /** 異常系: JSON 配列が見つからない入力はスローせず null を返す */
   describe('Given: 有効な JSON 配列を含まないプレーンテキスト', () => {
-    describe('When: parseJsonArray を呼び出す', () => {
-      describe('Then: Task T-10-03 - パース不可能な入力', () => {
-        it('T-10-03-01: null が返される', () => {
-          const rawPlain = 'This is plain text with no JSON array';
+    it('T-10-03-01: null が返される', () => {
+      const rawPlain = 'This is plain text with no JSON array';
 
-          const result = parseJsonArray(rawPlain);
+      const result = parseJsonArray(rawPlain);
 
-          assertEquals(result, null);
-        });
+      assertEquals(result, null);
+    });
 
-        it('T-10-03-02: 空文字列でスローされずに null が返される', () => {
-          const rawEmpty = '';
+    it('T-10-03-02: 空文字列でスローされずに null が返される', () => {
+      const rawEmpty = '';
 
-          const result = parseJsonArray(rawEmpty);
+      const result = parseJsonArray(rawEmpty);
 
-          assertEquals(result, null);
-        });
-      });
+      assertEquals(result, null);
     });
   });
 });
