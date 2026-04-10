@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import { installCommandMock, makeSuccessMock } from '../_helpers/deno-command-mock.ts';
 
 // test target
-import { segmentChatlog } from '../../normalize-chatlog.ts';
+import { segmentChatlog, START_BODY_HEADING } from '../../normalize-chatlog.ts';
 import type { Segment } from '../../normalize-chatlog.ts';
 
 // ─── S-02: segmentChatlog セグメント配列の検証 ──────────────────────────────────
@@ -32,9 +32,9 @@ function _extractFrontmatterField(content: string, key: string): string {
   return match ? match[1].trim() : '';
 }
 
-/** outputs/ fixture の "## Excerpt\n" 以降のテキストを body として返す */
+/** outputs/ fixture の START_BODY_HEADING 以降のテキストを body として返す */
 function _extractBody(content: string): string {
-  const marker = '## Excerpt\n';
+  const marker = START_BODY_HEADING + '\n';
   const idx = content.indexOf(marker);
   if (idx === -1) return '';
   return content.slice(idx + marker.length);
