@@ -110,8 +110,18 @@ for (const _dirName of _fixtureDirs) {
   const _inputPath = `${_frontmatterDir}/input.md`;
   const _outputFiles = await _collectOutputFiles(_frontmatterDir);
 
-  // output-*.md が存在しないディレクトリはスキップ（異常系フィクスチャ等）
-  if (_outputFiles.length === 0) continue;
+  // output-*.md が存在しないディレクトリはフィクスチャ欠損としてテスト失敗させる
+  if (_outputFiles.length === 0) {
+    describe(`attachFrontmatter — runai-frontmatter/${_dirName}`, () => {
+      it(`SFF-${_dirName}-fixture-error: output-*.md が存在しない（フィクスチャ定義漏れ）`, () => {
+        throw new Error(
+          `runai-frontmatter/${_dirName} に output-*.md がありません。` +
+            `正常系なら output-N.md を、異常系なら runai-segments/error/ で管理してください。`,
+        );
+      });
+    });
+    continue;
+  }
 
   describe(`attachFrontmatter — runai-frontmatter/${_dirName}`, () => {
     describe(`Given: ${_dirName}/input.md と ${_outputFiles.length} 件の frontmatter fixture`, () => {
