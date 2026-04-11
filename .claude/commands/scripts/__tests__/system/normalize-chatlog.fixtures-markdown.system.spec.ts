@@ -36,7 +36,7 @@ const RUNAI_MARKDOWN_DIR = new URL('../_fixtures/runai-markdown', import.meta.ur
 function _extractBodyFromFixture(content: string): string {
   const marker = START_BODY_HEADING + '\n';
   const idx = content.indexOf(marker);
-  if (idx === -1) return '';
+  if (idx === -1) { return ''; }
   return content.slice(idx + marker.length).replace(/^\n+/, '');
 }
 
@@ -95,8 +95,8 @@ for (const _dirName of _fixtureDirs) {
     describe(`generateSegmentFile — runai-markdown/${_dirName}`, () => {
       it(`SFM-${_dirName}-fixture-error: output-*.md が存在しない（フィクスチャ定義漏れ）`, () => {
         throw new Error(
-          `runai-markdown/${_dirName} に output-*.md がありません。` +
-            `正常系なら output-N.md を、異常系なら runai-segments/error/ で管理してください。`,
+          `runai-markdown/${_dirName} に output-*.md がありません。`
+            + `正常系なら output-N.md を、異常系なら runai-segments/error/ で管理してください。`,
         );
       });
     });
