@@ -115,8 +115,8 @@ for (const _dirName of _fixtureDirs) {
     describe(`attachFrontmatter — runai-frontmatter/${_dirName}`, () => {
       it(`SFF-${_dirName}-fixture-error: output-*.md が存在しない（フィクスチャ定義漏れ）`, () => {
         throw new Error(
-          `runai-frontmatter/${_dirName} に output-*.md がありません。` +
-            `正常系なら output-N.md を、異常系なら runai-segments/error/ で管理してください。`,
+          `runai-frontmatter/${_dirName} に output-*.md がありません。`
+            + `正常系なら output-N.md を、異常系なら runai-segments/error/ で管理してください。`,
         );
       });
     });
