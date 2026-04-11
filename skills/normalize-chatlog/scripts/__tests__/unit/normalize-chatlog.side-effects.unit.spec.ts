@@ -19,7 +19,7 @@ import {
   makeFailMock,
   makeNotFoundMock,
   makeSuccessMock,
-} from '../_helpers/deno-command-mock.ts';
+} from '../../../../../skills/_scripts/__tests__/helpers/deno-command-mock.ts';
 
 // test target
 import {
