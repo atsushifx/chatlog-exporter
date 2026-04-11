@@ -17,10 +17,10 @@
 // 定数
 // ─────────────────────────────────────────────
 
-const CHUNK_SIZE = 10;
-const CONCURRENCY = 4;
-const DISCARD_THRESHOLD = 0.7;
-const MAX_BODY_CHARS = 8000;
+export const CHUNK_SIZE = 10;
+export const CONCURRENCY = 4;
+export const DISCARD_THRESHOLD = 0.7;
+export const MAX_BODY_CHARS = 8000;
 
 const SYSTEM_PROMPT = `Output ONLY a JSON array. No markdown, no explanation, no text before or after the array.
 [{"file":"<filename>","decision":"KEEP or DISCARD","confidence":0.0,"reason":"..."},...]
@@ -32,14 +32,14 @@ DISCARD: execution-only, trivial Q&A, no reusable insight, context-dependent`;
 // 型定義
 // ─────────────────────────────────────────────
 
-interface ClaudeResult {
+export interface ClaudeResult {
   file: string;
   decision: 'KEEP' | 'DISCARD';
   confidence: number;
   reason: string;
 }
 
-interface Turn {
+export interface Turn {
   role: 'user' | 'assistant';
   text: string;
 }
@@ -48,7 +48,7 @@ interface Turn {
 // Frontmatter パース
 // ─────────────────────────────────────────────
 
-function parseFrontmatter(text: string): { meta: Record<string, unknown>; body: string } {
+export function parseFrontmatter(text: string): { meta: Record<string, unknown>; body: string } {
   if (!text.startsWith('---\n')) {
     return { meta: {}, body: text };
   }
@@ -64,7 +64,7 @@ function parseFrontmatter(text: string): { meta: Record<string, unknown>; body: 
 // 会話ターン解析
 // ─────────────────────────────────────────────
 
-function parseConversation(body: string): Turn[] {
+export function parseConversation(body: string): Turn[] {
   const turns: Turn[] = [];
   const pattern = /^### (User|Assistant)\s*$/gm;
   const matches = [...body.matchAll(pattern)];
@@ -103,17 +103,17 @@ const EXCLUDE_FILENAME_PATTERNS = [
   'command-message-deckrd-deckrd',
 ];
 
-function isSystemOnlyMessage(text: string): boolean {
+export function isSystemOnlyMessage(text: string): boolean {
   const stripped = text.trim();
   return SYSTEM_PREFIXES.some((prefix) => stripped.startsWith(prefix));
 }
 
-function isExcludedByFilename(filename: string): boolean {
+export function isExcludedByFilename(filename: string): boolean {
   const lower = filename.toLowerCase();
   return EXCLUDE_FILENAME_PATTERNS.some((pat) => lower.includes(pat));
 }
 
-function isExcludedByContent(
+export function isExcludedByContent(
   body: string,
   minCharCount = 1000,
   minAssistantChars = 300,
@@ -150,7 +150,7 @@ function isExcludedByContent(
 // 本文テキスト抽出
 // ─────────────────────────────────────────────
 
-function extractBodyText(body: string, maxChars = MAX_BODY_CHARS): string {
+export function extractBodyText(body: string, maxChars = MAX_BODY_CHARS): string {
   const turns = parseConversation(body);
   const parts = turns.map((t) => {
     const role = t.role === 'user' ? 'User' : 'Assistant';
@@ -163,7 +163,7 @@ function extractBodyText(body: string, maxChars = MAX_BODY_CHARS): string {
 // ファイル列挙
 // ─────────────────────────────────────────────
 
-async function findMdFiles(
+export async function findMdFiles(
   baseDir: string,
   period?: string,
   project?: string,
@@ -211,7 +211,7 @@ async function collectMdFiles(dir: string, results: string[]): Promise<void> {
 // 事前フィルタ
 // ─────────────────────────────────────────────
 
-async function prefilterFiles(files: string[]): Promise<string[]> {
+export async function prefilterFiles(files: string[]): Promise<string[]> {
   const passed: string[] = [];
   let skipped = 0;
 
@@ -262,7 +262,7 @@ async function prefilterFiles(files: string[]): Promise<string[]> {
 // バッチプロンプト構築
 // ─────────────────────────────────────────────
 
-async function buildBatchPrompt(files: string[]): Promise<string> {
+export async function buildBatchPrompt(files: string[]): Promise<string> {
   const parts: string[] = [];
 
   for (let i = 0; i < files.length; i++) {
@@ -287,7 +287,7 @@ async function buildBatchPrompt(files: string[]): Promise<string> {
 // JSON 配列パース
 // ─────────────────────────────────────────────
 
-function parseJsonArray(raw: string): ClaudeResult[] | null {
+export function parseJsonArray(raw: string): ClaudeResult[] | null {
   // ダイレクトパース（Claude が指示通り純粋な JSON を返した場合）
   const trimmed = raw.trim();
   if (trimmed.startsWith('[')) {
@@ -334,7 +334,7 @@ function parseJsonArray(raw: string): ClaudeResult[] | null {
 // 並列実行ヘルパー
 // ─────────────────────────────────────────────
 
-async function withConcurrency<T>(
+export async function withConcurrency<T>(
   tasks: (() => Promise<T>)[],
   limit: number,
 ): Promise<T[]> {
@@ -354,7 +354,7 @@ async function withConcurrency<T>(
 // Claude CLI 呼び出し
 // ─────────────────────────────────────────────
 
-async function runClaude(prompt: string): Promise<string> {
+export async function runClaude(prompt: string): Promise<string> {
   const cmd = new Deno.Command('claude', {
     args: ['-p', SYSTEM_PROMPT, '--output-format', 'text'],
     stdin: 'piped',
@@ -380,14 +380,14 @@ async function runClaude(prompt: string): Promise<string> {
 // チャンク処理
 // ─────────────────────────────────────────────
 
-interface Stats {
+export interface Stats {
   kept: number;
   discarded: number;
   skipped: number;
   error: number;
 }
 
-async function processChunk(
+export async function processChunk(
   chunkFiles: string[],
   dryRun: boolean,
   stats: Stats,
@@ -457,7 +457,7 @@ async function processChunk(
 // 引数解析
 // ─────────────────────────────────────────────
 
-interface Args {
+export interface Args {
   agent: string;
   period?: string;
   project?: string;
@@ -465,7 +465,7 @@ interface Args {
   inputDir: string;
 }
 
-function parseArgs(args: string[]): Args {
+export function parseArgs(args: string[]): Args {
   let agent: string | undefined;
   let period: string | undefined;
   let project: string | undefined;
@@ -499,8 +499,8 @@ function parseArgs(args: string[]): Args {
 // メイン
 // ─────────────────────────────────────────────
 
-async function main(): Promise<void> {
-  const { agent, period, project, dryRun, inputDir } = parseArgs(Deno.args);
+export async function main(args?: string[]): Promise<void> {
+  const { agent, period, project, dryRun, inputDir } = parseArgs(args ?? Deno.args);
   const agentDir = `${inputDir}/${agent}`;
 
   // 入力ディレクトリ確認
@@ -550,4 +550,6 @@ async function main(): Promise<void> {
   );
 }
 
-await main();
+if (import.meta.main) {
+  await main();
+}
