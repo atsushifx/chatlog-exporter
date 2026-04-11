@@ -13,10 +13,18 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-import type { CommandMockHandle } from '../_helpers/deno-command-mock.ts';
-import { installCommandMock, makeSuccessMock } from '../_helpers/deno-command-mock.ts';
-import type { LogCapture, LogSilencer } from '../_helpers/e2e-setup.ts';
-import { captureLog, makeTempDirs, removeTempDirs, silenceLog } from '../_helpers/e2e-setup.ts';
+import type { CommandMockHandle } from '../../../../../skills/_scripts/__tests__/helpers/deno-command-mock.ts';
+import {
+  installCommandMock,
+  makeSuccessMock,
+} from '../../../../../skills/_scripts/__tests__/helpers/deno-command-mock.ts';
+import type { LogCapture, LogSilencer } from '../../../../../skills/_scripts/__tests__/helpers/e2e-setup.ts';
+import {
+  captureLog,
+  makeTempDirs,
+  removeTempDirs,
+  silenceLog,
+} from '../../../../../skills/_scripts/__tests__/helpers/e2e-setup.ts';
 
 // test target
 import { findMdFiles, main } from '../../normalize-chatlog.ts';
