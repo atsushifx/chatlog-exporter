@@ -16,7 +16,10 @@ import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // test helpers
-import { installCommandMock, makeSuccessMock } from '../_helpers/deno-command-mock.ts';
+import {
+  installCommandMock,
+  makeSuccessMock,
+} from '../../../../../skills/_scripts/__tests__/helpers/deno-command-mock.ts';
 
 // test target
 import {
