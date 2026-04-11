@@ -18,22 +18,22 @@
 // 定数
 // ─────────────────────────────────────────────
 
-const CHUNK_SIZE = 10;
-const CONCURRENCY = 4;
-const FALLBACK_PROJECT = 'misc';
+export const CHUNK_SIZE = 10;
+export const CONCURRENCY = 4;
+export const FALLBACK_PROJECT = 'misc';
 
 // ─────────────────────────────────────────────
 // 型定義
 // ─────────────────────────────────────────────
 
-interface ClassifyResult {
+export interface ClassifyResult {
   file: string;
   project: string;
   confidence: number;
   reason: string;
 }
 
-interface FileMeta {
+export interface FileMeta {
   filePath: string;
   filename: string;
   existingProject: string;
@@ -44,13 +44,13 @@ interface FileMeta {
   fullText: string;
 }
 
-interface Stats {
+export interface Stats {
   moved: number;
   skipped: number;
   error: number;
 }
 
-interface Args {
+export interface Args {
   agent: string;
   period?: string;
   dryRun: boolean;
@@ -62,7 +62,7 @@ interface Args {
 // 辞書読み込み
 // ─────────────────────────────────────────────
 
-async function loadProjects(dicsDir: string): Promise<string[]> {
+export async function loadProjects(dicsDir: string): Promise<string[]> {
   const dicPath = `${dicsDir}/projects.dic`;
   let text: string;
   try {
@@ -81,7 +81,7 @@ async function loadProjects(dicsDir: string): Promise<string[]> {
 // フロントマター解析
 // ─────────────────────────────────────────────
 
-interface FrontmatterData {
+export interface FrontmatterData {
   project: string;
   title: string;
   category: string;
@@ -90,7 +90,7 @@ interface FrontmatterData {
   frontmatterEnd: number; // フロントマター終端のインデックス（本文先頭位置）
 }
 
-function parseFrontmatter(text: string): FrontmatterData {
+export function parseFrontmatter(text: string): FrontmatterData {
   const empty: FrontmatterData = {
     project: '',
     title: '',
@@ -143,7 +143,7 @@ function parseFrontmatter(text: string): FrontmatterData {
 // フロントマターへ project フィールドを追加
 // ─────────────────────────────────────────────
 
-function insertProjectField(text: string, project: string): string {
+export function insertProjectField(text: string, project: string): string {
   const normalized = text.replace(/\r\n/g, '\n');
   if (!normalized.startsWith('---\n')) { return text; }
 
@@ -173,7 +173,7 @@ function insertProjectField(text: string, project: string): string {
 // ファイルメタデータ読み込み
 // ─────────────────────────────────────────────
 
-async function loadFileMeta(filePath: string): Promise<FileMeta | null> {
+export async function loadFileMeta(filePath: string): Promise<FileMeta | null> {
   let text: string;
   try {
     text = await Deno.readTextFile(filePath);
@@ -200,7 +200,7 @@ async function loadFileMeta(filePath: string): Promise<FileMeta | null> {
 // ファイル列挙（直下の .md のみ）
 // ─────────────────────────────────────────────
 
-async function findMdFilesFlat(
+export async function findMdFilesFlat(
   inputDir: string,
   agent: string,
   period?: string,
@@ -219,7 +219,7 @@ async function findMdFilesFlat(
   return results.sort();
 }
 
-async function collectChatGptFiles(
+export async function collectChatGptFiles(
   agentDir: string,
   period: string | undefined,
   results: string[],
@@ -257,7 +257,7 @@ async function collectChatGptFiles(
   }
 }
 
-async function collectClaudeFiles(
+export async function collectClaudeFiles(
   agentDir: string,
   period: string | undefined,
   results: string[],
@@ -281,7 +281,7 @@ async function collectClaudeFiles(
   }
 }
 
-async function collectDirectMdFiles(dir: string, results: string[]): Promise<void> {
+export async function collectDirectMdFiles(dir: string, results: string[]): Promise<void> {
   try {
     for await (const entry of Deno.readDir(dir)) {
       if (entry.isFile && entry.name.endsWith('.md')) {
@@ -297,7 +297,7 @@ async function collectDirectMdFiles(dir: string, results: string[]): Promise<voi
 // バッチプロンプト構築
 // ─────────────────────────────────────────────
 
-function buildClassifyPrompt(files: FileMeta[], projects: string[]): string {
+export function buildClassifyPrompt(files: FileMeta[], projects: string[]): string {
   const projectList = [...projects, FALLBACK_PROJECT].join(', ');
   const header = `Projects: ${projectList}\n\n`;
 
@@ -316,7 +316,7 @@ function buildClassifyPrompt(files: FileMeta[], projects: string[]): string {
   return header + parts.join('\n\n');
 }
 
-function buildSystemPrompt(projects: string[]): string {
+export function buildSystemPrompt(projects: string[]): string {
   const projectList = [...projects, FALLBACK_PROJECT].join(', ');
   return `Output ONLY a JSON array. No markdown, no explanation, no text before or after the array.
 [{"file":"<filename>","project":"<project_name>","confidence":0.0,"reason":"..."},...]
@@ -330,7 +330,7 @@ Base your decision on: title, category, topics, tags.`;
 // JSON 配列パース（filter_chatlog.ts から流用）
 // ─────────────────────────────────────────────
 
-function parseJsonArray(raw: string): ClassifyResult[] | null {
+export function parseJsonArray(raw: string): ClassifyResult[] | null {
   const trimmed = raw.trim();
   if (trimmed.startsWith('[')) {
     try {
@@ -374,7 +374,7 @@ function parseJsonArray(raw: string): ClassifyResult[] | null {
 // 並列実行ヘルパー（filter_chatlog.ts から流用）
 // ─────────────────────────────────────────────
 
-async function withConcurrency<T>(
+export async function withConcurrency<T>(
   tasks: (() => Promise<T>)[],
   limit: number,
 ): Promise<T[]> {
@@ -394,7 +394,7 @@ async function withConcurrency<T>(
 // Claude CLI 呼び出し
 // ─────────────────────────────────────────────
 
-async function runClaude(systemPrompt: string, userPrompt: string): Promise<string> {
+export async function runClaude(systemPrompt: string, userPrompt: string): Promise<string> {
   const cmd = new Deno.Command('claude', {
     args: ['-p', systemPrompt, '--output-format', 'text'],
     stdin: 'piped',
@@ -420,7 +420,7 @@ async function runClaude(systemPrompt: string, userPrompt: string): Promise<stri
 // ファイル移動とフロントマター更新
 // ─────────────────────────────────────────────
 
-async function classifyFile(
+export async function classifyFile(
   fileMeta: FileMeta,
   project: string,
   dryRun: boolean,
@@ -457,7 +457,7 @@ async function classifyFile(
 // チャンク処理
 // ─────────────────────────────────────────────
 
-async function processChunk(
+export async function processChunk(
   chunkMetas: FileMeta[],
   projects: string[],
   dryRun: boolean,
@@ -500,9 +500,9 @@ async function processChunk(
 // 引数解析
 // ─────────────────────────────────────────────
 
-const KNOWN_AGENTS = ['claude', 'chatgpt', 'codex'];
+export const KNOWN_AGENTS = ['claude', 'chatgpt', 'codex'];
 
-function parseArgs(args: string[]): Args {
+export function parseArgs(args: string[]): Args {
   let agent: string | undefined;
   let period: string | undefined;
   let dryRun = false;
@@ -541,8 +541,8 @@ function parseArgs(args: string[]): Args {
 // メイン
 // ─────────────────────────────────────────────
 
-async function main(): Promise<void> {
-  const { agent, period, dryRun, inputDir, dicsDir } = parseArgs(Deno.args);
+export async function main(argv?: string[]): Promise<void> {
+  const { agent, period, dryRun, inputDir, dicsDir } = parseArgs(argv ?? Deno.args);
 
   // 入力ディレクトリ確認
   const agentDir = `${inputDir}/${agent}`;
@@ -616,4 +616,4 @@ async function main(): Promise<void> {
   );
 }
 
-await main();
+if (import.meta.main) { await main(); }
