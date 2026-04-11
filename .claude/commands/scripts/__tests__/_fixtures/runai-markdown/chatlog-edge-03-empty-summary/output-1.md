@@ -1,7 +1,5 @@
 ## Summary
 
-
-
 ## Excerpt
 
 ### User
