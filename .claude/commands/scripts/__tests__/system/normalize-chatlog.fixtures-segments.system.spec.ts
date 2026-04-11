@@ -18,8 +18,8 @@
 
 // Deno Test module
 import { assertEquals } from '@std/assert';
-import { parse as parseYaml } from '@std/yaml';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
+import { parse as parseYaml } from '@std/yaml';
 
 // test helpers
 import {
@@ -90,7 +90,7 @@ async function _collectFixtureDirs(rootDir: string): Promise<string[]> {
 
   async function _walk(dir: string, rel: string): Promise<void> {
     for await (const entry of Deno.readDir(dir)) {
-      if (!entry.isDirectory) continue;
+      if (!entry.isDirectory) { continue; }
       const childRel = rel ? `${rel}/${entry.name}` : entry.name;
       const childAbs = `${dir}/${entry.name}`;
       try {
