@@ -5,8 +5,8 @@ description: >
   再利用価値の低いファイル（DISCARD）を削除する。
   /filter-chatlog で呼び出す。
   KEEP/DISCARD判定にはclaude CLIを使用するため ANTHROPIC_API_KEY 不要。
-argument-hint: "[prefilter|filter] [agent] [YYYY-MM [project]] [--dry-run]"
 allowed-tools: Bash, Glob
+context: fork
 ---
 
 <!-- cspell:words aplys -->
@@ -48,10 +48,10 @@ allowed-tools: Bash, Glob
 
 ## ステップ1: スクリプトパスの解決
 
-Glob ツールで `**/commands/filter-chatlog.md` を検索し、そのディレクトリを `SKILL_DIR` として確定する。
+Glob ツールで `**/skills/filter-chatlog/SKILL.md` を検索し、そのディレクトリを `SKILL_DIR` として確定する。
 
 ```bash
-SKILL_DIR      = <filter-chatlog.md が存在するディレクトリの絶対パス>
+SKILL_DIR      = <SKILL.md が存在するディレクトリの絶対パス>
 SCRIPT_PATH    = $SKILL_DIR/scripts/filter-chatlog.ts
 PREFILTER_PATH = $SKILL_DIR/scripts/prefilter-chatlog.ts
 INPUT          = <cwd>/temp/chatlog
