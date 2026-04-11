@@ -18,7 +18,6 @@ import { stub } from '@std/testing/mock';
 import {
   makeCountingMock,
   makeFailMock,
-  makeNotFoundMock,
   makeSuccessMock,
 } from '../_helpers/deno-command-mock.ts';
 
