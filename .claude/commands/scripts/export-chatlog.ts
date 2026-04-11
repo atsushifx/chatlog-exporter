@@ -22,9 +22,9 @@
 // 定数
 // ─────────────────────────────────────────────
 
-const SHORT_AFFIRMATION_MAX_LEN = 20;
+export const SHORT_AFFIRMATION_MAX_LEN = 20;
 
-const SKIP_EXACT = new Set([
+export const SKIP_EXACT = new Set([
   'y',
   'yes',
   'はい',
@@ -53,7 +53,7 @@ const SKIP_EXACT = new Set([
   'thx',
 ]);
 
-const SKIP_PREFIXES = [
+export const SKIP_PREFIXES = [
   '/clear',
   '/help',
   '/reset',
@@ -72,12 +72,12 @@ const SKIP_PREFIXES = [
 // 型定義
 // ─────────────────────────────────────────────
 
-interface Turn {
+export interface Turn {
   role: 'user' | 'assistant';
   text: string;
 }
 
-interface SessionMeta {
+export interface SessionMeta {
   sessionId: string;
   date: string; // YYYY-MM-DD
   project: string;
@@ -85,7 +85,7 @@ interface SessionMeta {
   firstUserText: string;
 }
 
-interface ExportedSession {
+export interface ExportedSession {
   meta: SessionMeta;
   turns: Turn[];
 }
@@ -94,11 +94,11 @@ interface ExportedSession {
 // ユーティリティ
 // ─────────────────────────────────────────────
 
-function homeDir(): string {
+export function homeDir(): string {
   return Deno.env.get('USERPROFILE') ?? Deno.env.get('HOME') ?? '';
 }
 
-function isoToDate(iso: string): string {
+export function isoToDate(iso: string): string {
   try {
     return new Date(iso).toISOString().slice(0, 10);
   } catch {
@@ -106,7 +106,7 @@ function isoToDate(iso: string): string {
   }
 }
 
-function isoToMs(iso: string): number {
+export function isoToMs(iso: string): number {
   try {
     return new Date(iso).getTime();
   } catch {
@@ -114,7 +114,7 @@ function isoToMs(iso: string): number {
   }
 }
 
-function textToSlug(text: string, fallback = 'session'): string {
+export function textToSlug(text: string, fallback = 'session'): string {
   let s = text.trim().split('\n\n')[0].slice(0, 200);
   s = s.split('\n')[0].trim();
   // ASCII のみ残す
@@ -124,11 +124,11 @@ function textToSlug(text: string, fallback = 'session'): string {
   return s.length >= 3 ? s : fallback;
 }
 
-function isShortAffirmation(text: string): boolean {
+export function isShortAffirmation(text: string): boolean {
   return text.length <= SHORT_AFFIRMATION_MAX_LEN && SKIP_EXACT.has(text.trim().toLowerCase());
 }
 
-function isSkippable(text: string): boolean {
+export function isSkippable(text: string): boolean {
   if (!text) { return true; }
   if (SKIP_PREFIXES.some((p) => text.startsWith(p))) { return true; }
   if (isShortAffirmation(text)) { return true; }
@@ -139,12 +139,12 @@ function isSkippable(text: string): boolean {
 // 期間フィルタ
 // ─────────────────────────────────────────────
 
-interface PeriodRange {
+export interface PeriodRange {
   startMs: number;
   endMs: number;
 }
 
-function parsePeriod(period: string | undefined): PeriodRange {
+export function parsePeriod(period: string | undefined): PeriodRange {
   if (!period) {
     return { startMs: 0, endMs: Infinity };
   }
@@ -165,7 +165,7 @@ function parsePeriod(period: string | undefined): PeriodRange {
   throw new Error(`期間の形式が不正です（例: 2026-03 または 2026）: ${period}`);
 }
 
-function inPeriod(isoTimestamp: string, range: PeriodRange): boolean {
+export function inPeriod(isoTimestamp: string, range: PeriodRange): boolean {
   const ms = isoToMs(isoTimestamp);
   return ms >= range.startMs && ms < range.endMs;
 }
@@ -174,7 +174,7 @@ function inPeriod(isoTimestamp: string, range: PeriodRange): boolean {
 // 出力パス生成
 // ─────────────────────────────────────────────
 
-function buildOutputPath(
+export function buildOutputPath(
   outputBase: string,
   agent: string,
   meta: SessionMeta,
@@ -191,7 +191,7 @@ function buildOutputPath(
 // Markdown レンダリング
 // ─────────────────────────────────────────────
 
-function renderMarkdown(meta: SessionMeta, turns: Turn[]): string {
+export function renderMarkdown(meta: SessionMeta, turns: Turn[]): string {
   const lines: string[] = [];
   lines.push('---');
   lines.push(`session_id: ${meta.sessionId}`);
@@ -218,7 +218,7 @@ function renderMarkdown(meta: SessionMeta, turns: Turn[]): string {
 // ファイル書き出し
 // ─────────────────────────────────────────────
 
-async function writeSession(
+export async function writeSession(
   outputBase: string,
   agent: string,
   session: ExportedSession,
@@ -237,7 +237,7 @@ async function writeSession(
 // Claude パーサー
 // ─────────────────────────────────────────────
 
-interface ClaudeEntry {
+export interface ClaudeEntry {
   type: string;
   isMeta?: boolean;
   sessionId?: string;
@@ -250,7 +250,7 @@ interface ClaudeEntry {
   };
 }
 
-function extractClaudeUserText(content: unknown): string {
+export function extractClaudeUserText(content: unknown): string {
   if (typeof content === 'string') {
     const text = content.trim();
     if (/^<local-command-stdout\b/.test(text)) { return ''; }
@@ -275,7 +275,7 @@ function extractClaudeUserText(content: unknown): string {
   return '';
 }
 
-function extractClaudeAssistantText(content: unknown): string {
+export function extractClaudeAssistantText(content: unknown): string {
   if (typeof content === 'string') { return content.trim(); }
   if (Array.isArray(content)) {
     const parts: string[] = [];
@@ -291,7 +291,7 @@ function extractClaudeAssistantText(content: unknown): string {
   return '';
 }
 
-async function parseClaudeSession(
+export async function parseClaudeSession(
   filePath: string,
   range: PeriodRange,
   projectFilter?: string,
@@ -378,7 +378,7 @@ async function parseClaudeSession(
   return { meta, turns };
 }
 
-async function findClaudeSessions(
+export async function findClaudeSessions(
   _period: PeriodRange,
   projectFilter?: string,
 ): Promise<string[]> {
@@ -422,7 +422,7 @@ async function findClaudeSessions(
 // Codex パーサー
 // ─────────────────────────────────────────────
 
-interface CodexEntry {
+export interface CodexEntry {
   timestamp: string;
   type: string;
   payload: {
@@ -434,7 +434,7 @@ interface CodexEntry {
   };
 }
 
-async function parseCodexSession(
+export async function parseCodexSession(
   filePath: string,
   range: PeriodRange,
   projectFilter?: string,
@@ -519,7 +519,7 @@ async function parseCodexSession(
   return { meta, turns };
 }
 
-async function findCodexSessions(
+export async function findCodexSessions(
   _period: PeriodRange,
 ): Promise<string[]> {
   const sessionsDir = `${homeDir()}/.codex/sessions`;
@@ -537,7 +537,7 @@ async function findCodexSessions(
 // 汎用ファイル走査
 // ─────────────────────────────────────────────
 
-async function* walkFiles(dir: string, ext: string): AsyncGenerator<string> {
+export async function* walkFiles(dir: string, ext: string): AsyncGenerator<string> {
   let entries: Deno.DirEntry[];
   try {
     entries = [];
@@ -562,16 +562,16 @@ async function* walkFiles(dir: string, ext: string): AsyncGenerator<string> {
 // 引数解析
 // ─────────────────────────────────────────────
 
-const KNOWN_AGENTS = ['claude', 'codex'];
+export const KNOWN_AGENTS = ['claude', 'codex'];
 
-interface Args {
+export interface Args {
   agent: string;
   period?: string;
   project?: string;
   outputDir: string;
 }
 
-function parseArgs(args: string[]): Args {
+export function parseArgs(args: string[]): Args {
   let agent: string | undefined;
   let period: string | undefined;
   let project: string | undefined;
@@ -602,8 +602,8 @@ function parseArgs(args: string[]): Args {
 // メイン
 // ─────────────────────────────────────────────
 
-async function main(): Promise<void> {
-  const { agent, period, project, outputDir } = parseArgs(Deno.args);
+export async function main(argv?: string[]): Promise<void> {
+  const { agent, period, project, outputDir } = parseArgs(argv ?? Deno.args);
 
   let range: PeriodRange;
   try {
@@ -655,4 +655,4 @@ async function main(): Promise<void> {
   console.error(`\n完了: ${exported} ファイルを ${outputDir}/${agent}/ に書き出しました（${skipped} 件スキップ）`);
 }
 
-await main();
+if (import.meta.main) { await main(); }

@@ -1,0 +1,2 @@
+{"type":"user","isMeta":false,"sessionId":"sess-0001-0001-0001-0001","timestamp":"2026-03-15T10:00:00.000Z","slug":"","cwd":"/home/user/projects/my-app","message":{"id":"msg-u-001","content":[{"type":"text","text":"テスト駆動開発について説明してください"}]}}
+{"type":"assistant","isMeta":false,"sessionId":"sess-0001-0001-0001-0001","timestamp":"2026-03-15T10:00:05.000Z","message":{"id":"msg-a-001","content":[{"type":"text","text":"テスト駆動開発（TDD）は、コードを書く前にテストを書く開発手法です。Red-Green-Refactorのサイクルで進めます。"}]}}

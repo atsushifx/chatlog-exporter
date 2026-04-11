@@ -1,0 +1,3 @@
+{"timestamp":"2026-03-15T11:00:00.000Z","type":"session_meta","payload":{"id":"codex-sess-0001","cwd":"/home/user/projects/my-codex-app","model":"o4-mini"}}
+{"timestamp":"2026-03-15T11:00:01.000Z","type":"response_item","payload":{"role":"user","content":[{"type":"input_text","text":"コードレビューをお願いします"}]}}
+{"timestamp":"2026-03-15T11:00:10.000Z","type":"response_item","payload":{"role":"assistant","content":[{"type":"output_text","text":"コードを確認しました。いくつか改善点があります。変数名をより分かりやすくすることをお勧めします。"}]}}
