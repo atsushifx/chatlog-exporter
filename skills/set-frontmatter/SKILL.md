@@ -5,8 +5,8 @@ description: >
   /set-frontmatter で呼び出す。
   AIが会話内容を解析してtitle/summary/category/topics/tagsを生成。
   assets/dics/ の辞書を参照してcategory/topics/tagsを選定する。
-argument-hint: "<path> | [agent] project [YYYY-MM] [--dry-run]"
 allowed-tools: Bash, Glob
+context: fork
 ---
 
 # set-frontmatter スキル
@@ -50,11 +50,11 @@ allowed-tools: Bash, Glob
 
 ## ステップ1: スクリプトパスの解決
 
-Glob ツールで `**/commands/set-frontmatter.md` を検索し、そのディレクトリを `SKILL_DIR` として確定する。
+Glob ツールで `**/skills/set-frontmatter/SKILL.md` を検索し、そのディレクトリを `SKILL_DIR` として確定する。
 
 ```bash
-SKILL_DIR   = <set-frontmatter.md が存在するディレクトリの絶対パス>
-SCRIPT_PATH = $SKILL_DIR/scripts/set-frontmatter.ts
+SKILL_DIR   = <SKILL.md が存在するディレクトリの絶対パス>
+SCRIPT_PATH = $SKILL_DIR/../scripts/set-frontmatter.ts
 DICS_DIR    = <cwd>/temp/dics
 ```
 
