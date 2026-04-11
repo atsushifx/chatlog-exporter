@@ -735,10 +735,7 @@ export async function main(argv?: string[], hashFn?: HashProvider): Promise<void
     Deno.exit(1);
   }
   const inputDir = resolved.dir;
-  const outputDir = args.output ?? DEFAULT_OUTPUT_DIR;
-
-  // Ensure output directory exists
-  await Deno.mkdir(outputDir, { recursive: true });
+  const outputBase = args.output ?? DEFAULT_OUTPUT_DIR;
 
   const mdFiles = findMdFiles(inputDir);
   const stats: Stats = { success: 0, skip: 0, fail: 0 };
@@ -752,6 +749,9 @@ export async function main(argv?: string[], hashFn?: HashProvider): Promise<void
       stats.fail++;
       return;
     }
+
+    const outputDir = resolveOutputDir(inputDir, outputBase, sourceMeta['project']);
+    await Deno.mkdir(outputDir, { recursive: true });
 
     for (let i = 0; i < segments.length; i++) {
       const segment = segments[i];

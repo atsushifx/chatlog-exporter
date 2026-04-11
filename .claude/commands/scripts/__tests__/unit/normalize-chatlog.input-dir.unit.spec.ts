@@ -23,11 +23,11 @@ import {
  * resolveInputDir の単体テスト。
  * 純粋関数として、FS副作用なしにパス解決結果 (ResolveResult) を返すことを検証する。
  */
-describe('Given: resolveInputDir (純粋関数)', () => {
+describe('resolveInputDir', () => {
   // ─── T-01: --dir 指定 ──────────────────────────────────────────────────────
 
-  describe('When: --dir オプションが指定される', () => {
-    /** 正常系: --dir 指定時に { ok: true, dir: <指定値> } が返る */
+  /** 正常系: --dir 指定時に { ok: true, dir: <指定値> } が返る */
+  describe('Given: --dir オプションが指定される', () => {
     it('Then: [正常] - { ok: true, dir: <指定値> } を返す', () => {
       const result = resolveInputDir({ dir: '/some/path' });
 
@@ -37,8 +37,8 @@ describe('Given: resolveInputDir (純粋関数)', () => {
 
   // ─── T-02: --agent + --yearMonth 指定 ─────────────────────────────────────
 
-  describe('When: --agent と --yearMonth が指定される', () => {
-    /** 正常系: temp/chatlog/<agent>/<year>/<yearMonth> のパスが返る */
+  /** 正常系: temp/chatlog/<agent>/<year>/<yearMonth> のパスが返る */
+  describe('Given: --agent と --yearMonth が指定される', () => {
     it('Then: [正常] - { ok: true, dir: "temp/chatlog/<agent>/<year>/<yearMonth>" } を返す', () => {
       const result = resolveInputDir({ agent: 'claude', yearMonth: '2026-03' });
 
@@ -48,8 +48,8 @@ describe('Given: resolveInputDir (純粋関数)', () => {
 
   // ─── T-03: --dir と --agent/--yearMonth の優先順位 ────────────────────────
 
-  describe('When: --dir と --agent/--yearMonth が両方指定される', () => {
-    /** エッジケース: --dir が --agent/--yearMonth より優先される */
+  /** エッジケース: --dir が --agent/--yearMonth より優先される */
+  describe('Given: --dir と --agent/--yearMonth が両方指定される', () => {
     it('Then: [エッジケース] - --dir が優先されて { ok: true, dir: <dir値> } を返す', () => {
       const result = resolveInputDir({ dir: '/explicit/dir', agent: 'claude', yearMonth: '2026-03' });
 
@@ -59,8 +59,8 @@ describe('Given: resolveInputDir (純粋関数)', () => {
 
   // ─── T-04: 引数なし ────────────────────────────────────────────────────────
 
-  describe('When: 引数が空オブジェクト {}', () => {
-    /** 異常系: 必須オプションなしで { ok: false, error: ... } が返る */
+  /** 異常系: 必須オプションなしで { ok: false, error: ... } が返る */
+  describe('Given: 引数が空オブジェクト {}', () => {
     it('Then: [異常] - { ok: false, error: エラーメッセージ } を返す', () => {
       const result = resolveInputDir({});
 
@@ -73,8 +73,8 @@ describe('Given: resolveInputDir (純粋関数)', () => {
 
   // ─── T-05: --agent のみ指定（yearMonth なし） ─────────────────────────────
 
-  describe('When: --agent のみ指定（--yearMonth なし）', () => {
-    /** 異常系: --yearMonth が欠けているため { ok: false, error: ... } が返る */
+  /** 異常系: --yearMonth が欠けているため { ok: false, error: ... } が返る */
+  describe('Given: --agent のみ指定（--yearMonth なし）', () => {
     it('Then: [異常] - { ok: false, error: エラーメッセージ } を返す', () => {
       const result = resolveInputDir({ agent: 'claude' });
 
@@ -87,8 +87,8 @@ describe('Given: resolveInputDir (純粋関数)', () => {
 
   // ─── T-06: --yearMonth のみ指定（agent なし） ─────────────────────────────
 
-  describe('When: --yearMonth のみ指定（--agent なし）', () => {
-    /** 異常系: --agent が欠けているため { ok: false, error: ... } が返る */
+  /** 異常系: --agent が欠けているため { ok: false, error: ... } が返る */
+  describe('Given: --yearMonth のみ指定（--agent なし）', () => {
     it('Then: [異常] - { ok: false, error: エラーメッセージ } を返す', () => {
       const result = resolveInputDir({ yearMonth: '2026-03' });
 
@@ -101,8 +101,8 @@ describe('Given: resolveInputDir (純粋関数)', () => {
 
   // ─── T-07: yearMonth から year の正しい抽出 ───────────────────────────────
 
-  describe('When: yearMonth="2026-03" が指定される', () => {
-    /** エッジケース: yearMonth の先頭4文字が year として抽出されパスに反映される */
+  /** エッジケース: yearMonth の先頭4文字が year として抽出されパスに反映される */
+  describe('Given: yearMonth="2026-03" が指定される', () => {
     it('Then: [エッジケース] - dir パスに "2026/2026-03" が含まれる', () => {
       const result = resolveInputDir({ agent: 'claude', yearMonth: '2026-03' });
 
@@ -114,8 +114,8 @@ describe('Given: resolveInputDir (純粋関数)', () => {
 
 // ─── validateInputDir 単体テスト ──────────────────────────────────────────────
 
-describe('Given: validateInputDir (statFn注入)', () => {
-  describe('When: statFn が成功（例外なし）', () => {
+describe('validateInputDir', () => {
+  describe('Given: statFn が成功（例外なし）', () => {
     it('Then: [正常] - true を返す', () => {
       const statFn = (_path: string) => ({ isDirectory: true });
       const result = validateInputDir('/any/path', statFn);
@@ -124,7 +124,7 @@ describe('Given: validateInputDir (statFn注入)', () => {
     });
   });
 
-  describe('When: statFn が例外をスロー', () => {
+  describe('Given: statFn が例外をスロー', () => {
     it('Then: [異常] - false を返す', () => {
       const statFn = (_path: string): unknown => {
         throw new Deno.errors.NotFound('not found');
@@ -135,7 +135,7 @@ describe('Given: validateInputDir (statFn注入)', () => {
     });
   });
 
-  describe('When: statFn が undefined として渡される', () => {
+  describe('Given: statFn が undefined として渡される', () => {
     it('Then: [エッジケース] - Deno.statSync をデフォルトとして使用し、存在するディレクトリには true を返す', () => {
       // undefined を明示的に渡す（falsyフォールバックのテスト）
       // 実際のFS（カレントディレクトリ "."）を使う
@@ -145,7 +145,7 @@ describe('Given: validateInputDir (statFn注入)', () => {
     });
   });
 
-  describe('When: statFn が undefined として渡され、存在しないパス', () => {
+  describe('Given: statFn が undefined として渡され、存在しないパス', () => {
     it('Then: [エッジケース] - Deno.statSync をデフォルトとして使用し、存在しないパスには false を返す', () => {
       const result = validateInputDir('/nonexistent/path/xyz', undefined);
 

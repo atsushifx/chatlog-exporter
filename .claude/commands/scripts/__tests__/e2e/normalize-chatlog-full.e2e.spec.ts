@@ -167,12 +167,9 @@ describe('normalize-chatlog - full E2E', () => {
       // reproducibility: 2 回目も success=1
       assertMatch(logCapture.calls.join('\n'), /success=1/);
 
-      // reproducibility: .old-01.md バックアップが存在する
-      const outputFiles: string[] = [];
-      for await (const entry of Deno.readDir(outputDir)) {
-        outputFiles.push(entry.name);
-      }
-      const backupExists = outputFiles.some((name) => name.includes('.old-01.md'));
+      // reproducibility: .old-01.md バックアップが存在する（サブディレクトリも含めて再帰検索）
+      const allFiles = findMdFiles(outputDir);
+      const backupExists = allFiles.some((path) => path.includes('.old-01.md'));
       assertEquals(backupExists, true);
 
       // reproducibility: 入力ファイルは不変
