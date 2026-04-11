@@ -5,8 +5,8 @@ description: >
   /classify-chatlog で呼び出す。
   Claude CLI でファイルのメタデータを解析し、プロジェクト名を推定してサブディレクトリに移動。
   フロントマターに project フィールドを付加する。
-argument-hint: "[agent] [YYYY-MM] [--dry-run]"
 allowed-tools: Bash, Glob
+context: fork
 ---
 
 # classify-chatlog スキル
@@ -37,10 +37,10 @@ allowed-tools: Bash, Glob
 
 ## ステップ1: スクリプトパスの解決
 
-Glob ツールで `**/commands/classify-chatlog.md` を検索し、そのディレクトリを `SKILL_DIR` として確定する。
+Glob ツールで `**/skills/classify-chatlog/SKILL.md` を検索し、そのディレクトリを `SKILL_DIR` として確定する。
 
 ```bash
-SKILL_DIR   = <classify-chatlog.md が存在するディレクトリの絶対パス>
+SKILL_DIR   = <SKILL.md が存在するディレクトリの絶対パス>
 SCRIPT_PATH = $SKILL_DIR/scripts/classify-chatlog.ts
 INPUT       = <cwd>/temp/chatlog
 DICS_DIR    = <cwd>/temp/dics
