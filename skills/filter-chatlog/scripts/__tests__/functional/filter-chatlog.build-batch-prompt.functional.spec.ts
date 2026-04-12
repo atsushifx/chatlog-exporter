@@ -11,7 +11,7 @@ import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // test target
-import { buildBatchPrompt } from '../../../../../skills/filter-chatlog/scripts/filter-chatlog.ts';
+import { buildBatchPrompt } from '../../filter-chatlog.ts';
 
 // ─── 共通セットアップ ──────────────────────────────────────────────────────────
 
