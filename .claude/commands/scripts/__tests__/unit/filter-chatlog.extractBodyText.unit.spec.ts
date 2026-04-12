@@ -10,7 +10,7 @@ import { assertEquals, assertStringIncludes } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
-import { extractBodyText } from '../../filter-chatlog.ts';
+import { extractBodyText } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
 
 // ─── T-FL-EB-01: 通常会話 → User/Assistant フォーマット ──────────────────────
 

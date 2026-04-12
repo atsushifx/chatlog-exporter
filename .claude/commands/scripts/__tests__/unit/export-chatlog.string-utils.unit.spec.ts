@@ -15,7 +15,7 @@ import {
   isShortAffirmation,
   isSkippable,
   textToSlug,
-} from '../../export-chatlog.ts';
+} from '../../../../export-chatlog/scripts/export-chatlog.ts';
 
 // ─── textToSlug ──────────────────────────────────────────────────────────────
 

@@ -9,8 +9,8 @@
 import { assertStringIncludes } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
-import { buildOutputPath } from '../../export-chatlog.ts';
-import type { SessionMeta } from '../../export-chatlog.ts';
+import { buildOutputPath } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+import type { SessionMeta } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 
 function _makeMeta(overrides: Partial<SessionMeta> = {}): SessionMeta {
   return {

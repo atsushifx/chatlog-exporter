@@ -10,7 +10,7 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
-import { parseFrontmatter } from '../../filter-chatlog.ts';
+import { parseFrontmatter } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
 
 // ─── T-FL-PF-01: frontmatter あり → body 分離 ─────────────────────────────────
 

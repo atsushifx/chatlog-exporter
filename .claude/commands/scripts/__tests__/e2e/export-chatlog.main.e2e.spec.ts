@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
-import { main } from '../../export-chatlog.ts';
+import { main } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 
 // ─── ヘルパー ──────────────────────────────────────────────────────────────────
 

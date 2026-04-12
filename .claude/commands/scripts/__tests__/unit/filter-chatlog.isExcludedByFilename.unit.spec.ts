@@ -10,7 +10,7 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
-import { isExcludedByFilename } from '../../filter-chatlog.ts';
+import { isExcludedByFilename } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
 
 // ─── T-FL-IF-01: 除外パターン一致 → true ─────────────────────────────────────
 

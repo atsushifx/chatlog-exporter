@@ -11,8 +11,8 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
-import { findClaudeSessions, parsePeriod } from '../../export-chatlog.ts';
-import type { PeriodRange } from '../../export-chatlog.ts';
+import { findClaudeSessions, parsePeriod } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+import type { PeriodRange } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 
 // ─── ヘルパー ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ describe('findClaudeSessions', () => {
 
         it('T-EC-FS-01-02: 全パスが .jsonl で終わる', async () => {
           const results = await findClaudeSessions(ALL_PERIOD);
-          assertEquals(results.every((f) => f.endsWith('.jsonl')), true);
+          assertEquals(results.every((f: string) => f.endsWith('.jsonl')), true);
         });
       });
     });
@@ -84,7 +84,7 @@ describe('findClaudeSessions', () => {
 
         it('T-EC-FS-02-02: 収集パスに "subagents" が含まれない', async () => {
           const results = await findClaudeSessions(ALL_PERIOD);
-          assertEquals(results.every((f) => !f.includes('subagents')), true);
+          assertEquals(results.every((f: string) => !f.includes('subagents')), true);
         });
       });
     });
@@ -117,7 +117,7 @@ describe('findClaudeSessions', () => {
 
         it('T-EC-FS-03-02: 収集パスに "my-app" が含まれる', async () => {
           const results = await findClaudeSessions(ALL_PERIOD, 'my-app');
-          assertEquals(results.every((f) => f.includes('my-app')), true);
+          assertEquals(results.every((f: string) => f.includes('my-app')), true);
         });
       });
     });

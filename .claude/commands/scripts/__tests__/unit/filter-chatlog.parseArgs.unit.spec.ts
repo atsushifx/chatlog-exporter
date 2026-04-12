@@ -12,7 +12,7 @@ import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
 // test target
-import { parseArgs } from '../../filter-chatlog.ts';
+import { parseArgs } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
 
 // ─── T-FL-PA-01: デフォルト値 ─────────────────────────────────────────────────
 

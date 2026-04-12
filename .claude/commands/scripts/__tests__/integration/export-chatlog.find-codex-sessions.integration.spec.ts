@@ -11,8 +11,8 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
-import { findCodexSessions, parsePeriod } from '../../export-chatlog.ts';
-import type { PeriodRange } from '../../export-chatlog.ts';
+import { findCodexSessions, parsePeriod } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+import type { PeriodRange } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 
 // ─── ヘルパー ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ describe('findCodexSessions', () => {
 
         it('T-EC-FX-01-02: 全パスが .jsonl で終わる', async () => {
           const results = await findCodexSessions(ALL_PERIOD);
-          assertEquals(results.every((f) => f.endsWith('.jsonl')), true);
+          assertEquals(results.every((f: string) => f.endsWith('.jsonl')), true);
         });
       });
     });

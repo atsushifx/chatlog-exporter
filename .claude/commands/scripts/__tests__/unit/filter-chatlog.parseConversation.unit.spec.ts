@@ -10,7 +10,7 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
-import { parseConversation } from '../../filter-chatlog.ts';
+import { parseConversation } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
 
 // ─── T-FL-PC-01: User/Assistant ターン 1 件ずつ ────────────────────────────────
 

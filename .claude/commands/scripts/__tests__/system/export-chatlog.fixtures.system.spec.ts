@@ -12,8 +12,8 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 import { parse as parseYaml } from '@std/yaml';
 
-import { parseClaudeSession, parseCodexSession, parsePeriod } from '../../export-chatlog.ts';
-import type { PeriodRange } from '../../export-chatlog.ts';
+import { parseClaudeSession, parseCodexSession, parsePeriod } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+import type { PeriodRange } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────
 
