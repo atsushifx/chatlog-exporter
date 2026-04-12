@@ -11,7 +11,12 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/unit/export-chatlog.parse-args.unit.spec.ts
 import { parseArgs } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/unit/export-chatlog.parse-args.unit.spec.ts
+=======
+import { parseArgs } from '../../export-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/unit/export-chatlog.parse-args.unit.spec.ts
 
 // ─── parseArgs tests ──────────────────────────────────────────────────────────
 

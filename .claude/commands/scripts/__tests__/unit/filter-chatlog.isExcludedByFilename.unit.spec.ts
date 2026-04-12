@@ -10,7 +10,12 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/unit/filter-chatlog.isExcludedByFilename.unit.spec.ts
 import { isExcludedByFilename } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/unit/filter-chatlog.isExcludedByFilename.unit.spec.ts
+=======
+import { isExcludedByFilename } from '../../filter-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/unit/filter-chatlog.isExcludedByFilename.unit.spec.ts
 
 // ─── T-FL-IF-01: 除外パターン一致 → true ─────────────────────────────────────
 

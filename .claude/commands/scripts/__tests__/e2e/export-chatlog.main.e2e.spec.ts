@@ -13,7 +13,12 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/e2e/export-chatlog.main.e2e.spec.ts
 import { main } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/e2e/export-chatlog.main.e2e.spec.ts
+=======
+import { main } from '../../export-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/e2e/export-chatlog.main.e2e.spec.ts
 
 // ─── ヘルパー ──────────────────────────────────────────────────────────────────
 

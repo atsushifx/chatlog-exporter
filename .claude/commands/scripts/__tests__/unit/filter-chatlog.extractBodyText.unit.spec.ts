@@ -10,7 +10,12 @@ import { assertEquals, assertStringIncludes } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/unit/filter-chatlog.extractBodyText.unit.spec.ts
 import { extractBodyText } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/unit/filter-chatlog.extractBodyText.unit.spec.ts
+=======
+import { extractBodyText } from '../../filter-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/unit/filter-chatlog.extractBodyText.unit.spec.ts
 
 // ─── T-FL-EB-01: 通常会話 → User/Assistant フォーマット ──────────────────────
 

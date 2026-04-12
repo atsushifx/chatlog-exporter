@@ -15,8 +15,14 @@ import { assertEquals, assertStringIncludes } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/unit/export-chatlog.markdown.unit.spec.ts
 import { renderMarkdown } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 import type { SessionMeta, Turn } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/unit/export-chatlog.markdown.unit.spec.ts
+=======
+import { renderMarkdown } from '../../export-chatlog.ts';
+import type { SessionMeta, Turn } from '../../export-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/unit/export-chatlog.markdown.unit.spec.ts
 
 function _makeMeta(overrides: Partial<SessionMeta> = {}): SessionMeta {
   return {

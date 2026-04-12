@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/integration/export-chatlog.find-codex-sessions.integration.spec.ts
 import { findCodexSessions, parsePeriod } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 import type { PeriodRange } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 
@@ -60,6 +61,58 @@ describe('findCodexSessions', () => {
         it('T-EC-FX-01-02: 全パスが .jsonl で終わる', async () => {
           const results = await findCodexSessions(ALL_PERIOD);
           assertEquals(results.every((f: string) => f.endsWith('.jsonl')), true);
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/integration/export-chatlog.find-codex-sessions.integration.spec.ts
+=======
+import { findCodexSessions, parsePeriod } from '../../export-chatlog.ts';
+import type { PeriodRange } from '../../export-chatlog.ts';
+
+// ─── ヘルパー ──────────────────────────────────────────────────────────────────
+
+const ALL_PERIOD: PeriodRange = parsePeriod(undefined);
+
+// ─── findCodexSessions ────────────────────────────────────────────────────────
+
+describe('findCodexSessions', () => {
+  let tempDir: string;
+  let envStub: Stub<typeof Deno.env, [key: string], string | undefined>;
+
+  beforeEach(async () => {
+    tempDir = await Deno.makeTempDir();
+    // homeDir() を tempDir に向ける
+    envStub = stub(Deno.env, 'get', (key: string) => {
+      if (key === 'USERPROFILE' || key === 'HOME') { return tempDir; }
+      return undefined;
+    });
+  });
+
+  afterEach(async () => {
+    envStub.restore();
+    await Deno.remove(tempDir, { recursive: true });
+  });
+
+  // ─── T-EC-FX-01: sessionsDir 走査 ─────────────────────────────────────────
+
+  describe('Given: ~/.codex/sessions/YYYY/MM/DD/ に .jsonl ファイルが存在する', () => {
+    describe('When: findCodexSessions(allPeriod) を呼び出す', () => {
+      beforeEach(async () => {
+        const sessionsDir = `${tempDir}/.codex/sessions`;
+        await Deno.mkdir(`${sessionsDir}/2026/03/15`, { recursive: true });
+        await Deno.mkdir(`${sessionsDir}/2026/03/16`, { recursive: true });
+        await Deno.writeTextFile(`${sessionsDir}/2026/03/15/session1.jsonl`, '{}');
+        await Deno.writeTextFile(`${sessionsDir}/2026/03/15/session2.jsonl`, '{}');
+        await Deno.writeTextFile(`${sessionsDir}/2026/03/16/session3.jsonl`, '{}');
+      });
+
+      describe('Then: T-EC-FX-01 - 全ての .jsonl ファイルを収集する', () => {
+        it('T-EC-FX-01-01: 収集ファイル数が 3', async () => {
+          const results = await findCodexSessions(ALL_PERIOD);
+          assertEquals(results.length, 3);
+        });
+
+        it('T-EC-FX-01-02: 全パスが .jsonl で終わる', async () => {
+          const results = await findCodexSessions(ALL_PERIOD);
+          assertEquals(results.every((f) => f.endsWith('.jsonl')), true);
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/integration/export-chatlog.find-codex-sessions.integration.spec.ts
         });
       });
     });

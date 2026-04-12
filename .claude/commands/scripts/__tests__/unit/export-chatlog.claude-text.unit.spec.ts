@@ -12,7 +12,12 @@ import { describe, it } from '@std/testing/bdd';
 import {
   extractClaudeAssistantText,
   extractClaudeUserText,
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/unit/export-chatlog.claude-text.unit.spec.ts
 } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/unit/export-chatlog.claude-text.unit.spec.ts
+=======
+} from '../../export-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/unit/export-chatlog.claude-text.unit.spec.ts
 
 // ─── extractClaudeUserText ────────────────────────────────────────────────────
 

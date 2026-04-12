@@ -10,7 +10,12 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/unit/filter-chatlog.parseFrontmatter.unit.spec.ts
 import { parseFrontmatter } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/unit/filter-chatlog.parseFrontmatter.unit.spec.ts
+=======
+import { parseFrontmatter } from '../../filter-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/unit/filter-chatlog.parseFrontmatter.unit.spec.ts
 
 // ─── T-FL-PF-01: frontmatter あり → body 分離 ─────────────────────────────────
 

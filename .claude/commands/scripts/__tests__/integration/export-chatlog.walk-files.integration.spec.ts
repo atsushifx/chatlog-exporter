@@ -9,7 +9,12 @@
 import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/integration/export-chatlog.walk-files.integration.spec.ts
 import { walkFiles } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/integration/export-chatlog.walk-files.integration.spec.ts
+=======
+import { walkFiles } from '../../export-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/integration/export-chatlog.walk-files.integration.spec.ts
 
 // ─── walkFiles ────────────────────────────────────────────────────────────────
 

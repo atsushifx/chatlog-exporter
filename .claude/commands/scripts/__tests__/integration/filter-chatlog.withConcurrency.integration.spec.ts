@@ -10,7 +10,12 @@ import { assertEquals, assertRejects } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/integration/filter-chatlog.withConcurrency.integration.spec.ts
 import { withConcurrency } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/integration/filter-chatlog.withConcurrency.integration.spec.ts
+=======
+import { withConcurrency } from '../../filter-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/integration/filter-chatlog.withConcurrency.integration.spec.ts
 
 // ─── T-FL-WC-01: タスク数 < limit → 全タスク実行 ─────────────────────────────
 

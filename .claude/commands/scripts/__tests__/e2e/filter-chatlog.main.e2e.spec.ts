@@ -24,8 +24,8 @@ import {
   installCommandMock,
   makeNotFoundMock,
   makeSuccessMock,
-} from '../_helpers/deno-command-mock.ts';
-import type { CommandMockHandle } from '../_helpers/deno-command-mock.ts';
+} from '../../../../../skills/_scripts/__tests__/helpers/deno-command-mock.ts';
+import type { CommandMockHandle } from '../../../../../skills/_scripts/__tests__/helpers/deno-command-mock.ts';
 
 // ─── テスト用一時ディレクトリセットアップ ─────────────────────────────────────
 

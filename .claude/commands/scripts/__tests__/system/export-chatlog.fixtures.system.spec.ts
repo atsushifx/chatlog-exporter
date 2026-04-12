@@ -12,8 +12,14 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 import { parse as parseYaml } from '@std/yaml';
 
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/system/export-chatlog.fixtures.system.spec.ts
 import { parseClaudeSession, parseCodexSession, parsePeriod } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 import type { PeriodRange } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/system/export-chatlog.fixtures.system.spec.ts
+=======
+import { parseClaudeSession, parseCodexSession, parsePeriod } from '../../export-chatlog.ts';
+import type { PeriodRange } from '../../export-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/system/export-chatlog.fixtures.system.spec.ts
 
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────
 

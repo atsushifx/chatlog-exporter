@@ -11,7 +11,12 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import { stub } from '@std/testing/mock';
 
 // test target
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/integration/filter-chatlog.fileOps.integration.spec.ts
 import { buildBatchPrompt, findMdFiles, prefilterFiles } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/integration/filter-chatlog.fileOps.integration.spec.ts
+=======
+import { buildBatchPrompt, findMdFiles, prefilterFiles } from '../../filter-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/integration/filter-chatlog.fileOps.integration.spec.ts
 
 // ─── 共通セットアップ ──────────────────────────────────────────────────────────
 

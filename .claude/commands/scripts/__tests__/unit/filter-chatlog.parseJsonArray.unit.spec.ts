@@ -10,7 +10,12 @@ import { assertEquals, assertNotEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/unit/filter-chatlog.parseJsonArray.unit.spec.ts
 import { parseJsonArray } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/unit/filter-chatlog.parseJsonArray.unit.spec.ts
+=======
+import { parseJsonArray } from '../../filter-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/unit/filter-chatlog.parseJsonArray.unit.spec.ts
 
 // ─── T-FL-PJ-01: 純粋な JSON 配列文字列 → パース成功 ─────────────────────────
 

@@ -9,7 +9,12 @@
 import { assertEquals, assertThrows } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/unit/export-chatlog.period-filter.unit.spec.ts
 import { inPeriod, parsePeriod } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/unit/export-chatlog.period-filter.unit.spec.ts
+=======
+import { inPeriod, parsePeriod } from '../../export-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/unit/export-chatlog.period-filter.unit.spec.ts
 
 // ─── parsePeriod ──────────────────────────────────────────────────────────────
 

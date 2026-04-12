@@ -12,7 +12,12 @@ import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
 // test target
+<<<<<<< HEAD:.claude/commands/scripts/__tests__/unit/filter-chatlog.parseArgs.unit.spec.ts
 import { parseArgs } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
+||||||| parent of 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):.claude/commands/scripts/__tests__/unit/filter-chatlog.parseArgs.unit.spec.ts
+=======
+import { parseArgs } from '../../filter-chatlog.ts';
+>>>>>>> 6671f79 (test(helpers): move helpers to skills/_scripts and update imports):skills/normalize-chatlog/scripts/__tests__/unit/filter-chatlog.parseArgs.unit.spec.ts
 
 // ─── T-FL-PA-01: デフォルト値 ─────────────────────────────────────────────────
 
