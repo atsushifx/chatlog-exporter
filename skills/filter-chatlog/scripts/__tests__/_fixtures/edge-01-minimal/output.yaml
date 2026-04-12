@@ -1,0 +1,5 @@
+# filter-chatlog システムテスト期待値
+# 基本的な Git コマンド説明（境界ケース：KEEP か DISCARD か曖昧）
+# AIの判断を許容するため confidence_min を低めに設定
+expected_decision: KEEP
+confidence_min: 0.3
