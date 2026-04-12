@@ -10,7 +10,7 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
-import { isExcludedByContent } from '../../filter-chatlog.ts';
+import { isExcludedByContent } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
 
 // ─── 正常な会話テキスト生成ヘルパー ──────────────────────────────────────────
 

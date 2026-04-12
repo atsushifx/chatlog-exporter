@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import { stub } from '@std/testing/mock';
 
 // test target
-import { buildBatchPrompt, findMdFiles, prefilterFiles } from '../../filter-chatlog.ts';
+import { buildBatchPrompt, findMdFiles, prefilterFiles } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
 
 // ─── 共通セットアップ ──────────────────────────────────────────────────────────
 

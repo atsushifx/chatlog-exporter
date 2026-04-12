@@ -11,8 +11,8 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import { stub } from '@std/testing/mock';
 
 // test target
-import { DISCARD_THRESHOLD, processChunk } from '../../filter-chatlog.ts';
-import type { Stats } from '../../filter-chatlog.ts';
+import { DISCARD_THRESHOLD, processChunk } from '../../../../../skills/filter-chatlog/scripts/filter-chatlog.ts';
+import type { Stats } from '../../../../../skills/filter-chatlog/scripts/filter-chatlog.ts';
 
 // helpers
 import {
@@ -20,8 +20,8 @@ import {
   makeFailMock,
   makeNotFoundMock,
   makeSuccessMock,
-} from '../_helpers/deno-command-mock.ts';
-import type { CommandMockHandle } from '../_helpers/deno-command-mock.ts';
+} from '../../../../../skills/_scripts/__tests__/helpers/deno-command-mock.ts';
+import type { CommandMockHandle } from '../../../../../skills/_scripts/__tests__/helpers/deno-command-mock.ts';
 
 // ─── テスト用ヘルパー ──────────────────────────────────────────────────────────
 

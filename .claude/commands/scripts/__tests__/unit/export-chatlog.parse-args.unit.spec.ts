@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
-import { parseArgs } from '../../export-chatlog.ts';
+import { parseArgs } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 
 // ─── parseArgs tests ──────────────────────────────────────────────────────────
 

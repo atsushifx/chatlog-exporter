@@ -10,7 +10,7 @@ import { assertEquals, assertNotEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
-import { parseJsonArray } from '../../filter-chatlog.ts';
+import { parseJsonArray } from '../../../../filter-chatlog/scripts/filter-chatlog.ts';
 
 // ─── T-FL-PJ-01: 純粋な JSON 配列文字列 → パース成功 ─────────────────────────
 
