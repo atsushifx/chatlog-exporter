@@ -11,8 +11,8 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import { stub } from '@std/testing/mock';
 
 // test target
-import { DISCARD_THRESHOLD, processChunk } from '../../../../../skills/filter-chatlog/scripts/filter-chatlog.ts';
-import type { Stats } from '../../../../../skills/filter-chatlog/scripts/filter-chatlog.ts';
+import { DISCARD_THRESHOLD, processChunk } from '../../filter-chatlog.ts';
+import type { Stats } from '../../filter-chatlog.ts';
 
 // helpers
 import {
