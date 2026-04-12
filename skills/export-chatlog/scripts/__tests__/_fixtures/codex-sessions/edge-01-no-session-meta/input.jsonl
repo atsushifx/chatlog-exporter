@@ -1,0 +1,2 @@
+{"timestamp":"2026-03-15T11:00:01.000Z","type":"response_item","payload":{"role":"user","content":[{"type":"input_text","text":"質問があります"}]}}
+{"timestamp":"2026-03-15T11:00:10.000Z","type":"response_item","payload":{"role":"assistant","content":[{"type":"output_text","text":"はい、どうぞ。何でもお聞きください。"}]}}
