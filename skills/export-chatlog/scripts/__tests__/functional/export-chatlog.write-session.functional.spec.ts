@@ -13,8 +13,8 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
-import { writeSession } from '../../../../export-chatlog/scripts/export-chatlog.ts';
-import type { ExportedSession } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+import { writeSession } from '../../export-chatlog.ts';
+import type { ExportedSession } from '../../export-chatlog.ts';
 
 // ─── ヘルパー ──────────────────────────────────────────────────────────────────
 
