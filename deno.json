@@ -13,11 +13,13 @@
     "lib": ["deno.ns", "es2022", "dom"]
   },
   "tasks": {
-    "test": "deno test --allow-read --allow-write **/__tests__/",
-    "test:unit": "deno test --allow-read --allow-write **/__tests__/unit/",
-    "test:integration": "deno test --allow-read --allow-write **/__tests__/integration/",
-    "test:functional": "deno test --allow-read --allow-write **/__tests__/functional/",
-    "test:e2e": "deno test --allow-read --allow-write **/__tests__/e2e/",
-    "test:system": "deno test --allow-read --allow-write **/__tests__/system"
+    "test": "deno task test:module all",
+    "test:unit": "deno task test:module unit",
+    "test:integration": "deno task test:module integration",
+    "test:functional": "deno task test:module functional",
+    "test:e2e": "deno task test:module e2e",
+    "test:system": "deno task test:module system",
+    "test:fixtures": "deno task test:module fixtures",
+    "test:module": "deno run --allow-read --allow-write --allow-run scripts/test-module.ts"
   }
 }
