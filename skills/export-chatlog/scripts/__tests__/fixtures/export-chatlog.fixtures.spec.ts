@@ -1,6 +1,6 @@
-// src: scripts/__tests__/system/export-chatlog.fixtures.system.spec.ts
-// @(#): export-chatlog システムテスト（実 JSONL パーサー使用）
-//       _fixtures/export-chatlog/ 下の各ディレクトリを再帰スキャンし
+// src: scripts/__tests__/fixtures/export-chatlog.fixtures.spec.ts
+// @(#): export-chatlog fixturesテスト（実 JSONL パーサー使用）
+//       fixtures-data/ 下の各ディレクトリを再帰スキャンし
 //       input.jsonl を parseClaudeSession / parseCodexSession でパースして
 //       output.yaml の期待値と照合する
 //
@@ -16,12 +16,12 @@ import {
   parseClaudeSession,
   parseCodexSession,
   parsePeriod,
-} from '../../../../export-chatlog/scripts/export-chatlog.ts';
-import type { PeriodRange } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+} from '../../export-chatlog.ts';
+import type { PeriodRange } from '../../export-chatlog.ts';
 
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────
 
-const FIXTURES_DIR = new URL('../_fixtures/export-chatlog', import.meta.url)
+const FIXTURES_DIR = new URL('./fixtures-data', import.meta.url)
   .pathname
   .replace(/^\/([A-Z]:)/, '$1'); // Windows: /C:/... → C:/...
 
