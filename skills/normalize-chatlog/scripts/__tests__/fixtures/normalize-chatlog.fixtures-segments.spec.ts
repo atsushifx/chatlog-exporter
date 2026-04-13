@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run --allow-read --allow-run --allow-write
-// src: scripts/__tests__/system/normalize-chatlog.fixtures-segments.system.spec.ts
-// @(#): ファイル駆動システムテスト
-//       対象: segmentChatlog() — _fixtures/runai-segments/ 下の各ディレクトリを再帰スキャンし
+// src: scripts/__tests__/fixtures/normalize-chatlog.fixtures-segments.spec.ts
+// @(#): ファイル駆動fixturesテスト
+//       対象: segmentChatlog() — fixtures-data/runai-segments/ 下の各ディレクトリを再帰スキャンし
 //             input.md を入力、output.yaml の count を期待セグメント数として照合する
 //       責務: セグメント数のみ検証する
 //             セグメントフィールド・markdown 生成・フロントマター検証は別テストで行う
@@ -36,7 +36,7 @@ import type { Segment } from '../../normalize-chatlog.ts';
 
 // ─── fixtures ルートパス ──────────────────────────────────────────────────────
 
-const RUNAI_FIXTURES_DIR = new URL('../_fixtures/runai-segments', import.meta.url).pathname.replace(
+const RUNAI_FIXTURES_DIR = new URL('./fixtures-data/runai-segments', import.meta.url).pathname.replace(
   /^\/([A-Z]:)/,
   '$1',
 );
@@ -106,7 +106,7 @@ async function _collectFixtureDirs(rootDir: string): Promise<string[]> {
   return dirs.sort();
 }
 
-// ─── ファイル駆動 system fixtures tests ──────────────────────────────────────
+// ─── ファイル駆動 fixtures tests ──────────────────────────────────────────────
 
 const _fixtureDirs = await _collectFixtureDirs(RUNAI_FIXTURES_DIR);
 
