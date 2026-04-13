@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run --allow-read --allow-run --allow-write
-// src: scripts/__tests__/system/normalize-chatlog.fixtures-markdown.system.spec.ts
-// @(#): ファイル駆動システムテスト（markdown 本文検証）
-//       対象: generateSegmentFile() — _fixtures/runai-markdown/ 下の各ディレクトリを自動スキャンし
+// src: scripts/__tests__/fixtures/normalize-chatlog.fixtures-markdown.spec.ts
+// @(#): ファイル駆動fixturesテスト（markdown 本文検証）
+//       対象: generateSegmentFile() — fixtures-data/runai-markdown/ 下の各ディレクトリを自動スキャンし
 //             同一ディレクトリの input.md を入力、output-<N>.md の START_BODY_HEADING 以降を期待本文として照合する
 //       責務: generateSegmentFile() が生成する markdown 本文の完全一致のみ検証する
 //             フロントマター・セグメント構造検証は別テストで行う
@@ -23,7 +23,7 @@ import type { Segment } from '../../normalize-chatlog.ts';
 
 // ─── fixtures ルートパス ──────────────────────────────────────────────────────
 
-const RUNAI_MARKDOWN_DIR = new URL('../_fixtures/runai-markdown', import.meta.url).pathname.replace(
+const RUNAI_MARKDOWN_DIR = new URL('./fixtures-data/runai-markdown', import.meta.url).pathname.replace(
   /^\/([A-Z]:)/,
   '$1',
 );
@@ -81,7 +81,7 @@ async function _collectFixtureDirs(rootDir: string): Promise<string[]> {
   return dirs.sort();
 }
 
-// ─── ファイル駆動 system fixtures-markdown tests ──────────────────────────────
+// ─── ファイル駆動 fixtures-markdown tests ─────────────────────────────────────
 
 const _fixtureDirs = await _collectFixtureDirs(RUNAI_MARKDOWN_DIR);
 
