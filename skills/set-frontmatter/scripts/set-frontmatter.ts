@@ -30,16 +30,16 @@ import { parse as parseYaml } from '@std/yaml';
 // 定数
 // ─────────────────────────────────────────────
 
-const DEFAULT_CONCURRENCY = 4;
-const MAX_BODY_CHARS = 4000;
+export const DEFAULT_CONCURRENCY = 4;
+export const MAX_BODY_CHARS = 4000;
 
 // ─────────────────────────────────────────────
 // 型定義
 // ─────────────────────────────────────────────
 
-type LogType = string;
+export type LogType = string;
 
-interface FileMeta {
+export interface FileMeta {
   file: string; // フルパス
   sessionId: string;
   date: string;
@@ -49,19 +49,19 @@ interface FileMeta {
   fullBody: string; // 本文（無制限、書き込み用）
 }
 
-interface TypeResult {
+export interface TypeResult {
   file: string;
   type: LogType;
 }
 
-interface FrontmatterResult {
+export interface FrontmatterResult {
   file: string;
   type: LogType;
   category: string; // Phase 3aで確定したcategory
   yaml: string; // AI生成YAMLブロック（title/summary/topics/tags）
 }
 
-interface ReviewResult {
+export interface ReviewResult {
   file: string;
   validity: 'pass' | 'fail';
   errors: string[];
@@ -70,7 +70,7 @@ interface ReviewResult {
   correctedYaml: string; // validity=fail のとき修正後YAML、pass のとき空文字
 }
 
-interface Stats {
+export interface Stats {
   total: number;
   success: number;
   fail: number;
@@ -81,24 +81,24 @@ interface Stats {
 // 辞書エントリ型
 // ─────────────────────────────────────────────
 
-interface DicRules {
+export interface DicRules {
   when: string[];
   not: string[];
 }
 
-interface DicEntry {
+export interface DicEntry {
   key: string;
   def: string;
   desc: string;
   rules: DicRules;
 }
 
-interface PromptTemplate {
+export interface PromptTemplate {
   system: string;
   user: string;
 }
 
-interface Dics {
+export interface Dics {
   category: string; // キー一覧（カンマ区切り、スキーマ制約用）
   tags: string; // キー一覧（カンマ区切り、スキーマ制約用）
   typeEntries: DicEntry[];
@@ -111,7 +111,7 @@ interface Dics {
 // 辞書読み込み
 // ─────────────────────────────────────────────
 
-async function loadDics(dicsDir: string): Promise<Dics> {
+export async function loadDics(dicsDir: string): Promise<Dics> {
   const readFile = async (path: string): Promise<string> => {
     try {
       return await Deno.readTextFile(path);
@@ -217,7 +217,7 @@ async function loadDics(dicsDir: string): Promise<Dics> {
  * テンプレート内の ${varname} を vars で置換する。
  * varname が [a-z_]+ 以外の場合はエラー終了（インジェクション防止）。
  */
-function renderPrompt(template: string, vars: Record<string, string>): string {
+export function renderPrompt(template: string, vars: Record<string, string>): string {
   return template.replace(/\$\{([^}]+)\}/g, (_match, name: string) => {
     if (!/^[a-z_]+$/.test(name)) {
       console.error(`エラー: 不正な変数名 "${name}" — 英小文字と "_" のみ使用可能`);
@@ -236,7 +236,7 @@ function renderPrompt(template: string, vars: Record<string, string>): string {
 // ─────────────────────────────────────────────
 
 /** エントリを「- key: def\n  when: ...\n  not: ...」形式に展開 */
-function formatEntryWithRules(e: DicEntry): string {
+export function formatEntryWithRules(e: DicEntry): string {
   const lines: string[] = [`- ${e.key}: ${e.def}`];
   if (e.rules.when.length > 0) {
     lines.push(`  when: ${e.rules.when.join(' / ')}`);
@@ -248,7 +248,7 @@ function formatEntryWithRules(e: DicEntry): string {
 }
 
 /** エントリを「- key: def」形式に展開（rules なし・簡略版） */
-function formatEntryShort(e: DicEntry): string {
+export function formatEntryShort(e: DicEntry): string {
   return `- ${e.key}: ${e.def}`;
 }
 
@@ -256,7 +256,7 @@ function formatEntryShort(e: DicEntry): string {
 // Frontmatter パーサー
 // ─────────────────────────────────────────────
 
-function parseFrontmatter(text: string): { meta: Record<string, string>; body: string } {
+export function parseFrontmatter(text: string): { meta: Record<string, string>; body: string } {
   const lines = text.replace(/\r\n/g, '\n').split('\n');
 
   if (lines[0] !== '---') {
@@ -291,7 +291,7 @@ function parseFrontmatter(text: string): { meta: Record<string, string>; body: s
 // ファイル列挙
 // ─────────────────────────────────────────────
 
-async function findMdFiles(dir: string): Promise<string[]> {
+export async function findMdFiles(dir: string): Promise<string[]> {
   const results: string[] = [];
   await collectMdFiles(dir, results);
   return results.sort();
@@ -319,7 +319,7 @@ async function collectMdFiles(dir: string, results: string[]): Promise<void> {
 // ファイルメタ読み込み
 // ─────────────────────────────────────────────
 
-async function loadFileMeta(filePath: string): Promise<FileMeta | null> {
+export async function loadFileMeta(filePath: string): Promise<FileMeta | null> {
   let text: string;
   try {
     text = await Deno.readTextFile(filePath);
@@ -354,7 +354,7 @@ async function loadFileMeta(filePath: string): Promise<FileMeta | null> {
 // Claude CLI 呼び出し
 // ─────────────────────────────────────────────
 
-async function runClaude(systemPrompt: string, userPrompt: string): Promise<string> {
+export async function runClaude(systemPrompt: string, userPrompt: string): Promise<string> {
   const cmd = new Deno.Command('claude', {
     args: ['-p', systemPrompt, '--output-format', 'text'],
     stdin: 'piped',
@@ -374,7 +374,7 @@ async function runClaude(systemPrompt: string, userPrompt: string): Promise<stri
 // 並列実行ヘルパー
 // ─────────────────────────────────────────────
 
-async function withConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
+export async function withConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
   const results: T[] = new Array(tasks.length);
   let idx = 0;
   async function worker() {
@@ -392,7 +392,7 @@ async function withConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): P
 // ─────────────────────────────────────────────
 
 /** コードフェンス除去・先頭の非YAMLテキストを除去して最初の有効フィールドから返す */
-function cleanYaml(raw: string, firstField: string): string {
+export function cleanYaml(raw: string, firstField: string): string {
   return raw
     .split('\n')
     .filter((l) => !l.startsWith('```'))
@@ -405,7 +405,7 @@ function cleanYaml(raw: string, firstField: string): string {
 // Phase 2: type判定（並列）
 // ─────────────────────────────────────────────
 
-async function judgeType(fm: FileMeta, dics: Dics): Promise<TypeResult> {
+export async function judgeType(fm: FileMeta, dics: Dics): Promise<TypeResult> {
   const tmpl = dics.prompts.get('type') ?? { system: '', user: '' };
   const typeList = dics.typeEntries.map(formatEntryWithRules).join('\n');
   const system = renderPrompt(tmpl.system, {});
@@ -425,7 +425,7 @@ async function judgeType(fm: FileMeta, dics: Dics): Promise<TypeResult> {
 // Phase 3a: category判定（並列）
 // ─────────────────────────────────────────────
 
-async function judgeCategory(fm: FileMeta, type: LogType, dics: Dics): Promise<string> {
+export async function judgeCategory(fm: FileMeta, type: LogType, dics: Dics): Promise<string> {
   const tmpl = dics.prompts.get('category') ?? { system: '', user: '' };
   const focusGuide = dics.categoryPrompts.get(type) ?? '';
   const system = renderPrompt(tmpl.system, {});
@@ -449,7 +449,7 @@ async function judgeCategory(fm: FileMeta, type: LogType, dics: Dics): Promise<s
 // Phase 3b: フロントマター生成（並列）
 // ─────────────────────────────────────────────
 
-async function generateFrontmatter(
+export async function generateFrontmatter(
   fm: FileMeta,
   type: LogType,
   category: string,
@@ -478,7 +478,7 @@ async function generateFrontmatter(
 // Phase 3.5: フロントマターレビュー（並列）
 // ─────────────────────────────────────────────
 
-async function reviewFrontmatter(
+export async function reviewFrontmatter(
   result: FrontmatterResult,
   dics: Dics,
 ): Promise<ReviewResult> {
@@ -550,7 +550,7 @@ async function reviewFrontmatter(
 // Phase 4: Markdownへ書き込み
 // ─────────────────────────────────────────────
 
-async function writeFrontmatter(
+export async function writeFrontmatter(
   fm: FileMeta,
   result: FrontmatterResult,
   dryRun: boolean,
@@ -600,7 +600,7 @@ async function writeFrontmatter(
 // 引数解析
 // ─────────────────────────────────────────────
 
-interface Args {
+export interface Args {
   targetDir: string;
   dicsDir: string;
   dryRun: boolean;
@@ -608,7 +608,7 @@ interface Args {
   concurrency: number;
 }
 
-function parseArgs(args: string[]): Args {
+export function parseArgs(args: string[]): Args {
   let targetDir = '', dicsDir = './assets/dics', dryRun = false, review = true, concurrency = DEFAULT_CONCURRENCY;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -642,8 +642,8 @@ function parseArgs(args: string[]): Args {
 // メイン
 // ─────────────────────────────────────────────
 
-async function main(): Promise<void> {
-  const { targetDir, dicsDir, dryRun, review, concurrency } = parseArgs(Deno.args);
+export async function main(args: string[]): Promise<void> {
+  const { targetDir, dicsDir, dryRun, review, concurrency } = parseArgs(args);
 
   try {
     const stat = await Deno.stat(targetDir);
@@ -758,4 +758,6 @@ async function main(): Promise<void> {
   );
 }
 
-await main();
+if (import.meta.main) {
+  await main(Deno.args);
+}
