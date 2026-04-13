@@ -1,6 +1,6 @@
-// src: scripts/__tests__/system/filter-chatlog.fixtures.system.spec.ts
-// @(#): filter-chatlog システムテスト（実 claude CLI 使用）
-//       _fixtures/filter-chatlog/ 下の各ディレクトリを再帰スキャンし
+// src: scripts/__tests__/fixtures/filter-chatlog.fixtures.spec.ts
+// @(#): filter-chatlog fixturesテスト（実 claude CLI 使用）
+//       fixtures-data/ 下の各ディレクトリを再帰スキャンし
 //       input.md を実際の claude CLI で判定し、output.yaml の期待値と照合する
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
@@ -18,7 +18,7 @@ import { parseJsonArray, runClaude } from '../../filter-chatlog.ts';
 
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────
 
-const FIXTURES_DIR = new URL('../_fixtures/filter-chatlog', import.meta.url)
+const FIXTURES_DIR = new URL('./fixtures-data', import.meta.url)
   .pathname
   .replace(/^\/([A-Z]:)/, '$1'); // Windows: /C:/... → C:/...
 
@@ -70,7 +70,7 @@ async function _collectFixtureDirs(rootDir: string): Promise<string[]> {
   return dirs.sort();
 }
 
-// ─── バッチプロンプト構築（システムテスト用簡易版） ──────────────────────────
+// ─── バッチプロンプト構築（fixturesテスト用簡易版） ──────────────────────────
 
 function _buildSystemPrompt(filename: string, body: string): string {
   return `=== FILE 1: ${filename} ===\n${body}`;
@@ -83,7 +83,7 @@ function _parseFrontmatter(text: string): { body: string } {
   return { body: text.slice(end + 5) };
 }
 
-// ─── ファイル駆動 system fixtures tests ──────────────────────────────────────
+// ─── ファイル駆動 fixtures tests ──────────────────────────────────────────────
 
 const _fixtureDirs = await _collectFixtureDirs(FIXTURES_DIR);
 
