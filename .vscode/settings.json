@@ -6,9 +6,6 @@
   },
   // deno settings
   "deno.enable": true,
-  "deno.enablePaths": [
-    ".claude/commands/scripts"
-  ],
   "deno.config": "deno.json",
   // trusted JSON schema hosts
   "json.schemaDownload.enable": true,
