@@ -1,4 +1,4 @@
-// src: scripts/__tests__/unit/export-chatlog.claude-text.unit.spec.ts
+// src: scripts/__tests__/unit/claude-text.unit.spec.ts
 // @(#): Claude テキスト抽出関数のユニットテスト
 //       対象: extractClaudeUserText, extractClaudeAssistantText
 //
