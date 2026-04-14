@@ -15,48 +15,14 @@
  */
 
 // ─────────────────────────────────────────────
-// 定数
+// 定数・型 (libs から import & re-export)
 // ─────────────────────────────────────────────
 
-export const CHUNK_SIZE = 10;
-export const CONCURRENCY = 4;
-export const FALLBACK_PROJECT = 'misc';
+export { CHUNK_SIZE, CONCURRENCY, FALLBACK_PROJECT, KNOWN_AGENTS } from './constants/classify.constants.ts';
+export type { Args, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
 
-// ─────────────────────────────────────────────
-// 型定義
-// ─────────────────────────────────────────────
-
-export interface ClassifyResult {
-  file: string;
-  project: string;
-  confidence: number;
-  reason: string;
-}
-
-export interface FileMeta {
-  filePath: string;
-  filename: string;
-  existingProject: string;
-  title: string;
-  category: string;
-  topics: string[];
-  tags: string[];
-  fullText: string;
-}
-
-export interface Stats {
-  moved: number;
-  skipped: number;
-  error: number;
-}
-
-export interface Args {
-  agent: string;
-  period?: string;
-  dryRun: boolean;
-  inputDir: string;
-  dicsDir: string;
-}
+import { CHUNK_SIZE, CONCURRENCY, FALLBACK_PROJECT, KNOWN_AGENTS } from './constants/classify.constants.ts';
+import type { Args, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
 
 // ─────────────────────────────────────────────
 // 辞書読み込み
@@ -80,15 +46,6 @@ export async function loadProjects(dicsDir: string): Promise<string[]> {
 // ─────────────────────────────────────────────
 // フロントマター解析
 // ─────────────────────────────────────────────
-
-export interface FrontmatterData {
-  project: string;
-  title: string;
-  category: string;
-  topics: string[];
-  tags: string[];
-  frontmatterEnd: number; // フロントマター終端のインデックス（本文先頭位置）
-}
 
 export function parseFrontmatter(text: string): FrontmatterData {
   const empty: FrontmatterData = {
@@ -499,8 +456,6 @@ export async function processChunk(
 // ─────────────────────────────────────────────
 // 引数解析
 // ─────────────────────────────────────────────
-
-export const KNOWN_AGENTS = ['claude', 'chatgpt', 'codex'];
 
 export function parseArgs(args: string[]): Args {
   let agent: string | undefined;
