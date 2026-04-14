@@ -1,4 +1,4 @@
-// src: scripts/__tests__/unit/export-chatlog.output-path.unit.spec.ts
+// src: scripts/__tests__/unit/output-path.unit.spec.ts
 // @(#): 出力パス生成関数のユニットテスト
 //       対象: buildOutputPath
 //
@@ -23,14 +23,23 @@ function _makeMeta(overrides: Partial<SessionMeta> = {}): SessionMeta {
   };
 }
 
+/**
+ * `buildOutputPath` のユニットテストスイート。
+ *
+ * セッションの Markdown ファイル出力パスを生成する関数の動作を検証する。
+ * パス構造（agent/YYYY/YYYY-MM/）・slug の包含・sessionId ハッシュ（先頭 8 文字）・
+ * 異なる agent 名の各ケースをカバーする。
+ *
+ * @see buildOutputPath
+ */
 describe('buildOutputPath', () => {
   describe('Given: outputBase="/out", agent="claude", 基本的な meta', () => {
     describe('When: buildOutputPath(...) を呼び出す', () => {
       describe('Then: T-EC-OP-01 - 正しいパス構造を生成する', () => {
-        it('T-EC-OP-01-01: パスが "出力ベース/claude/YYYY/YYYY-MM/project/ファイル名.md" 形式', () => {
+        it('T-EC-OP-01-01: パスが "出力ベース/claude/YYYY/YYYY-MM/ファイル名.md" 形式', () => {
           const meta = _makeMeta();
           const result = buildOutputPath('/out', 'claude', meta, 'test-slug');
-          assertStringIncludes(result, '/out/claude/2026/2026-03/my-project/');
+          assertStringIncludes(result, '/out/claude/2026/2026-03/');
           assertStringIncludes(result, '.md');
         });
 
@@ -66,11 +75,4 @@ describe('buildOutputPath', () => {
     });
   });
 
-  describe('Given: project="my-project"', () => {
-    it('T-EC-OP-01-06: project ディレクトリが含まれる', () => {
-      const meta = _makeMeta({ project: 'my-project' });
-      const result = buildOutputPath('/out', 'claude', meta, 'test');
-      assertStringIncludes(result, '/my-project/');
-    });
-  });
 });
