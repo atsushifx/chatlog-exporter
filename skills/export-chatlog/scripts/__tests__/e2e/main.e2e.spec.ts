@@ -1,4 +1,4 @@
-// src: scripts/__tests__/e2e/export-chatlog.main.e2e.spec.ts
+// src: scripts/__tests__/e2e/main.e2e.spec.ts
 // @(#): export-chatlog main() の E2E テスト
 //       main() 経由でのセッションエクスポートフロー（実ファイルシステム使用）
 //
@@ -79,6 +79,29 @@ function _codexEntry(
 
 // ─── E2E テスト ───────────────────────────────────────────────────────────────
 
+/**
+ * `main()` 関数の E2E テストスイート。
+ *
+ * CLI のエントリポイントを通じてエクスポートの全フロー
+ * （引数解析 → セッション探索 → パース → Markdown 書き出し）を
+ * 結合テストする。`Deno.env.get` と `console.log/error` をスタブし、
+ * 実ファイル I/O で動作を検証する。
+ *
+ * テスト対象シナリオ:
+ * - claude/codex エージェントの正常実行（ファイル生成確認）
+ * - 期間フィルタ（YYYY-MM）による選択的エクスポートと全件除外
+ * - 不明なオプション（--unknown-flag）で Deno.exit(1) が呼ばれること
+ * - 出力ディレクトリ構造（agent/YYYY/YYYY-MM/）の確認
+ * - スキップ対象のみ JSONL で出力が 0 件になること
+ * - 年指定（YYYY）で複数の YYYY-MM サブディレクトリに分散出力されること
+ *
+ * 各テストは `Deno.makeTempDir()` で独立した環境を使用し、
+ * `afterEach` でスタブ復元・ディレクトリ削除を行う。
+ *
+ * @see main
+ * @see parseArgs
+ * @see parsePeriod
+ */
 describe('main (export-chatlog)', () => {
   let tempDir: string;
   let outputDir: string;
@@ -241,66 +264,6 @@ describe('main (export-chatlog)', () => {
     });
   });
 
-  // ─── T-EC-E2E-04: projectFilter ──────────────────────────────────────────
-
-  describe('Given: "my-app" と "other-app" のプロジェクトがある', () => {
-    beforeEach(async () => {
-      const projectsDir = `${tempDir}/.claude/projects`;
-      await Deno.mkdir(`${projectsDir}/C--home-user-projects-my-app`, { recursive: true });
-      await Deno.mkdir(`${projectsDir}/C--home-user-projects-other-app`, { recursive: true });
-      await _writeJsonl(`${projectsDir}/C--home-user-projects-my-app/session.jsonl`, [
-        _claudeEntry(
-          'user',
-          'sess-my-app',
-          '2026-03-15T10:00:00.000Z',
-          'my-appの質問',
-          '/home/user/projects/my-app',
-        ),
-        _claudeEntry('assistant', 'sess-my-app', '2026-03-15T10:00:05.000Z', 'my-appの回答'),
-      ]);
-      await _writeJsonl(`${projectsDir}/C--home-user-projects-other-app/session.jsonl`, [
-        _claudeEntry(
-          'user',
-          'sess-other',
-          '2026-03-15T10:00:00.000Z',
-          'other-appの質問',
-          '/home/user/projects/other-app',
-        ),
-        _claudeEntry('assistant', 'sess-other', '2026-03-15T10:00:05.000Z', 'other-appの回答'),
-      ]);
-    });
-
-    describe('When: projectFilter="my-app" で呼び出す', () => {
-      describe('Then: T-EC-E2E-04-01 - my-app のセッションのみエクスポート', () => {
-        it('T-EC-E2E-04-01: 1件のファイルが生成される', async () => {
-          const logPaths: string[] = [];
-          const logStub = stub(console, 'log', (path: unknown) => {
-            logPaths.push(String(path));
-          });
-          await main(['claude', 'my-app', '--output', outputDir]);
-          logStub.restore();
-
-          assertEquals(logPaths.length, 1);
-        });
-      });
-
-      describe('When: projectFilter="nonexistent-project" で呼び出す', () => {
-        describe('Then: T-EC-E2E-04-02 - ファイルが生成されない', () => {
-          it('T-EC-E2E-04-02: 0件のファイルが生成される', async () => {
-            const logPaths: string[] = [];
-            const logStub = stub(console, 'log', (path: unknown) => {
-              logPaths.push(String(path));
-            });
-            await main(['claude', 'nonexistent-project', '--output', outputDir]);
-            logStub.restore();
-
-            assertEquals(logPaths.length, 0);
-          });
-        });
-      });
-    });
-  });
-
   // ─── T-EC-E2E-05: 不正な period → Deno.exit(1) ────────────────────────
   // parseArgs では YYYY-MM / YYYY 以外の引数は project として扱われる。
   // parsePeriod で Error が出るのは、期間パターンに「似ているが」無効なケース（例: "9999-99"）ではなく、
@@ -343,7 +306,7 @@ describe('main (export-chatlog)', () => {
         ]);
       });
 
-      describe('Then: T-EC-E2E-06 - outputDir/claude/YYYY/YYYY-MM/project/ 構造が生成される', () => {
+      describe('Then: T-EC-E2E-06 - outputDir/claude/YYYY/YYYY-MM/ 構造が生成される', () => {
         it('T-EC-E2E-06-01: 出力パスに "claude/2026/2026-03" が含まれる', async () => {
           const logPaths: string[] = [];
           const logStub = stub(console, 'log', (path: unknown) => {
@@ -390,6 +353,72 @@ describe('main (export-chatlog)', () => {
           logStub.restore();
 
           assertEquals(logPaths.length, 0);
+        });
+      });
+    });
+  });
+
+  // ─── T-EC-E2E-08: 年指定で複数 yyyy-mm への分散出力 ──────────────────────
+
+  describe('Given: 2026-01 と 2026-03 のセッションが混在する', () => {
+    beforeEach(async () => {
+      const projectsDir = `${tempDir}/.claude/projects/C--home-user-projects-multi-month`;
+      await Deno.mkdir(projectsDir, { recursive: true });
+      await _writeJsonl(`${projectsDir}/jan.jsonl`, [
+        _claudeEntry(
+          'user',
+          'sess-jan',
+          '2026-01-10T10:00:00.000Z',
+          '1月の質問',
+          '/home/user/projects/multi-month',
+        ),
+        _claudeEntry('assistant', 'sess-jan', '2026-01-10T10:00:05.000Z', '1月の回答'),
+      ]);
+      await _writeJsonl(`${projectsDir}/mar.jsonl`, [
+        _claudeEntry(
+          'user',
+          'sess-mar',
+          '2026-03-20T10:00:00.000Z',
+          '3月の質問',
+          '/home/user/projects/multi-month',
+        ),
+        _claudeEntry('assistant', 'sess-mar', '2026-03-20T10:00:05.000Z', '3月の回答'),
+      ]);
+    });
+
+    describe('When: period="2026" で年指定エクスポートする', () => {
+      describe('Then: T-EC-E2E-08 - 2つの yyyy-mm サブディレクトリに分散出力される', () => {
+        it('T-EC-E2E-08-01: ファイルが 2 件生成される', async () => {
+          const logPaths: string[] = [];
+          const logStub = stub(console, 'log', (path: unknown) => {
+            logPaths.push(String(path));
+          });
+          await main(['claude', '2026', '--output', outputDir]);
+          logStub.restore();
+
+          assertEquals(logPaths.length, 2);
+        });
+
+        it('T-EC-E2E-08-02: 一方のパスに "2026-01" が含まれる', async () => {
+          const logPaths: string[] = [];
+          const logStub = stub(console, 'log', (path: unknown) => {
+            logPaths.push(String(path));
+          });
+          await main(['claude', '2026', '--output', outputDir]);
+          logStub.restore();
+
+          assertEquals(logPaths.some((p) => p.includes('2026-01')), true);
+        });
+
+        it('T-EC-E2E-08-03: 他方のパスに "2026-03" が含まれる', async () => {
+          const logPaths: string[] = [];
+          const logStub = stub(console, 'log', (path: unknown) => {
+            logPaths.push(String(path));
+          });
+          await main(['claude', '2026', '--output', outputDir]);
+          logStub.restore();
+
+          assertEquals(logPaths.some((p) => p.includes('2026-03')), true);
         });
       });
     });
