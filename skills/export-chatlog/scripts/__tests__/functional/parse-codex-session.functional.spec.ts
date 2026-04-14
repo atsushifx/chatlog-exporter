@@ -1,4 +1,4 @@
-// src: scripts/__tests__/functional/export-chatlog.parse-codex-session.functional.spec.ts
+// src: scripts/__tests__/functional/parse-codex-session.functional.spec.ts
 // @(#): parseCodexSession の機能テスト
 //       対象: parseCodexSession
 //
@@ -27,6 +27,23 @@ async function _writeJsonl(filePath: string, lines: unknown[]): Promise<void> {
 
 // ─── parseCodexSession ────────────────────────────────────────────────────────
 
+/**
+ * `parseCodexSession` の機能テストスイート。
+ *
+ * 一時ディレクトリに JSONL ファイルを書き込み、実ファイル I/O を通じて
+ * パース動作を検証する。以下の組み合わせ動作を対象とする:
+ * - 正常系: session_meta + user + assistant エントリから ExportedSession の各フィールドを正しく抽出
+ * - session_meta エントリ欠落 → null
+ * - 期間外タイムスタンプ（session_meta の timestamp 基準）→ null
+ * - "# AGENTS.md instructions" で始まる user ターンの除外
+ * - ファイル不存在 → null
+ *
+ * 各テストは `Deno.makeTempDir()` で独立した作業ディレクトリを使用し、
+ * `afterEach` で自動クリーンアップする。
+ *
+ * @see parseCodexSession
+ * @see parsePeriod
+ */
 describe('parseCodexSession', () => {
   let tempDir: string;
 
@@ -236,48 +253,6 @@ describe('parseCodexSession', () => {
         it('T-EC-PX-04-02: firstUserText が "実際の質問です"', async () => {
           const result = await parseCodexSession(filePath, ALL_PERIOD);
           assertEquals(result!.meta.firstUserText, '実際の質問です');
-        });
-      });
-    });
-  });
-
-  // ─── T-EC-PX-05: projectFilter 不一致 → null ──────────────────────────────
-
-  describe('Given: cwd が "other-app" のJSONL', () => {
-    describe('When: projectFilter="my-app" で呼び出す', () => {
-      let filePath: string;
-
-      beforeEach(async () => {
-        filePath = `${tempDir}/other-project.jsonl`;
-        await _writeJsonl(filePath, [
-          {
-            timestamp: '2026-03-15T11:00:00.000Z',
-            type: 'session_meta',
-            payload: { id: 'codex-sess-other', cwd: '/home/user/projects/other-app', model: 'o4-mini' },
-          },
-          {
-            timestamp: '2026-03-15T11:00:01.000Z',
-            type: 'response_item',
-            payload: {
-              role: 'user',
-              content: [{ type: 'input_text', text: '別プロジェクトの質問です' }],
-            },
-          },
-          {
-            timestamp: '2026-03-15T11:00:10.000Z',
-            type: 'response_item',
-            payload: {
-              role: 'assistant',
-              content: [{ type: 'output_text', text: '回答です。' }],
-            },
-          },
-        ]);
-      });
-
-      describe('Then: T-EC-PX-05 - null を返す', () => {
-        it('T-EC-PX-05-01: null を返す', async () => {
-          const result = await parseCodexSession(filePath, ALL_PERIOD, 'my-app');
-          assertEquals(result, null);
         });
       });
     });

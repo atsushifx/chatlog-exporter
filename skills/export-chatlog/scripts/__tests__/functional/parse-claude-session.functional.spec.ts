@@ -29,6 +29,23 @@ async function _writeJsonl(filePath: string, lines: unknown[]): Promise<void> {
 
 // ─── parseClaudeSession ───────────────────────────────────────────────────────
 
+/**
+ * `parseClaudeSession` の機能テストスイート。
+ *
+ * 一時ディレクトリに JSONL ファイルを書き込み、実ファイル I/O を通じて
+ * パース動作を検証する。ユニットテストでカバーできない以下の組み合わせ動作を対象とする:
+ * - 正常系: user + assistant エントリから ExportedSession の各フィールドを正しく抽出
+ * - スキップ対象のみ（全ユーザーメッセージが "yes"/"ok" 等）→ null
+ * - 期間外タイムスタンプ → null
+ * - ファイル不存在 → null
+ * - 同一 message.id の assistant 複数エントリ → テキスト連結
+ *
+ * 各テストは `Deno.makeTempDir()` で独立した作業ディレクトリを使用し、
+ * `afterEach` で自動クリーンアップする。
+ *
+ * @see parseClaudeSession
+ * @see parsePeriod
+ */
 describe('parseClaudeSession', () => {
   let tempDir: string;
 
