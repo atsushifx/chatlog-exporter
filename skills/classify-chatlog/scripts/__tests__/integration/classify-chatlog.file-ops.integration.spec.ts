@@ -13,7 +13,7 @@ import { loadFileMeta, loadProjects } from '../../classify-chatlog.ts';
 
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────
 
-const FIXTURES_DIR = new URL('../_fixtures/classify-chatlog', import.meta.url)
+const ASSETS_DIR = new URL('./assets', import.meta.url)
   .pathname
   .replace(/^\/([A-Z]:)/, '$1'); // Windows: /C:/... → C:/...
 
@@ -26,7 +26,7 @@ describe('loadProjects', () => {
     describe('When: loadProjects(dicsDir) を呼び出す', () => {
       describe('Then: T-CL-LP-01 - コメント行と misc を除外してプロジェクト一覧を返す', () => {
         it('T-CL-LP-01-01: app1, app2, infra, dev-tools が含まれる', async () => {
-          const projects = await loadProjects(FIXTURES_DIR);
+          const projects = await loadProjects(ASSETS_DIR);
 
           assertEquals(projects.includes('app1'), true);
           assertEquals(projects.includes('app2'), true);
@@ -35,19 +35,19 @@ describe('loadProjects', () => {
         });
 
         it('T-CL-LP-01-02: misc は除外される', async () => {
-          const projects = await loadProjects(FIXTURES_DIR);
+          const projects = await loadProjects(ASSETS_DIR);
 
           assertEquals(projects.includes('misc'), false);
         });
 
         it('T-CL-LP-01-03: コメント行（# で始まる行）は含まれない', async () => {
-          const projects = await loadProjects(FIXTURES_DIR);
+          const projects = await loadProjects(ASSETS_DIR);
 
           assertEquals(projects.every((p) => !p.startsWith('#')), true);
         });
 
         it('T-CL-LP-01-04: 空文字列が含まれない', async () => {
-          const projects = await loadProjects(FIXTURES_DIR);
+          const projects = await loadProjects(ASSETS_DIR);
 
           assertEquals(projects.every((p) => p.length > 0), true);
         });
