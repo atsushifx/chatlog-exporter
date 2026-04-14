@@ -1,4 +1,4 @@
-// src: scripts/__tests__/integration/export-chatlog.walk-files.integration.spec.ts
+// src: scripts/__tests__/integration/walk-files.integration.spec.ts
 // @(#): walkFiles の統合テスト（実ファイルシステム使用）
 //       対象: walkFiles
 //
@@ -13,6 +13,23 @@ import { walkFiles } from '../../../../export-chatlog/scripts/export-chatlog.ts'
 
 // ─── walkFiles ────────────────────────────────────────────────────────────────
 
+/**
+ * `walkFiles` の統合テストスイート（実ファイルシステム使用）。
+ *
+ * ディレクトリを再帰的に走査して指定拡張子のファイルパスを yield する
+ * 非同期ジェネレータの動作を検証する。以下のケースをカバーする:
+ * - フラットなディレクトリへの複数ファイル収集
+ * - サブディレクトリへの再帰走査（全階層のファイルを収集）
+ * - 拡張子フィルタ（.jsonl のみ収集し .txt/.md を除外）
+ * - 辞書順ソート
+ * - 存在しないディレクトリ → 空（エラーなし）
+ * - 空ディレクトリ → 空
+ *
+ * 各テストは `Deno.makeTempDir()` で独立した作業ディレクトリを使用し、
+ * `afterEach` で自動クリーンアップする。
+ *
+ * @see walkFiles
+ */
 describe('walkFiles', () => {
   let tempDir: string;
 
