@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run --allow-read --allow-run --allow-write
-// src: scripts/__tests__/system/normalize-chatlog.fixtures-frontmatter.system.spec.ts
-// @(#): ファイル駆動システムテスト（フロントマター検証）
-//       対象: attachFrontmatter() — _fixtures/runai-frontmatter/ 下の各ディレクトリを自動スキャンし
+// src: scripts/__tests__/fixtures/normalize-chatlog.fixtures-frontmatter.spec.ts
+// @(#): ファイル駆動fixturesテスト（フロントマター検証）
+//       対象: attachFrontmatter() — fixtures-data/runai-frontmatter/ 下の各ディレクトリを自動スキャンし
 //             同一ディレクトリの input.md を入力、output-<N>.md を期待フロントマターとして各フィールドを照合する
 //       責務: フロントマターフィールド（title / summary）の完全一致のみ検証する
 //             log_id は generateOutputFileName() が生成するランダム値を含むため、このテストでは検証しない
@@ -34,7 +34,7 @@ const FRONTMATTER_KEYS = ['title', 'summary'] as const;
 
 // ─── fixtures ルートパス ──────────────────────────────────────────────────────
 
-const RUNAI_FRONTMATTER_DIR = new URL('../_fixtures/runai-frontmatter', import.meta.url).pathname
+const RUNAI_FRONTMATTER_DIR = new URL('./fixtures-data/runai-frontmatter', import.meta.url).pathname
   .replace(/^\/([A-Z]:)/, '$1');
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ async function _collectFixtureDirs(rootDir: string): Promise<string[]> {
   return dirs.sort();
 }
 
-// ─── ファイル駆動 system fixtures-frontmatter tests ──────────────────────────
+// ─── ファイル駆動 fixtures-frontmatter tests ──────────────────────────────────
 
 const _fixtureDirs = await _collectFixtureDirs(RUNAI_FRONTMATTER_DIR);
 

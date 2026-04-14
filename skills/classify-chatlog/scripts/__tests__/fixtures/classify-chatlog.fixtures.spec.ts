@@ -1,6 +1,6 @@
-// src: scripts/__tests__/system/classify-chatlog.fixtures.system.spec.ts
-// @(#): classify-chatlog システムテスト（実 claude CLI 使用）
-//       _fixtures/classify-chatlog/ 下の各ディレクトリを再帰スキャンし
+// src: scripts/__tests__/fixtures/classify-chatlog.fixtures.spec.ts
+// @(#): classify-chatlog fixturesテスト（実 claude CLI 使用）
+//       fixtures-data/ 下の各ディレクトリを再帰スキャンし
 //       input.md を実際の claude CLI で分類し、output.yaml の期待値と照合する
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
@@ -17,7 +17,7 @@ import type { FileMeta, Stats } from '../../classify-chatlog.ts';
 
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────
 
-const FIXTURES_DIR = new URL('../_fixtures/classify-chatlog', import.meta.url)
+const FIXTURES_DIR = new URL('./fixtures-data', import.meta.url)
   .pathname
   .replace(/^\/([A-Z]:)/, '$1'); // Windows: /C:/... → C:/...
 
@@ -78,7 +78,7 @@ async function _collectFixtureDirs(rootDir: string): Promise<string[]> {
   return dirs.sort();
 }
 
-// ─── ファイル駆動 system fixtures tests ──────────────────────────────────────
+// ─── ファイル駆動 fixtures tests ──────────────────────────────────────────────
 
 const _fixtureDirs = await _collectFixtureDirs(FIXTURES_DIR);
 const _projects = await _loadProjectsDic();
