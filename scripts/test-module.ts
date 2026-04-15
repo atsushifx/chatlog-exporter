@@ -18,6 +18,7 @@ const VALID_MODULES = [
   'filter-chatlog',
   'normalize-chatlog',
   'set-frontmatter',
+  'libs',
 ] as const;
 
 const VALID_TYPES = [
@@ -71,9 +72,17 @@ if (moduleName !== undefined && moduleName !== 'all' && !(VALID_MODULES as reado
 }
 
 const targetTypes = (testType === 'all') ? [...VALID_TYPES] : [testType as ValidType];
-const baseGlob = (moduleName === undefined || moduleName === 'all')
-  ? '**/__tests__'
-  : `**/${moduleName}/**/__tests__`;
+function buildBaseGlob(moduleName: ValidModule | 'all' | undefined): string {
+  if (moduleName === undefined || moduleName === 'all') {
+    return '**/__tests__';
+  }
+  if (moduleName === 'libs') {
+    return '**/_scripts/libs/**/__tests__';
+  }
+  return `**/${moduleName}/**/__tests__`;
+}
+
+const baseGlob = buildBaseGlob(moduleName);
 
 const targetPaths = targetTypes.map((type) => `${baseGlob}/${type}/**/`);
 
