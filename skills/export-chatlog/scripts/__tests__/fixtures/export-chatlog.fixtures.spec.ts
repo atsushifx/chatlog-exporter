@@ -77,6 +77,18 @@ async function _loadOutputOrNull(dir: string): Promise<FixtureOutput | null> {
 
 // ─── Claude セッション fixture テスト ────────────────────────────────────────
 
+/**
+ * Claude セッション fixtures の自動テスト群。
+ *
+ * `fixtures-data/claude-sessions/` 配下のサブディレクトリを走査し、
+ * `input.jsonl` を `parseClaudeSession` でパースして `output.yaml` の
+ * 期待値（sessionId・date・project・turnCount・firstUserText）と照合する。
+ *
+ * ディレクトリ名に "edge" を含む場合は `null` が返ることを検証する（エッジケース）。
+ * 新しい fixture ディレクトリを追加するだけでテストが自動追加される構造になっている。
+ *
+ * @see parseClaudeSession
+ */
 const _claudeFixturesDir = `${FIXTURES_DIR}/claude-sessions`;
 const _claudeFixtureDirs = await _collectSessionDirs(_claudeFixturesDir);
 
@@ -129,6 +141,18 @@ for (const _relPath of _claudeFixtureDirs) {
 
 // ─── Codex セッション fixture テスト ─────────────────────────────────────────
 
+/**
+ * Codex セッション fixtures の自動テスト群。
+ *
+ * `fixtures-data/codex-sessions/` 配下のサブディレクトリを走査し、
+ * `input.jsonl` を `parseCodexSession` でパースして `output.yaml` の
+ * 期待値（sessionId・date・project・turnCount・firstUserText）と照合する。
+ *
+ * ディレクトリ名に "edge" を含む場合は `null` が返ることを検証する（エッジケース）。
+ * 新しい fixture ディレクトリを追加するだけでテストが自動追加される構造になっている。
+ *
+ * @see parseCodexSession
+ */
 const _codexFixturesDir = `${FIXTURES_DIR}/codex-sessions`;
 const _codexFixtureDirs = await _collectSessionDirs(_codexFixturesDir);
 

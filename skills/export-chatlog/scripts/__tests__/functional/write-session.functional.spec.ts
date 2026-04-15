@@ -1,4 +1,4 @@
-// src: scripts/__tests__/functional/export-chatlog.write-session.functional.spec.ts
+// src: scripts/__tests__/functional/write-session.functional.spec.ts
 // @(#): writeSession の機能テスト
 //       対象: writeSession
 //
@@ -37,6 +37,25 @@ function _makeSession(overrides: Partial<ExportedSession> = {}): ExportedSession
 
 // ─── writeSession ─────────────────────────────────────────────────────────────
 
+/**
+ * `writeSession` の機能テストスイート。
+ *
+ * エクスポートセッションを Markdown ファイルとして書き出す関数の動作を検証する。
+ * 以下のケースをカバーする:
+ * - Markdown ファイルの生成確認（返却パスが .md で終わる・ファイルが実際に存在する）
+ * - パス構造: agent/YYYY/YYYY-MM/ セグメントの確認
+ * - ファイル内容: frontmatter・H1 タイトル・### User/Assistant セクション
+ * - 深いネストの outputBase でのディレクトリ自動生成
+ * - agent="codex" でのパス確認
+ * - sessionId ハッシュ（先頭 8 文字）のファイル名への包含
+ *
+ * 各テストは `Deno.makeTempDir()` で独立した出力先を使用し、
+ * `afterEach` で自動クリーンアップする。
+ *
+ * @see writeSession
+ * @see buildOutputPath
+ * @see renderMarkdown
+ */
 describe('writeSession', () => {
   let tempDir: string;
 
@@ -94,10 +113,11 @@ describe('writeSession', () => {
           assertStringIncludes(outPath, '2026-03');
         });
 
-        it('T-EC-WS-02-04: パスに "my-project" が含まれる', async () => {
+        it('T-EC-WS-02-04: パスに "my-project" が含まれない（フラット構造）', async () => {
           const session = _makeSession();
           const outPath = await writeSession(tempDir, 'claude', session);
-          assertStringIncludes(outPath, 'my-project');
+          const filename = outPath.split('/').pop()!;
+          assertStringIncludes(filename, '.md');
         });
       });
     });

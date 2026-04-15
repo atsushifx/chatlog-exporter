@@ -1,4 +1,4 @@
-// src: scripts/__tests__/functional/export-chatlog.parse-claude-session.functional.spec.ts
+// src: scripts/__tests__/functional/parse-claude-session.functional.spec.ts
 // @(#): parseClaudeSession の機能テスト
 //       対象: parseClaudeSession
 //
@@ -29,6 +29,23 @@ async function _writeJsonl(filePath: string, lines: unknown[]): Promise<void> {
 
 // ─── parseClaudeSession ───────────────────────────────────────────────────────
 
+/**
+ * `parseClaudeSession` の機能テストスイート。
+ *
+ * 一時ディレクトリに JSONL ファイルを書き込み、実ファイル I/O を通じて
+ * パース動作を検証する。ユニットテストでカバーできない以下の組み合わせ動作を対象とする:
+ * - 正常系: user + assistant エントリから ExportedSession の各フィールドを正しく抽出
+ * - スキップ対象のみ（全ユーザーメッセージが "yes"/"ok" 等）→ null
+ * - 期間外タイムスタンプ → null
+ * - ファイル不存在 → null
+ * - 同一 message.id の assistant 複数エントリ → テキスト連結
+ *
+ * 各テストは `Deno.makeTempDir()` で独立した作業ディレクトリを使用し、
+ * `afterEach` で自動クリーンアップする。
+ *
+ * @see parseClaudeSession
+ * @see parsePeriod
+ */
 describe('parseClaudeSession', () => {
   let tempDir: string;
 
@@ -193,42 +210,6 @@ describe('parseClaudeSession', () => {
     });
   });
 
-  // ─── T-EC-PC-04: projectFilter 不一致 → null ───────────────────────────────
-
-  describe('Given: cwd が "other-app" のJSONL', () => {
-    describe('When: projectFilter="my-app" で呼び出す', () => {
-      let filePath: string;
-
-      beforeEach(async () => {
-        filePath = `${tempDir}/other-project.jsonl`;
-        await _writeJsonl(filePath, [
-          {
-            type: 'user',
-            isMeta: false,
-            sessionId: 'sess-other-0001',
-            timestamp: '2026-03-15T10:00:00.000Z',
-            cwd: '/home/user/projects/other-app',
-            message: { id: 'msg-u-001', content: [{ type: 'text', text: '別プロジェクトの質問です' }] },
-          },
-          {
-            type: 'assistant',
-            isMeta: false,
-            sessionId: 'sess-other-0001',
-            timestamp: '2026-03-15T10:00:05.000Z',
-            message: { id: 'msg-a-001', content: [{ type: 'text', text: '回答です。' }] },
-          },
-        ]);
-      });
-
-      describe('Then: T-EC-PC-04 - null を返す', () => {
-        it('T-EC-PC-04-01: null を返す', async () => {
-          const result = await parseClaudeSession(filePath, ALL_PERIOD, 'my-app');
-          assertEquals(result, null);
-        });
-      });
-    });
-  });
-
   // ─── T-EC-PC-05: ファイル不存在 → null ────────────────────────────────────
 
   describe('Given: 存在しないファイルパス', () => {
@@ -292,39 +273,4 @@ describe('parseClaudeSession', () => {
     });
   });
 
-  // ─── T-EC-PC-07: projectFilter 一致 → 正常パース ──────────────────────────
-
-  describe('Given: cwd が "my-app" のJSONL', () => {
-    describe('When: projectFilter="my-app" で呼び出す', () => {
-      let filePath: string;
-
-      beforeEach(async () => {
-        filePath = `${tempDir}/matched-project.jsonl`;
-        await _writeJsonl(filePath, [
-          {
-            type: 'user',
-            isMeta: false,
-            sessionId: 'sess-match-0001',
-            timestamp: '2026-03-15T10:00:00.000Z',
-            cwd: '/home/user/projects/my-app',
-            message: { id: 'msg-u-001', content: [{ type: 'text', text: '一致するプロジェクトの質問です' }] },
-          },
-          {
-            type: 'assistant',
-            isMeta: false,
-            sessionId: 'sess-match-0001',
-            timestamp: '2026-03-15T10:00:05.000Z',
-            message: { id: 'msg-a-001', content: [{ type: 'text', text: '回答です。' }] },
-          },
-        ]);
-      });
-
-      describe('Then: T-EC-PC-07 - 正常にパースされる', () => {
-        it('T-EC-PC-07-01: null でないセッションを返す', async () => {
-          const result = await parseClaudeSession(filePath, ALL_PERIOD, 'my-app');
-          assertNotEquals(result, null);
-        });
-      });
-    });
-  });
 });

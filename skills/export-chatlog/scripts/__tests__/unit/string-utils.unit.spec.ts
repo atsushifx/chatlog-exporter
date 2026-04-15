@@ -1,4 +1,4 @@
-// src: scripts/__tests__/unit/export-chatlog.string-utils.unit.spec.ts
+// src: scripts/__tests__/unit/string-utils.unit.spec.ts
 // @(#): 文字列ユーティリティ関数のユニットテスト
 //       対象: textToSlug, isShortAffirmation, isSkippable, isoToDate, isoToMs
 //
@@ -19,6 +19,14 @@ import {
 
 // ─── textToSlug ──────────────────────────────────────────────────────────────
 
+/**
+ * `textToSlug` のユニットテストスイート。
+ *
+ * テキストから URL セーフなスラッグ文字列を生成する関数の動作を検証する。
+ * ASCII 変換・長さ制限・日本語除外・fallback 動作・複数行テキストの処理を対象とする。
+ *
+ * @see textToSlug
+ */
 describe('textToSlug', () => {
   describe('Given: ASCII 文字列 "hello world"', () => {
     describe('When: textToSlug("hello world") を呼び出す', () => {
@@ -98,6 +106,16 @@ describe('textToSlug', () => {
 
 // ─── isShortAffirmation ───────────────────────────────────────────────────────
 
+/**
+ * `isShortAffirmation` のユニットテストスイート。
+ *
+ * テキストが短文肯定応答（"yes", "はい", "ok" 等）かどうかを判定する関数の動作を検証する。
+ * 大文字小文字の正規化・文字数上限・SKIP_EXACT 非該当の各ケースをカバーする。
+ *
+ * @see isShortAffirmation
+ * @see SKIP_EXACT
+ * @see SHORT_AFFIRMATION_MAX_LEN
+ */
 describe('isShortAffirmation', () => {
   describe('Given: "yes"', () => {
     it('T-EC-SU-02-01: true を返す', () => {
@@ -132,6 +150,16 @@ describe('isShortAffirmation', () => {
 
 // ─── isSkippable ──────────────────────────────────────────────────────────────
 
+/**
+ * `isSkippable` のユニットテストスイート。
+ *
+ * ユーザー入力テキストをチャットログから除外すべきかを判定する関数の動作を検証する。
+ * 空文字列・SKIP_PREFIXES プレフィックス・短文肯定・通常テキストの各ケースをカバーする。
+ *
+ * @see isSkippable
+ * @see SKIP_PREFIXES
+ * @see isShortAffirmation
+ */
 describe('isSkippable', () => {
   describe('Given: 空文字列 ""', () => {
     it('T-EC-SU-03-01: true を返す', () => {
@@ -178,6 +206,14 @@ describe('isSkippable', () => {
 
 // ─── isoToDate ────────────────────────────────────────────────────────────────
 
+/**
+ * `isoToDate` のユニットテストスイート。
+ *
+ * ISO8601 タイムスタンプを YYYY-MM-DD 形式の日付文字列に変換する関数の動作を検証する。
+ * 正常変換と無効文字列時の 'unknown' フォールバックをカバーする。
+ *
+ * @see isoToDate
+ */
 describe('isoToDate', () => {
   describe('Given: 有効な ISO 日付 "2026-03-15T12:00:00Z"', () => {
     it('T-EC-SU-04-01: "2026-03-15" を返す', () => {
@@ -194,6 +230,14 @@ describe('isoToDate', () => {
 
 // ─── isoToMs ─────────────────────────────────────────────────────────────────
 
+/**
+ * `isoToMs` のユニットテストスイート。
+ *
+ * ISO8601 タイムスタンプをエポックミリ秒に変換する関数の動作を検証する。
+ * 正常変換と無効文字列時の NaN 返却をカバーする。
+ *
+ * @see isoToMs
+ */
 describe('isoToMs', () => {
   describe('Given: 有効な ISO 日付 "2026-03-15T00:00:00Z"', () => {
     it('T-EC-SU-05-01: 正のミリ秒整数を返す', () => {

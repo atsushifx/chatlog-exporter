@@ -1,4 +1,4 @@
-// src: scripts/__tests__/integration/export-chatlog.find-codex-sessions.integration.spec.ts
+// src: scripts/__tests__/integration/find-codex-sessions.integration.spec.ts
 // @(#): findCodexSessions の統合テスト（実ファイルシステム使用）
 //       対象: findCodexSessions
 //
@@ -20,6 +20,23 @@ const ALL_PERIOD: PeriodRange = parsePeriod(undefined);
 
 // ─── findCodexSessions ────────────────────────────────────────────────────────
 
+/**
+ * `findCodexSessions` の統合テストスイート（実ファイルシステム使用）。
+ *
+ * `Deno.env.get` をスタブして `homeDir()` を一時ディレクトリに向け、
+ * 実際のディレクトリ構造を作成して動作を検証する。以下のケースをカバーする:
+ * - ~/.codex/sessions/YYYY/MM/DD/ 配下の .jsonl ファイル収集
+ * - sessions ディレクトリが存在しない場合の空配列返却（エラーなし）
+ * - 複数の年月ディレクトリにわたる全ファイルの収集
+ * - 結果の辞書順ソート
+ *
+ * 各テストは `Deno.makeTempDir()` で独立した home 環境を使用し、
+ * `afterEach` で `envStub.restore()` とディレクトリ削除を行う。
+ *
+ * @see findCodexSessions
+ * @see walkFiles
+ * @see homeDir
+ */
 describe('findCodexSessions', () => {
   let tempDir: string;
   let envStub: Stub<typeof Deno.env, [key: string], string | undefined>;
