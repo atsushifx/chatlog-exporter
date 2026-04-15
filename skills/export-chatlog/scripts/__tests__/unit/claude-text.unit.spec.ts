@@ -16,6 +16,15 @@ import {
 
 // ─── extractClaudeUserText ────────────────────────────────────────────────────
 
+/**
+ * `extractClaudeUserText` のユニットテストスイート。
+ *
+ * Claude JSONL エントリの content フィールドからユーザーテキストを抽出する関数の動作を検証する。
+ * 文字列型・配列型・null/undefined の各入力型と、<local-command-stdout>・IDE 系・
+ * tool_result のフィルタリング動作をカバーする。
+ *
+ * @see extractClaudeUserText
+ */
 describe('extractClaudeUserText', () => {
   describe('Given: 文字列 content "こんにちは"', () => {
     it('T-EC-CT-01-01: "こんにちは" を返す', () => {
@@ -79,6 +88,14 @@ describe('extractClaudeUserText', () => {
 
 // ─── extractClaudeAssistantText ───────────────────────────────────────────────
 
+/**
+ * `extractClaudeAssistantText` のユニットテストスイート。
+ *
+ * Claude JSONL エントリの content フィールドからアシスタントテキストを抽出する関数の動作を検証する。
+ * 文字列型・配列型での改行結合・tool_use の除外・null/undefined の各ケースをカバーする。
+ *
+ * @see extractClaudeAssistantText
+ */
 describe('extractClaudeAssistantText', () => {
   describe('Given: 文字列 content "回答です"', () => {
     it('T-EC-CT-02-01: "回答です" を返す', () => {
