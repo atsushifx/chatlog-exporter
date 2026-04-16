@@ -27,6 +27,7 @@ const FIXTURES_DIR = new URL('./fixtures-data', import.meta.url)
 interface FixtureOutput {
   expected_decision: 'KEEP' | 'DISCARD';
   confidence_min: number;
+  mock_response?: string;
 }
 
 // ─── claude CLI の存在確認 ────────────────────────────────────────────────────
@@ -111,16 +112,24 @@ for (const _relPath of _fixtureDirs) {
         it(
           `SF-FL-${_relPath}-decision: 判定が expected_decision (${_expectedOutput.expected_decision}) になる`,
           async () => {
-            if (!_claudeAvailable) {
-              console.warn('  [SKIP] claude CLI が利用できないためスキップ');
-              return;
-            }
-
             const _inputContent = await Deno.readTextFile(_inputPath);
             const { body } = _parseFrontmatter(_inputContent);
             const _prompt = _buildSystemPrompt('input.md', body.slice(0, 8000));
 
-            const _rawResult = await runClaude(_prompt);
+            let _rawResult: string;
+
+            if (_expectedOutput.mock_response) {
+              // mock_response がある場合は固定レスポンスで決定論的テスト
+              _rawResult = _expectedOutput.mock_response;
+            } else {
+              // 実 claude CLI を呼ぶ
+              if (!_claudeAvailable) {
+                console.warn('  [SKIP] claude CLI が利用できないためスキップ');
+                return;
+              }
+              _rawResult = await runClaude(_prompt);
+            }
+
             const _parsed = parseJsonArray(_rawResult);
 
             // JSON パースに失敗した場合はスキップ（AI の出力形式が安定しない場合がある）
