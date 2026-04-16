@@ -142,4 +142,34 @@ describe('findClaudeSessions', () => {
       });
     });
   });
+
+  // ─── T-EC-FS-06: projectDir 引数で任意ディレクトリを指定 ─────────────────
+
+  describe('Given: projectDir 引数に任意のディレクトリを指定する', () => {
+    let customProjectsDir: string;
+
+    beforeEach(async () => {
+      customProjectsDir = await Deno.makeTempDir();
+      await Deno.mkdir(`${customProjectsDir}/proj-x`, { recursive: true });
+      await Deno.writeTextFile(`${customProjectsDir}/proj-x/session.jsonl`, '{}');
+    });
+
+    afterEach(async () => {
+      await Deno.remove(customProjectsDir, { recursive: true });
+    });
+
+    describe('When: findClaudeSessions(allPeriod, customProjectsDir) を呼び出す', () => {
+      describe('Then: T-EC-FS-06 - 指定ディレクトリを参照してファイルを収集する', () => {
+        it('T-EC-FS-06-01: 収集ファイル数が 1', async () => {
+          const results = await findClaudeSessions(ALL_PERIOD, customProjectsDir);
+          assertEquals(results.length, 1);
+        });
+
+        it('T-EC-FS-06-02: デフォルトの ~/.claude/projects は参照しない', async () => {
+          const results = await findClaudeSessions(ALL_PERIOD, customProjectsDir);
+          assertEquals(results.every((f: string) => f.includes(customProjectsDir)), true);
+        });
+      });
+    });
+  });
 });
