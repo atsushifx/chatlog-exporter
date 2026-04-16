@@ -16,7 +16,7 @@ import { describe, it } from '@std/testing/bdd';
 
 // test target
 import { renderMarkdown } from '../../../../export-chatlog/scripts/export-chatlog.ts';
-import type { SessionMeta, Turn } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+import type { SessionMeta, Turn } from '../../../../export-chatlog/scripts/types/session.types.ts';
 
 function _makeMeta(overrides: Partial<SessionMeta> = {}): SessionMeta {
   return {
