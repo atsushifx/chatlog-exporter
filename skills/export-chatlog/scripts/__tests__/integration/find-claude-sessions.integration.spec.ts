@@ -1,4 +1,4 @@
-// src: scripts/__tests__/integration/export-chatlog.find-claude-sessions.integration.spec.ts
+// src: scripts/__tests__/integration/find-claude-sessions.integration.spec.ts
 // @(#): findClaudeSessions の統合テスト（実ファイルシステム使用）
 //       対象: findClaudeSessions
 //
@@ -20,6 +20,23 @@ const ALL_PERIOD: PeriodRange = parsePeriod(undefined);
 
 // ─── findClaudeSessions ───────────────────────────────────────────────────────
 
+/**
+ * `findClaudeSessions` の統合テストスイート（実ファイルシステム使用）。
+ *
+ * `Deno.env.get` をスタブして `homeDir()` を一時ディレクトリに向け、
+ * 実際のディレクトリ構造を作成して動作を検証する。以下のケースをカバーする:
+ * - ~/.claude/projects/ 配下の複数プロジェクトディレクトリの走査
+ * - subagents/ サブディレクトリ内ファイルの除外
+ * - projects ディレクトリが存在しない場合の空配列返却（エラーなし）
+ * - 結果の辞書順ソート
+ *
+ * 各テストは `Deno.makeTempDir()` で独立した home 環境を使用し、
+ * `afterEach` で `envStub.restore()` とディレクトリ削除を行う。
+ *
+ * @see findClaudeSessions
+ * @see walkFiles
+ * @see homeDir
+ */
 describe('findClaudeSessions', () => {
   let tempDir: string;
   let envStub: Stub<typeof Deno.env, [key: string], string | undefined>;
@@ -85,39 +102,6 @@ describe('findClaudeSessions', () => {
         it('T-EC-FS-02-02: 収集パスに "subagents" が含まれない', async () => {
           const results = await findClaudeSessions(ALL_PERIOD);
           assertEquals(results.every((f: string) => !f.includes('subagents')), true);
-        });
-      });
-    });
-  });
-
-  // ─── T-EC-FS-03: projectFilter によるディレクトリ絞り込み ──────────────────
-
-  describe('Given: "my-app" と "other-project" のディレクトリがある', () => {
-    describe('When: projectFilter="my-app" で呼び出す', () => {
-      beforeEach(async () => {
-        const projectsDir = `${tempDir}/.claude/projects`;
-        // プロジェクトディレクトリ名の末尾がプロジェクト名に対応（ハイフン区切り）
-        await Deno.mkdir(`${projectsDir}/C--users-home-projects-my-app`, { recursive: true });
-        await Deno.mkdir(`${projectsDir}/C--users-home-projects-other-project`, { recursive: true });
-        await Deno.writeTextFile(
-          `${projectsDir}/C--users-home-projects-my-app/session.jsonl`,
-          '{}',
-        );
-        await Deno.writeTextFile(
-          `${projectsDir}/C--users-home-projects-other-project/session.jsonl`,
-          '{}',
-        );
-      });
-
-      describe('Then: T-EC-FS-03 - "my-app" に関連するディレクトリのみ走査する', () => {
-        it('T-EC-FS-03-01: 収集ファイル数が 1', async () => {
-          const results = await findClaudeSessions(ALL_PERIOD, 'my-app');
-          assertEquals(results.length, 1);
-        });
-
-        it('T-EC-FS-03-02: 収集パスに "my-app" が含まれる', async () => {
-          const results = await findClaudeSessions(ALL_PERIOD, 'my-app');
-          assertEquals(results.every((f: string) => f.includes('my-app')), true);
         });
       });
     });

@@ -1,4 +1,4 @@
-// src: scripts/__tests__/unit/export-chatlog.markdown.unit.spec.ts
+// src: scripts/__tests__/unit/markdown.unit.spec.ts
 // @(#): Markdown レンダリング関数のユニットテスト
 //       対象: renderMarkdown
 //
@@ -34,6 +34,16 @@ const _basicTurns: Turn[] = [
   { role: 'assistant', text: 'AIの回答' },
 ];
 
+/**
+ * `renderMarkdown` のユニットテストスイート。
+ *
+ * セッションメタ情報と会話ターン一覧から Markdown 文字列を生成する関数の動作を検証する。
+ * YAML フロントマターの正確性（session_id・date・project・slug）・
+ * 会話セクション（### User / ### Assistant）の生成・slug 空文字時の省略・
+ * 改行正規化（3 連続 → 2 連続）の各ケースをカバーする。
+ *
+ * @see renderMarkdown
+ */
 describe('renderMarkdown', () => {
   describe('Given: 基本的な meta と 1ターン', () => {
     describe('When: renderMarkdown(meta, turns) を呼び出す', () => {

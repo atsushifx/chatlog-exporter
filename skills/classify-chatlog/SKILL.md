@@ -37,13 +37,13 @@ allowed-tools: Bash, Glob
 
 ## ステップ1: スクリプトパスの解決
 
-Glob ツールで `**/commands/classify-chatlog.md` を検索し、そのディレクトリを `SKILL_DIR` として確定する。
+Glob ツールで `**/classify-chatlog/SKILL.md` を検索し、そのディレクトリを `SKILL_DIR` として確定する。
 
 ```bash
-SKILL_DIR   = <classify-chatlog.md が存在するディレクトリの絶対パス>
+SKILL_DIR   = <SKILL.md が存在するディレクトリの絶対パス>
 SCRIPT_PATH = $SKILL_DIR/scripts/classify-chatlog.ts
 INPUT       = <cwd>/temp/chatlog
-DICS_DIR    = <cwd>/temp/dics
+DICS_DIR    = <cwd>/assets/dics
 ```
 
 ## ステップ2: スクリプト実行

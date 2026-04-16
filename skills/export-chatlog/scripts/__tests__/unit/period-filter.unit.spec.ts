@@ -1,4 +1,4 @@
-// src: scripts/__tests__/unit/export-chatlog.period-filter.unit.spec.ts
+// src: scripts/__tests__/unit/period-filter.unit.spec.ts
 // @(#): 期間フィルタ関数のユニットテスト
 //       対象: parsePeriod, inPeriod
 //
@@ -13,6 +13,16 @@ import { inPeriod, parsePeriod } from '../../../../export-chatlog/scripts/export
 
 // ─── parsePeriod ──────────────────────────────────────────────────────────────
 
+/**
+ * `parsePeriod` のユニットテストスイート。
+ *
+ * CLI の期間文字列を PeriodRange（ミリ秒の半開区間）に変換する関数の動作を検証する。
+ * undefined（全期間）・YYYY-MM（月指定）・YYYY（年指定）の正常ケースと、
+ * 不正形式での Error スローをカバーする。
+ *
+ * @see parsePeriod
+ * @see PeriodRange
+ */
 describe('parsePeriod', () => {
   describe('Given: undefined（期間指定なし）', () => {
     describe('When: parsePeriod(undefined) を呼び出す', () => {
@@ -75,6 +85,16 @@ describe('parsePeriod', () => {
 
 // ─── inPeriod ─────────────────────────────────────────────────────────────────
 
+/**
+ * `inPeriod` のユニットテストスイート。
+ *
+ * ISO8601 タイムスタンプが PeriodRange の半開区間 [startMs, endMs) 内にあるかを
+ * 判定する関数の動作を検証する。
+ * 範囲内・範囲外（前後）・境界値（startMs 含む・endMs 含まない）の各ケースをカバーする。
+ *
+ * @see inPeriod
+ * @see parsePeriod
+ */
 describe('inPeriod', () => {
   const range = parsePeriod('2026-03'); // 2026-03-01 〜 2026-04-01
 
