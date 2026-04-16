@@ -11,7 +11,12 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
-import { DEFAULT_AGENT, DEFAULT_EXPORT_CONFIG, DEFAULT_OUTPUT_DIR, parseArgs } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+import {
+  DEFAULT_AGENT,
+  DEFAULT_EXPORT_CONFIG,
+  DEFAULT_OUTPUT_DIR,
+} from '../../../../export-chatlog/scripts/constants/defaults.constants.ts';
+import { parseArgs } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 
 // ─── parseArgs tests ──────────────────────────────────────────────────────────
 
