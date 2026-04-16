@@ -74,5 +74,4 @@ describe('buildOutputPath', () => {
       assertStringIncludes(result, '2026/2026-03/');
     });
   });
-
 });
