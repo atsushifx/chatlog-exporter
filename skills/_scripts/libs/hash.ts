@@ -74,9 +74,9 @@ function _buildRandomString(maxLength: number): string {
     const buf = crypto.getRandomValues(new Uint8Array(remaining));
 
     for (const b of buf) {
-      if (b >= maxUnbiased) continue;
+      if (b >= maxUnbiased) { continue; }
       out.push(RANDOM_CHARS[b % charsetLen]);
-      if (out.length === len) break;
+      if (out.length === len) { break; }
     }
   }
 

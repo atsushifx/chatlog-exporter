@@ -42,7 +42,7 @@ describe('backupOldPath', () => {
           // フェイクの stat: ファイルが存在するように見せる
           const origStat = Deno.stat;
           // deno-lint-ignore no-explicit-any
-          (Deno as any).stat = async (_path: string) => ({ isFile: true });
+          (Deno as any).stat = (_path: string) => ({ isFile: true });
 
           try {
             // act & assert

@@ -18,31 +18,19 @@
  *   codex   — ~/.codex/sessions/YYYY/MM/DD/ 以下のJSONL
  */
 
-// ─────────────────────────────────────────────
-// 定数（import + re-export）
-// ─────────────────────────────────────────────
-
-import { SHORT_AFFIRMATION_MAX_LEN, SKIP_EXACT, SKIP_PREFIXES } from './constants/skip-rules.constants.ts';
 import { KNOWN_AGENTS } from './constants/agents.constants.ts';
 import { DEFAULT_EXPORT_CONFIG } from './constants/defaults.constants.ts';
-
-export { SHORT_AFFIRMATION_MAX_LEN, SKIP_EXACT, SKIP_PREFIXES } from './constants/skip-rules.constants.ts';
-export { KNOWN_AGENTS } from './constants/agents.constants.ts';
-export { DEFAULT_AGENT, DEFAULT_EXPORT_CONFIG, DEFAULT_OUTPUT_DIR } from './constants/defaults.constants.ts';
-
-// ─────────────────────────────────────────────
-// 型定義（import + re-export）
-// ─────────────────────────────────────────────
-
-import type { Turn, SessionMeta, ExportedSession } from './types/session.types.ts';
-import type { PeriodRange } from './types/filter.types.ts';
-import type { ClaudeEntry, CodexEntry } from './types/entries.types.ts';
+import { SHORT_AFFIRMATION_MAX_LEN, SKIP_EXACT, SKIP_PREFIXES } from './constants/skip-rules.constants.ts';
+import { exportClaude, findClaudeSessions, parseClaudeSession } from './exporter/claude-exporter.ts';
+import { exportCodex, findCodexSessions, parseCodexSession } from './exporter/codex-exporter.ts';
 import type { ExportConfig } from './types/export-config.types.ts';
+import type { PeriodRange } from './types/filter.types.ts';
+import type { ExportedSession, SessionMeta, Turn } from './types/session.types.ts';
 
-export type { Turn, SessionMeta, ExportedSession } from './types/session.types.ts';
-export type { PeriodRange } from './types/filter.types.ts';
-export type { ClaudeEntry, CodexEntry } from './types/entries.types.ts';
-export type { ExportConfig } from './types/export-config.types.ts';
+export { findClaudeSessions, parseClaudeSession };
+export { findCodexSessions, parseCodexSession };
+export type { ExportedSession };
+export type { PeriodRange };
 
 // ─────────────────────────────────────────────
 // ユーティリティ
@@ -336,354 +324,6 @@ export async function writeSession(
 }
 
 // ─────────────────────────────────────────────
-// Claude パーサー
-// ─────────────────────────────────────────────
-
-/**
- * Claude JSONL エントリの `message.content` フィールドからユーザーテキストを抽出する。
- *
- * content の型に応じて以下のように処理する:
- * - **文字列**: `<local-command-stdout` で始まる場合は空文字列を返す。それ以外はそのまま返す
- * - **配列**: 各アイテムを走査し、`type === "text"` かつ以下のプレフィックスを持たない
- *   テキストのみをスペース連結して返す。
- *   除外プレフィックス: `<ide_opened_file`, `<ide_selection`, `<local-command-caveat`,
- *   `<local-command-stdout`, `<system-reminder`。`type === "tool_result"` は無条件スキップ
- * - **その他**（null/undefined 含む）: 空文字列を返す
- *
- * `parseClaudeSession` が user エントリから会話テキストを取り出す際に使用する。
- *
- * @param content `ClaudeEntry.message.content` の値（型不明のため `unknown`）
- * @returns 抽出されたユーザーテキスト。抽出不能または除外対象の場合は空文字列
- */
-export function extractClaudeUserText(content: unknown): string {
-  if (typeof content === 'string') {
-    const text = content.trim();
-    if (/^<local-command-stdout\b/.test(text)) { return ''; }
-    return text;
-  }
-  if (Array.isArray(content)) {
-    const parts: string[] = [];
-    for (const item of content) {
-      if (typeof item !== 'object' || !item) { continue; }
-      const it = item as Record<string, unknown>;
-      if (it.type === 'tool_result') { continue; }
-      if (it.type === 'text' && typeof it.text === 'string') {
-        const t = it.text;
-        if (
-          /^<(ide_opened_file|ide_selection|local-command-caveat|local-command-stdout|system-reminder)\b/.test(t)
-        ) { continue; }
-        parts.push(t);
-      }
-    }
-    return parts.join(' ').trim();
-  }
-  return '';
-}
-
-/**
- * Claude JSONL エントリの `message.content` フィールドからアシスタントテキストを抽出する。
- *
- * content の型に応じて以下のように処理する:
- * - **文字列**: そのままトリムして返す
- * - **配列**: `type === "text"` のアイテムのテキストを改行連結して返す。
- *   `type === "tool_use"` 等の非テキストアイテムはスキップ
- * - **その他**（null/undefined 含む）: 空文字列を返す
- *
- * ユーザーテキスト抽出（`extractClaudeUserText`）と異なり、
- * アシスタント応答のシステムメッセージ除外は行わない。
- * `parseClaudeSession` が assistant エントリから会話テキストを取り出す際に使用する。
- *
- * @param content `ClaudeEntry.message.content` の値（型不明のため `unknown`）
- * @returns 抽出されたアシスタントテキスト。抽出不能の場合は空文字列
- */
-export function extractClaudeAssistantText(content: unknown): string {
-  if (typeof content === 'string') { return content.trim(); }
-  if (Array.isArray(content)) {
-    const parts: string[] = [];
-    for (const item of content) {
-      if (typeof item !== 'object' || !item) { continue; }
-      const it = item as Record<string, unknown>;
-      if (it.type === 'text' && typeof it.text === 'string') {
-        parts.push(it.text);
-      }
-    }
-    return parts.join('\n').trim();
-  }
-  return '';
-}
-
-/**
- * Claude JSONL ファイルを読み込み、指定期間内の会話セッションを抽出する。
- *
- * 処理フロー:
- * 1. ファイルを行単位で読み込み、各行を JSON パース（失敗行はスキップ）
- * 2. `inPeriod()` で期間外エントリを除外
- * 3. 最初の意味あるユーザーエントリ（`isMeta === false` かつ `isSkippable() === false`）を確定
- * 4. 全エントリを走査してターンを構築。同一 `message.id` を持つ連続 assistant エントリは
- *    テキスト連結（Claude のストリーミング断片を統合するため）
- *
- * 以下のいずれかの場合に `null` を返す:
- * - ファイル読み込み失敗
- * - 期間内エントリが 0 件
- * - 意味あるユーザーエントリが見つからない（全てスキップ対象）
- * - 抽出ターン数が 0 件
- *
- * @param filePath Claude JSONL ファイルの絶対パス
- * @param range `parsePeriod()` が生成した期間フィルタ
- * @returns パース結果の `ExportedSession`、スキップ対象の場合は `null`
- */
-export async function parseClaudeSession(
-  filePath: string,
-  range: PeriodRange,
-): Promise<ExportedSession | null> {
-  let lines: string[];
-  try {
-    const text = await Deno.readTextFile(filePath);
-    lines = text.split('\n').filter((l) => l.trim());
-  } catch {
-    return null;
-  }
-
-  const entries: ClaudeEntry[] = [];
-  for (const line of lines) {
-    try {
-      entries.push(JSON.parse(line));
-    } catch {
-      // skip
-    }
-  }
-
-  // 期間内エントリに絞る
-  const filtered = entries.filter((e) => {
-    if (!e.timestamp) { return false; }
-    return inPeriod(e.timestamp, range);
-  });
-  if (filtered.length === 0) { return null; }
-
-  // 最初の意味あるユーザーエントリを探す
-  let firstEntry: ClaudeEntry | null = null;
-  for (const e of filtered) {
-    if (e.type !== 'user' || e.isMeta) { continue; }
-    const text = extractClaudeUserText(e.message?.content);
-    if (!text || isSkippable(text)) { continue; }
-    firstEntry = e;
-    break;
-  }
-  if (!firstEntry) { return null; }
-
-  const cwd = firstEntry.cwd ?? '';
-  const project = cwd ? cwd.replace(/\\/g, '/').split('/').pop()! : 'unknown';
-
-  // 会話ターン抽出
-  const turns: Turn[] = [];
-  let lastAssistantMsgId = '';
-  let lastAssistantIdx = -1;
-
-  for (const e of filtered) {
-    if (e.type === 'user') {
-      if (e.isMeta) { continue; }
-      const text = extractClaudeUserText(e.message?.content);
-      if (!text || isSkippable(text)) { continue; }
-      turns.push({ role: 'user', text });
-      lastAssistantMsgId = '';
-    } else if (e.type === 'assistant') {
-      if (e.isMeta) { continue; }
-      const msgId = e.message?.id ?? '';
-      const text = extractClaudeAssistantText(e.message?.content);
-      if (!text) { continue; }
-      if (msgId && msgId === lastAssistantMsgId && lastAssistantIdx >= 0) {
-        turns[lastAssistantIdx].text += text;
-      } else {
-        turns.push({ role: 'assistant', text });
-        lastAssistantIdx = turns.length - 1;
-        lastAssistantMsgId = msgId;
-      }
-    }
-  }
-  if (turns.length === 0) { return null; }
-
-  const firstUserText = extractClaudeUserText(firstEntry.message?.content);
-  const meta: SessionMeta = {
-    sessionId: firstEntry.sessionId ?? 'unknown',
-    date: isoToDate(firstEntry.timestamp ?? ''),
-    project,
-    slug: firstEntry.slug ?? '',
-    firstUserText,
-  };
-
-  return { meta, turns };
-}
-
-/**
- * `~/.claude/projects/` 配下の全 JSONL セッションファイルパスを収集する。
- *
- * プロジェクトディレクトリを列挙し、各プロジェクト配下を `walkFiles()` で再帰走査する。
- * `subagents/` サブディレクトリ内のファイルはサブエージェントのセッションのため除外する。
- * ホームディレクトリが `homeDir()` から取得できない場合や
- * projects ディレクトリが存在しない場合は空配列を返す（エラーなし）。
- *
- * @param _period 期間フィルタ（現在は未使用。パーサー側でフィルタリングするため）
- * @returns ソート済みの JSONL ファイルパス配列
- */
-export async function findClaudeSessions(
-  _period: PeriodRange,
-): Promise<string[]> {
-  const projectsDir = `${homeDir()}/.claude/projects`;
-  const results: string[] = [];
-
-  let projectDirs: Deno.DirEntry[];
-  try {
-    projectDirs = [];
-    for await (const e of Deno.readDir(projectsDir)) {
-      if (e.isDirectory) { projectDirs.push(e); }
-    }
-  } catch {
-    return results;
-  }
-
-  for (const pd of projectDirs) {
-    const pdPath = `${projectsDir}/${pd.name}`;
-    for await (const entry of walkFiles(pdPath, '.jsonl')) {
-      // subagents/ は除外
-      if (entry.includes('/subagents/') || entry.includes('\\subagents\\')) { continue; }
-      results.push(entry);
-    }
-  }
-
-  return results.sort();
-}
-
-// ─────────────────────────────────────────────
-// Codex パーサー
-// ─────────────────────────────────────────────
-
-/**
- * Codex JSONL ファイルを読み込み、指定期間内の会話セッションを抽出する。
- *
- * Claude と異なり、Codex の JSONL は以下の構造を持つ:
- * - `session_meta` エントリ: セッション ID・cwd・モデル名を保持（期間判定もここで行う）
- * - `response_item` エントリ: 会話ターン本体（role: "user" | "assistant"）
- *
- * user ターンの以下のコンテンツは除外する（Codex が自動注入するシステム情報）:
- * - `"# AGENTS.md instructions"` で始まるテキスト
- * - `"<permissions instructions>"` で始まるテキスト
- * - `"<environment_context>"` で始まるテキスト
- *
- * 以下のいずれかの場合に `null` を返す:
- * - ファイル読み込み失敗
- * - `session_meta` エントリが存在しない
- * - session_meta のタイムスタンプが期間外
- * - 意味あるユーザーターンが見つからない
- *
- * @param filePath Codex JSONL ファイルの絶対パス
- * @param range `parsePeriod()` が生成した期間フィルタ
- * @returns パース結果の `ExportedSession`、スキップ対象の場合は `null`
- */
-export async function parseCodexSession(
-  filePath: string,
-  range: PeriodRange,
-): Promise<ExportedSession | null> {
-  let lines: string[];
-  try {
-    const text = await Deno.readTextFile(filePath);
-    lines = text.split('\n').filter((l) => l.trim());
-  } catch {
-    return null;
-  }
-
-  const entries: CodexEntry[] = [];
-  for (const line of lines) {
-    try {
-      entries.push(JSON.parse(line));
-    } catch {
-      // skip
-    }
-  }
-
-  // session_meta からセッション情報を取得
-  const metaEntry = entries.find((e) => e.type === 'session_meta');
-  if (!metaEntry) { return null; }
-
-  const sessionId = metaEntry.payload.id ?? 'unknown';
-  const cwd = metaEntry.payload.cwd ?? '';
-  const project = cwd ? cwd.replace(/\\/g, '/').split('/').pop()! : 'unknown';
-  const sessionTimestamp = metaEntry.timestamp;
-
-  // 期間チェック（session_meta の timestamp で判定）
-  if (!inPeriod(sessionTimestamp, range)) { return null; }
-
-  // 会話ターン抽出（response_item の role=user/assistant）
-  const turns: Turn[] = [];
-  for (const e of entries) {
-    if (e.type !== 'response_item') { continue; }
-    const role = e.payload.role;
-    if (role !== 'user' && role !== 'assistant') { continue; }
-
-    const content = e.payload.content ?? [];
-    const textType = role === 'user' ? 'input_text' : 'output_text';
-    const parts: string[] = [];
-    for (const c of content) {
-      if (c.type === textType && c.text) {
-        parts.push(c.text);
-      }
-    }
-    const text = parts.join('\n').trim();
-    if (!text) { continue; }
-    if (role === 'user' && isSkippable(text)) { continue; }
-
-    // user の AGENTS.md/permissions/environment_context は除外
-    if (
-      role === 'user' && (
-        text.startsWith('# AGENTS.md instructions')
-        || text.startsWith('<permissions instructions>')
-        || text.startsWith('<environment_context>')
-      )
-    ) { continue; }
-
-    turns.push({ role: role as 'user' | 'assistant', text });
-  }
-
-  // 意味あるユーザーターンがなければスキップ
-  const firstUserTurn = turns.find((t) => t.role === 'user');
-  if (!firstUserTurn) { return null; }
-
-  const date = isoToDate(sessionTimestamp);
-  const meta: SessionMeta = {
-    sessionId,
-    date,
-    project,
-    slug: '',
-    firstUserText: firstUserTurn.text,
-  };
-
-  return { meta, turns };
-}
-
-/**
- * `~/.codex/sessions/` 配下の全 JSONL セッションファイルパスを収集する。
- *
- * `walkFiles()` で `~/.codex/sessions/YYYY/MM/DD/*.jsonl` 形式の
- * ディレクトリツリーを再帰走査する。
- * sessions ディレクトリが存在しない場合は空配列を返す（エラーなし）。
- *
- * @param _period 期間フィルタ（現在は未使用。パーサー側でフィルタリングするため）
- * @returns ソート済みの JSONL ファイルパス配列
- */
-export async function findCodexSessions(
-  _period: PeriodRange,
-): Promise<string[]> {
-  const sessionsDir = `${homeDir()}/.codex/sessions`;
-  const results: string[] = [];
-
-  // sessions/YYYY/MM/DD/*.jsonl
-  for await (const f of walkFiles(sessionsDir, '.jsonl')) {
-    results.push(f);
-  }
-
-  return results.sort();
-}
-
-// ─────────────────────────────────────────────
 // 汎用ファイル走査
 // ─────────────────────────────────────────────
 
@@ -797,55 +437,36 @@ export function parseArgs(args: string[]): ExportConfig {
  * @param argv CLI 引数の配列。省略時は `Deno.args` を使用
  */
 export async function main(argv?: string[]): Promise<void> {
-  const { agent, period, outputDir } = parseArgs(argv ?? Deno.args);
+  const config = parseArgs(argv ?? Deno.args);
+  const { agent, period, outputDir } = config;
 
-  let range: PeriodRange;
+  console.error(`対象 agent: ${agent}`);
+  if (period) { console.error(`対象期間: ${period}`); }
+
+  let result: { exportedCount: number; outputPaths: string[] };
+
   try {
-    range = parsePeriod(period);
+    if (agent === 'claude') {
+      result = await exportClaude(config);
+    } else if (agent === 'codex') {
+      result = await exportCodex(config);
+    } else {
+      console.error(`未対応のエージェント: ${agent}`);
+      Deno.exit(1);
+    }
   } catch (e) {
     console.error(`エラー: ${e}`);
     Deno.exit(1);
   }
 
-  console.error(`対象 agent: ${agent}`);
-  if (period) { console.error(`対象期間: ${period}`); }
-
-  let sessionFiles: string[];
-  let parseSession: (f: string) => Promise<ExportedSession | null>;
-
-  if (agent === 'claude') {
-    sessionFiles = await findClaudeSessions(range);
-    parseSession = (f) => parseClaudeSession(f, range);
-  } else if (agent === 'codex') {
-    sessionFiles = await findCodexSessions(range);
-    parseSession = (f) => parseCodexSession(f, range);
-  } else {
-    console.error(`未対応のエージェント: ${agent}`);
-    Deno.exit(1);
+  for (const outPath of result.outputPaths) {
+    console.log(outPath);
   }
 
-  console.error(`セッションファイル数: ${sessionFiles.length}`);
-
-  let exported = 0;
-  let skipped = 0;
-
-  for (const file of sessionFiles) {
-    try {
-      const session = await parseSession(file);
-      if (!session) {
-        skipped++;
-        continue;
-      }
-      const outPath = await writeSession(outputDir, agent, session);
-      exported++;
-      console.log(outPath);
-    } catch (e) {
-      console.error(`警告: ${file} の処理中にエラー: ${e}`);
-      skipped++;
-    }
-  }
-
-  console.error(`\n完了: ${exported} ファイルを ${outputDir}/${agent}/ に書き出しました（${skipped} 件スキップ）`);
+  const skipped = 0; // exporter 内でスキップはサイレント処理
+  console.error(
+    `\n完了: ${result.exportedCount} ファイルを ${outputDir}/${agent}/ に書き出しました（${skipped} 件スキップ）`,
+  );
 }
 
 if (import.meta.main) { await main(); }
