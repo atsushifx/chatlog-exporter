@@ -12,9 +12,7 @@ import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
 import {
-  DEFAULT_AGENT,
   DEFAULT_EXPORT_CONFIG,
-  DEFAULT_OUTPUT_DIR,
 } from '../../../../export-chatlog/scripts/constants/defaults.constants.ts';
 import { parseArgs } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 
