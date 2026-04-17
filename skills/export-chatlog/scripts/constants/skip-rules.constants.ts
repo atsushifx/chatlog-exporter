@@ -58,15 +58,23 @@ export const SKIP_EXACT = new Set([
 ]);
 
 /**
- * スキップ対象と判定するプレフィックスの配列。
+ * セッションの先頭行にある `name:` または `title:` の value にこれらのキーワードのいずれかが
+ * 含まれる場合（大文字小文字不問）、セッション全体をエクスポート対象から除外する。
  *
- * CLI コマンド（"/clear", "/help" 等）、システムメッセージ（"<system-reminder" 等）、
- * ツール通知（"Tool loaded." 等）が対象。これらは AI との実質的な会話ではなく
- * 操作ログに過ぎないため、チャットログのエクスポート対象から除外する。
- * `isSkippable()` が `String.prototype.startsWith` で照合する。
+ * SESSION_SKIP_KEYWORDS_HEAD_LINES 行以内の `name:`/`title:` 行を対象とする。
  *
- * @see isSkippable
+ * @see isSkippableSession
  */
+export const SESSION_SKIP_KEYWORDS: string[] = [
+  'commit message generator',
+  'commit-message',
+];
+
+/**
+ * SESSION_SKIP_KEYWORDS の検索対象とする先頭行数。
+ */
+export const SESSION_SKIP_KEYWORDS_HEAD_LINES = 10;
+
 export const SKIP_PREFIXES = [
   '/clear',
   '/help',
