@@ -1,0 +1,984 @@
+// src: scripts/__tests__/unit/prefilter-chatlog.unit.spec.ts
+// @(#): prefilter-chatlog.ts のユニットテスト
+//       loadFrontmatter / parseConversation / checkFilename /
+//       checkUserContent / checkAssistantContent / parseArgs
+//
+// Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
+//
+// This software is released under the MIT License.
+
+import { assertEquals, assertNotEquals } from '@std/assert';
+import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
+import type { Stub } from '@std/testing/mock';
+import { stub } from '@std/testing/mock';
+
+// test target
+import {
+  checkAssistantContent,
+  checkFilename,
+  checkUserContent,
+  loadFrontmatter,
+  MIN_ASSISTANT_CHARS,
+  parseArgs,
+  parseConversation,
+} from '../../prefilter-chatlog.ts';
+import type { Turn } from '../../prefilter-chatlog.ts';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// loadFrontmatter
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('loadFrontmatter', () => {
+  // ─── T-PF-LF-01: frontmatter あり → meta と body を正しく分離する ──────────────
+
+  describe('Given: frontmatter 付きのテキスト', () => {
+    describe('When: loadFrontmatter(text) を呼び出す', () => {
+      describe('Then: T-PF-LF-01 - meta のキー/値が解析され body が分離される', () => {
+        const text = '---\ntitle: テスト\nauthor: bob\n---\n本文\n';
+
+        it('T-PF-LF-01-01: body が "本文\\n" になる', () => {
+          const { body } = loadFrontmatter(text);
+
+          assertEquals(body, '本文\n');
+        });
+
+        it('T-PF-LF-01-02: meta.title が "テスト" になる', () => {
+          const { meta } = loadFrontmatter(text);
+
+          assertEquals(meta['title'], 'テスト');
+        });
+
+        it('T-PF-LF-01-03: meta.author が "bob" になる', () => {
+          const { meta } = loadFrontmatter(text);
+
+          assertEquals(meta['author'], 'bob');
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-LF-02: frontmatter なし → meta={} かつ body=全文 ───────────────────
+
+  describe('Given: "---" で始まらないテキスト', () => {
+    describe('When: loadFrontmatter(text) を呼び出す', () => {
+      describe('Then: T-PF-LF-02 - meta={} かつ body=全文', () => {
+        const text = '本文のみ\n追加行';
+
+        it('T-PF-LF-02-01: body が入力テキスト全体と等しい', () => {
+          const { body } = loadFrontmatter(text);
+
+          assertEquals(body, text);
+        });
+
+        it('T-PF-LF-02-02: meta が空オブジェクトになる', () => {
+          const { meta } = loadFrontmatter(text);
+
+          assertEquals(Object.keys(meta).length, 0);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-LF-03: 閉じ区切りなし → meta={} かつ body=全文 ────────────────────
+
+  describe('Given: 開始区切りはあるが閉じ区切りがないテキスト', () => {
+    describe('When: loadFrontmatter(text) を呼び出す', () => {
+      describe('Then: T-PF-LF-03 - 閉じ区切りなし → body=全文', () => {
+        const text = '---\ntitle: テスト\n本文（閉じ区切りなし）';
+
+        it('T-PF-LF-03-01: body が入力テキスト全体と等しい', () => {
+          const { body } = loadFrontmatter(text);
+
+          assertEquals(body, text);
+        });
+
+        it('T-PF-LF-03-02: meta が空オブジェクトになる', () => {
+          const { meta } = loadFrontmatter(text);
+
+          assertEquals(Object.keys(meta).length, 0);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-LF-04: frontmatter のみ（body 空） ──────────────────────────────────
+
+  describe('Given: frontmatter のみで本文がないテキスト', () => {
+    describe('When: loadFrontmatter(text) を呼び出す', () => {
+      describe('Then: T-PF-LF-04 - body="" かつ meta が解析される', () => {
+        const text = '---\ntitle: テスト\n---\n';
+
+        it('T-PF-LF-04-01: body が空文字列になる', () => {
+          const { body } = loadFrontmatter(text);
+
+          assertEquals(body, '');
+        });
+
+        it('T-PF-LF-04-02: meta.title が "テスト" になる', () => {
+          const { meta } = loadFrontmatter(text);
+
+          assertEquals(meta['title'], 'テスト');
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-LF-05: コロンスペースなし行はスキップ ──────────────────────────────
+
+  describe('Given: "key:value"（スペースなし）と "good: ok"（スペースあり）が混在', () => {
+    describe('When: loadFrontmatter(text) を呼び出す', () => {
+      describe('Then: T-PF-LF-05 - スペースなし行はスキップされる', () => {
+        const text = '---\nkey:value\ngood: ok\n---\nbody';
+
+        it('T-PF-LF-05-01: meta.key が undefined になる（スペースなし行は無視）', () => {
+          const { meta } = loadFrontmatter(text);
+
+          assertEquals(meta['key'], undefined);
+        });
+
+        it('T-PF-LF-05-02: meta.good が "ok" になる（スペースあり行は正常パース）', () => {
+          const { meta } = loadFrontmatter(text);
+
+          assertEquals(meta['good'], 'ok');
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-LF-06: スペース始まり行はスキップ ──────────────────────────────────
+
+  describe('Given: インデント行と通常行が混在する frontmatter', () => {
+    describe('When: loadFrontmatter(text) を呼び出す', () => {
+      describe('Then: T-PF-LF-06 - スペース始まり行は除外される', () => {
+        const text = '---\n  indented: val\ntop: ok\n---\nbody';
+
+        it('T-PF-LF-06-01: meta.indented が undefined になる（インデント行は除外）', () => {
+          const { meta } = loadFrontmatter(text);
+
+          assertEquals(meta['indented'], undefined);
+        });
+
+        it('T-PF-LF-06-02: meta.top が "ok" になる', () => {
+          const { meta } = loadFrontmatter(text);
+
+          assertEquals(meta['top'], 'ok');
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-LF-07: CRLF 改行の正規化 ───────────────────────────────────────────
+
+  describe('Given: CRLF 改行のテキスト（Windows 形式）', () => {
+    describe('When: loadFrontmatter(text) を呼び出す', () => {
+      describe('Then: T-PF-LF-07 - CRLF が正規化されて正しくパースされる', () => {
+        const text = '---\r\ntitle: テスト\r\n---\r\n本文\r\n';
+
+        it('T-PF-LF-07-01: meta.title が "テスト" になる', () => {
+          const { meta } = loadFrontmatter(text);
+
+          assertEquals(meta['title'], 'テスト');
+        });
+
+        it('T-PF-LF-07-02: body が "本文\\n" になる（CRLF が LF に変換される）', () => {
+          const { body } = loadFrontmatter(text);
+
+          assertEquals(body, '本文\n');
+        });
+      });
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// parseConversation
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('parseConversation (prefilter)', () => {
+  // ─── T-PF-PC-01: User/Assistant 1 件ずつ → 2 件のターン ─────────────────────
+
+  describe('Given: User と Assistant のターンが 1 件ずつあるテキスト', () => {
+    describe('When: parseConversation(body) を呼び出す', () => {
+      describe('Then: T-PF-PC-01 - 2 件のターンが返される', () => {
+        const body = '### User\n質問\n\n### Assistant\n回答\n';
+
+        it('T-PF-PC-01-01: ターン数が 2 になる', () => {
+          const turns = parseConversation(body);
+
+          assertEquals(turns.length, 2);
+        });
+
+        it('T-PF-PC-01-02: turns[0].role が "user" になる', () => {
+          const turns = parseConversation(body);
+
+          assertEquals(turns[0].role, 'user');
+        });
+
+        it('T-PF-PC-01-03: turns[1].role が "assistant" になる', () => {
+          const turns = parseConversation(body);
+
+          assertEquals(turns[1].role, 'assistant');
+        });
+
+        it('T-PF-PC-01-04: turns[0].text が "質問" になる', () => {
+          const turns = parseConversation(body);
+
+          assertEquals(turns[0].text, '質問');
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PC-02: 複数ターン → 全件取得 ─────────────────────────────────────
+
+  describe('Given: User → Assistant → User の 3 ターン本文', () => {
+    describe('When: parseConversation(body) を呼び出す', () => {
+      describe('Then: T-PF-PC-02 - 3 件のターンが返される', () => {
+        const body = ['### User', '質問1', '', '### Assistant', '回答1', '', '### User', '質問2'].join('\n');
+
+        it('T-PF-PC-02-01: ターン数が 3 になる', () => {
+          const turns = parseConversation(body);
+
+          assertEquals(turns.length, 3);
+        });
+
+        it('T-PF-PC-02-02: turns[2].role が "user" になる', () => {
+          const turns = parseConversation(body);
+
+          assertEquals(turns[2].role, 'user');
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PC-03: ターンヘッダーなし → 空配列 ────────────────────────────────
+
+  describe('Given: ターンヘッダーがないテキスト', () => {
+    describe('When: parseConversation(body) を呼び出す', () => {
+      describe('Then: T-PF-PC-03 - 空配列が返される', () => {
+        it('T-PF-PC-03-01: 空配列が返される', () => {
+          const turns = parseConversation('ヘッダーのない本文テキスト');
+
+          assertEquals(turns.length, 0);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PC-04: テキストなしターン → 除外 ──────────────────────────────────
+
+  describe('Given: テキストのないターンヘッダー', () => {
+    describe('When: parseConversation(body) を呼び出す', () => {
+      describe('Then: T-PF-PC-04 - 空テキストのターンは除外される', () => {
+        it('T-PF-PC-04-01: テキストなしのターンは含まれない', () => {
+          const body = '### User\n\n### Assistant\n回答あり\n';
+          const turns = parseConversation(body);
+
+          assertEquals(turns.length, 1);
+          assertEquals(turns[0].role, 'assistant');
+        });
+      });
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// checkFilename
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('checkFilename', () => {
+  // ─── T-PF-CF-01: 除外パターン一致 → null でない文字列を返す ─────────────────
+
+  describe('Given: NOISE_FILENAME_PATTERNS に含まれるファイル名', () => {
+    describe('When: checkFilename(filename) を呼び出す', () => {
+      describe('Then: T-PF-CF-01 - null でない文字列が返される', () => {
+        it('T-PF-CF-01-01: you-are-a-topic-and-tag-extraction-assistant.md → null でない', () => {
+          const result = checkFilename('you-are-a-topic-and-tag-extraction-assistant.md');
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-CF-01-02: say-ok-and-nothing-else.md → null でない', () => {
+          const result = checkFilename('say-ok-and-nothing-else.md');
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-CF-01-03: command-message-claude-idd-framework.md → null でない', () => {
+          const result = checkFilename('command-message-claude-idd-framework.md');
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-CF-01-04: command-message-deckrd-deckrd.md → null でない', () => {
+          const result = checkFilename('command-message-deckrd-deckrd.md');
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-CF-01-05: command-message-deckrd-coder.md → null でない', () => {
+          const result = checkFilename('command-message-deckrd-coder.md');
+
+          assertNotEquals(result, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-CF-02: 一致しないファイル名 → null ─────────────────────────────────
+
+  describe('Given: 通常のファイル名', () => {
+    describe('When: checkFilename(filename) を呼び出す', () => {
+      describe('Then: T-PF-CF-02 - null が返される', () => {
+        it('T-PF-CF-02-01: "my-chat-log.md" → null', () => {
+          const result = checkFilename('my-chat-log.md');
+
+          assertEquals(result, null);
+        });
+
+        it('T-PF-CF-02-02: 空文字列 "" → null', () => {
+          const result = checkFilename('');
+
+          assertEquals(result, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-CF-03: 大文字小文字を区別しない ────────────────────────────────────
+
+  describe('Given: 除外パターンを大文字化したファイル名', () => {
+    describe('When: checkFilename(filename) を呼び出す', () => {
+      describe('Then: T-PF-CF-03 - 大文字小文字を区別せず null でない文字列を返す', () => {
+        it('T-PF-CF-03-01: "Say-Ok-And-Nothing-Else.md" → null でない', () => {
+          const result = checkFilename('Say-Ok-And-Nothing-Else.md');
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-CF-03-02: "SAY-OK-AND-NOTHING-ELSE.md" → null でない', () => {
+          const result = checkFilename('SAY-OK-AND-NOTHING-ELSE.md');
+
+          assertNotEquals(result, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-CF-04: reason に "ファイル名パターン:" が含まれる ─────────────────
+
+  describe('Given: 除外パターン一致ファイル名', () => {
+    describe('When: checkFilename(filename) を呼び出す', () => {
+      describe('Then: T-PF-CF-04 - reason に "ファイル名パターン:" が含まれる', () => {
+        it('T-PF-CF-04-01: reason に "ファイル名パターン:" が含まれる', () => {
+          const result = checkFilename('say-ok-and-nothing-else.md');
+
+          assertEquals(result!.includes('ファイル名パターン:'), true);
+        });
+      });
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// checkUserContent
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('checkUserContent', () => {
+  function _makeTurns(turns: Array<{ role: 'user' | 'assistant'; text: string }>): Turn[] {
+    return turns;
+  }
+
+  // ─── T-PF-UC-01: User ターンなし → reason を返す ────────────────────────────
+
+  describe('Given: Assistant ターンのみ（User ターン 0 件）', () => {
+    describe('When: checkUserContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-UC-01 - "Userターンが存在しない" を含む reason を返す', () => {
+        it('T-PF-UC-01-01: "Userターンが存在しない" を含む reason を返す', () => {
+          const turns = _makeTurns([{ role: 'assistant', text: '回答' }]);
+          const result = checkUserContent(turns);
+
+          assertNotEquals(result, null);
+          assertEquals(result!.includes('Userターンが存在しない'), true);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-UC-02: 全 User ターンがシステムタグのみ → reason を返す ────────────
+
+  describe('Given: システムタグのみの User ターン', () => {
+    describe('When: checkUserContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-UC-02 - reason を返す', () => {
+        it('T-PF-UC-02-01: 単一 User ターンで <system-reminder> のみ → reason を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '<system-reminder>システムメッセージ</system-reminder>' },
+            { role: 'assistant', text: '回答' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-UC-02-02: 複数 User ターン全てが <system-reminder> → reason を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '<system-reminder>msg1</system-reminder>' },
+            { role: 'assistant', text: '回答' },
+            { role: 'user', text: '<command-name>cmd</command-name>' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-UC-02-03: 1ターン目はシステムタグ、2ターン目は通常テキスト → null', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '<system-reminder>msg</system-reminder>' },
+            { role: 'assistant', text: '回答' },
+            { role: 'user', text: '通常の質問テキスト' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertEquals(result, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-UC-03: 全 User ターンが /コマンドのみ → reason を返す ─────────────
+
+  describe('Given: /コマンドのみの User ターン', () => {
+    describe('When: checkUserContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-UC-03 - reason を返す', () => {
+        it('T-PF-UC-03-01: 単一 User ターンで /commit のみ → reason を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '/commit' },
+            { role: 'assistant', text: '了解しました' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-UC-03-02: 複数 User ターン全てが /コマンド → reason を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '/commit' },
+            { role: 'assistant', text: '回答1' },
+            { role: 'user', text: '/export-log' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-UC-03-03: 1ターン目は /コマンド、2ターン目は通常テキスト → null', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '/commit' },
+            { role: 'assistant', text: '回答' },
+            { role: 'user', text: '通常の質問テキスト' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertEquals(result, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-UC-04: 1 ターン限定 — NOISE_USER_PREFIX_PATTERNS 一致 ─────────────
+
+  describe('Given: 1 件の User ターンで NOISE_USER_PREFIX_PATTERNS に一致するテキスト', () => {
+    describe('When: checkUserContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-UC-04 - reason を返す', () => {
+        it('T-PF-UC-04-01: "=== GIT LOGS ===" で始まる → reason を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '=== GIT LOGS ===\ngit log --oneline' },
+            { role: 'assistant', text: '回答' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-UC-04-02: "---\\nname: commit-message-generator" で始まる → reason を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '---\nname: commit-message-generator\n---' },
+            { role: 'assistant', text: '回答' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-UC-04-03: "Based on the issue title" で始まる → reason を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: 'Based on the issue title, generate a branch name' },
+            { role: 'assistant', text: '回答' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-UC-04-04: "Implement the following plan" で始まる → reason を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: 'Implement the following plan:\n1. step one' },
+            { role: 'assistant', text: '回答' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertNotEquals(result, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-UC-05: 1 ターン限定ルール — 2 件以上なら PREFIX_PATTERNS が適用されない
+
+  describe('Given: 2 件の User ターンで 1 件目が NOISE_USER_PREFIX_PATTERNS 一致', () => {
+    describe('When: checkUserContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-UC-05 - 複数 User ターンの場合は prefix パターンが適用されず null', () => {
+        it('T-PF-UC-05-01: 複数 User ターンでは prefix パターンが適用されず null を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '=== GIT LOGS ===\ngit log --oneline' },
+            { role: 'assistant', text: '回答1' },
+            { role: 'user', text: '通常の質問' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertEquals(result, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-UC-06: 1 ターン限定 — NOISE_USER_EXACT_PATTERNS 一致 ──────────────
+
+  describe('Given: 1 件の User ターンで Windows/Unix パスのみ', () => {
+    describe('When: checkUserContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-UC-06 - reason を返す', () => {
+        it('T-PF-UC-06-01: "C:\\\\Users\\\\foo\\\\bar.md" → reason を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: 'C:\\Users\\foo\\bar.md' },
+            { role: 'assistant', text: '回答' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-UC-06-02: "docs/readme.md" → reason を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: 'docs/readme.md' },
+            { role: 'assistant', text: '回答' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertNotEquals(result, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-UC-07: 1 ターン限定ルール — 2 件以上なら EXACT_PATTERNS が適用されない
+
+  describe('Given: 2 件の User ターンで 1 件目が Windows パスのみ', () => {
+    describe('When: checkUserContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-UC-07 - 複数 User ターンでは exact パターンが適用されず null', () => {
+        it('T-PF-UC-07-01: 複数 User ターンでは exact パターンが適用されず null を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: 'C:\\Users\\foo\\bar.md' },
+            { role: 'assistant', text: '回答' },
+            { role: 'user', text: '通常の質問' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertEquals(result, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-UC-08: 正常な User ターン → null ──────────────────────────────────
+
+  describe('Given: 通常のテキストを含む User ターン', () => {
+    describe('When: checkUserContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-UC-08 - null が返される', () => {
+        it('T-PF-UC-08-01: 通常テキストの単一 User ターン → null を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: 'この機能の設計についてどう思いますか？' },
+            { role: 'assistant', text: '良い設計だと思います。' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertEquals(result, null);
+        });
+
+        it('T-PF-UC-08-02: 複数の通常 User ターン → null を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '質問1' },
+            { role: 'assistant', text: '回答1' },
+            { role: 'user', text: '質問2' },
+            { role: 'assistant', text: '回答2' },
+          ]);
+          const result = checkUserContent(turns);
+
+          assertEquals(result, null);
+        });
+      });
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// checkAssistantContent
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('checkAssistantContent', () => {
+  function _makeTurns(turns: Array<{ role: 'user' | 'assistant'; text: string }>): Turn[] {
+    return turns;
+  }
+
+  // ─── T-PF-AC-01: User=1 + Assistant 合計 < MIN_ASSISTANT_CHARS → reason ───
+
+  describe('Given: 1 件の User ターン + 短い Assistant ターン', () => {
+    describe('When: checkAssistantContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-AC-01 - reason を返す', () => {
+        it('T-PF-AC-01-01: null でない reason を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '質問' },
+            { role: 'assistant', text: '短い' },
+          ]);
+          const result = checkAssistantContent(turns);
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-AC-01-02: reason に文字数情報が含まれる', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '質問' },
+            { role: 'assistant', text: '短い' },
+          ]);
+          const result = checkAssistantContent(turns);
+
+          assertEquals(result!.includes(`${MIN_ASSISTANT_CHARS}`), true);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-AC-02: User=1 + Assistant 合計 >= MIN_ASSISTANT_CHARS → null ────
+
+  describe('Given: 1 件の User ターン + 十分な長さの Assistant ターン', () => {
+    describe('When: checkAssistantContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-AC-02 - null が返される', () => {
+        it('T-PF-AC-02-01: ちょうど MIN_ASSISTANT_CHARS 文字 → null', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '質問' },
+            { role: 'assistant', text: 'a'.repeat(MIN_ASSISTANT_CHARS) },
+          ]);
+          const result = checkAssistantContent(turns);
+
+          assertEquals(result, null);
+        });
+
+        it('T-PF-AC-02-02: MIN_ASSISTANT_CHARS より多い文字数 → null', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '質問' },
+            { role: 'assistant', text: 'a'.repeat(MIN_ASSISTANT_CHARS + 50) },
+          ]);
+          const result = checkAssistantContent(turns);
+
+          assertEquals(result, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-AC-03: User=1 + Assistant なし → null（Assistantなし OK） ────────
+
+  describe('Given: 1 件の User ターンのみ（Assistant ターン 0 件）', () => {
+    describe('When: checkAssistantContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-AC-03 - null が返される（Assistantなし OK）', () => {
+        it('T-PF-AC-03-01: null を返す', () => {
+          const turns = _makeTurns([{ role: 'user', text: '質問のみ' }]);
+          const result = checkAssistantContent(turns);
+
+          assertEquals(result, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-AC-04: User 複数ターン → null（1 ターン限定ルール） ───────────────
+
+  describe('Given: 2 件以上の User ターン + 短い Assistant ターン', () => {
+    describe('When: checkAssistantContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-AC-04 - null が返される（複数 User ターンには長さチェック適用なし）', () => {
+        it('T-PF-AC-04-01: User=2, Assistant 短い → null', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '質問1' },
+            { role: 'assistant', text: '短い' },
+            { role: 'user', text: '質問2' },
+          ]);
+          const result = checkAssistantContent(turns);
+
+          assertEquals(result, null);
+        });
+
+        it('T-PF-AC-04-02: User=3, Assistant 1 文字 → null', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '質問1' },
+            { role: 'user', text: '質問2' },
+            { role: 'user', text: '質問3' },
+            { role: 'assistant', text: 'a' },
+          ]);
+          const result = checkAssistantContent(turns);
+
+          assertEquals(result, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-AC-05: 複数 Assistant ターンの合計で判定 ──────────────────────────
+
+  describe('Given: 1 件の User ターン + 複数の Assistant ターン', () => {
+    describe('When: checkAssistantContent(turns) を呼び出す', () => {
+      describe('Then: T-PF-AC-05 - 合計文字数で判定される', () => {
+        it('T-PF-AC-05-01: 各 40 文字 × 2 件（合計 80 < 100）→ reason を返す', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '質問' },
+            { role: 'assistant', text: 'a'.repeat(40) },
+            { role: 'assistant', text: 'b'.repeat(40) },
+          ]);
+          const result = checkAssistantContent(turns);
+
+          assertNotEquals(result, null);
+        });
+
+        it('T-PF-AC-05-02: 各 60 文字 × 2 件（合計 120 >= 100）→ null', () => {
+          const turns = _makeTurns([
+            { role: 'user', text: '質問' },
+            { role: 'assistant', text: 'a'.repeat(60) },
+            { role: 'assistant', text: 'b'.repeat(60) },
+          ]);
+          const result = checkAssistantContent(turns);
+
+          assertEquals(result, null);
+        });
+      });
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// parseArgs (prefilter)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('parseArgs (prefilter)', () => {
+  // ─── T-PF-PA-01: 引数なし → デフォルト値 ────────────────────────────────────
+
+  describe('Given: 引数なしの空配列', () => {
+    describe('When: parseArgs([]) を呼び出す', () => {
+      describe('Then: T-PF-PA-01 - デフォルト値が適用される', () => {
+        it('T-PF-PA-01-01: agent が "claude" になる', () => {
+          const result = parseArgs([]);
+
+          assertEquals(result.agent, 'claude');
+        });
+
+        it('T-PF-PA-01-02: dryRun が false になる', () => {
+          const result = parseArgs([]);
+
+          assertEquals(result.dryRun, false);
+        });
+
+        it('T-PF-PA-01-03: inputDir が "./temp/chatlog" になる', () => {
+          const result = parseArgs([]);
+
+          assertEquals(result.inputDir, './temp/chatlog');
+        });
+
+        it('T-PF-PA-01-04: period が undefined になる', () => {
+          const result = parseArgs([]);
+
+          assertEquals(result.period, undefined);
+        });
+
+        it('T-PF-PA-01-05: report が false になる', () => {
+          const result = parseArgs([]);
+
+          assertEquals(result.report, false);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PA-02: agent 引数 ──────────────────────────────────────────────────
+
+  describe('Given: ["codex"] を渡す', () => {
+    describe('When: parseArgs(["codex"]) を呼び出す', () => {
+      describe('Then: T-PF-PA-02 - agent=codex', () => {
+        it('T-PF-PA-02-01: agent が "codex" になる', () => {
+          const result = parseArgs(['codex']);
+
+          assertEquals(result.agent, 'codex');
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PA-03: period の解析 ───────────────────────────────────────────────
+
+  describe('Given: ["2026-03"] を渡す', () => {
+    describe('When: parseArgs(["2026-03"]) を呼び出す', () => {
+      describe('Then: T-PF-PA-03 - period=2026-03', () => {
+        it('T-PF-PA-03-01: period が "2026-03" になる', () => {
+          const result = parseArgs(['2026-03']);
+
+          assertEquals(result.period, '2026-03');
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PA-04: agent と period の組み合わせ ────────────────────────────────
+
+  describe('Given: ["claude", "2026-03"] を渡す', () => {
+    describe('When: parseArgs(["claude", "2026-03"]) を呼び出す', () => {
+      describe('Then: T-PF-PA-04 - agent=claude かつ period=2026-03', () => {
+        it('T-PF-PA-04-01: agent="claude", period="2026-03" が正しく解析される', () => {
+          const result = parseArgs(['claude', '2026-03']);
+
+          assertEquals(result.agent, 'claude');
+          assertEquals(result.period, '2026-03');
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PA-05: --dry-run フラグ ────────────────────────────────────────────
+
+  describe('Given: ["--dry-run"] を渡す', () => {
+    describe('When: parseArgs(["--dry-run"]) を呼び出す', () => {
+      describe('Then: T-PF-PA-05 - dryRun=true, report=false', () => {
+        it('T-PF-PA-05-01: dryRun が true になる', () => {
+          const result = parseArgs(['--dry-run']);
+
+          assertEquals(result.dryRun, true);
+        });
+
+        it('T-PF-PA-05-02: report が false のまま', () => {
+          const result = parseArgs(['--dry-run']);
+
+          assertEquals(result.report, false);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PA-06: --report フラグ → report=true かつ dryRun=true ─────────────
+
+  describe('Given: ["--report"] を渡す', () => {
+    describe('When: parseArgs(["--report"]) を呼び出す', () => {
+      describe('Then: T-PF-PA-06 - report=true かつ dryRun=true', () => {
+        it('T-PF-PA-06-01: report が true になる', () => {
+          const result = parseArgs(['--report']);
+
+          assertEquals(result.report, true);
+        });
+
+        it('T-PF-PA-06-02: dryRun が true になる（--report は dryRun も暗示）', () => {
+          const result = parseArgs(['--report']);
+
+          assertEquals(result.dryRun, true);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PA-07: --report + --dry-run の組み合わせ ──────────────────────────
+
+  describe('Given: ["--report", "--dry-run"] を渡す', () => {
+    describe('When: parseArgs(["--report", "--dry-run"]) を呼び出す', () => {
+      describe('Then: T-PF-PA-07 - report=true かつ dryRun=true', () => {
+        it('T-PF-PA-07-01: report=true、dryRun=true になる', () => {
+          const result = parseArgs(['--report', '--dry-run']);
+
+          assertEquals(result.report, true);
+          assertEquals(result.dryRun, true);
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PA-08: --input <path> オプション ───────────────────────────────────
+
+  describe('Given: ["--input", "/path/to/input"] を渡す', () => {
+    describe('When: parseArgs(["--input", "/path/to/input"]) を呼び出す', () => {
+      describe('Then: T-PF-PA-08 - inputDir=/path/to/input', () => {
+        it('T-PF-PA-08-01: inputDir が "/path/to/input" になる', () => {
+          const result = parseArgs(['--input', '/path/to/input']);
+
+          assertEquals(result.inputDir, '/path/to/input');
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PA-09: --input=value 形式 ──────────────────────────────────────────
+
+  describe('Given: ["--input=/path/to/input"] を渡す', () => {
+    describe('When: parseArgs(["--input=/path/to/input"]) を呼び出す', () => {
+      describe('Then: T-PF-PA-09 - --input=value 形式のパース', () => {
+        it('T-PF-PA-09-01: inputDir が "/path/to/input" になる', () => {
+          const result = parseArgs(['--input=/path/to/input']);
+
+          assertEquals(result.inputDir, '/path/to/input');
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PA-10: 複数オプション組み合わせ ────────────────────────────────────
+
+  describe('Given: codex 2026-03 --report --input ./in を渡す', () => {
+    describe('When: parseArgs(args) を呼び出す', () => {
+      describe('Then: T-PF-PA-10 - 全フィールドが正しく解析される', () => {
+        it('T-PF-PA-10-01: 全フィールドが正しく解析される', () => {
+          const result = parseArgs(['codex', '2026-03', '--report', '--input', './in']);
+
+          assertEquals(result.agent, 'codex');
+          assertEquals(result.period, '2026-03');
+          assertEquals(result.report, true);
+          assertEquals(result.dryRun, true);
+          assertEquals(result.inputDir, './in');
+        });
+      });
+    });
+  });
+
+  // ─── T-PF-PA-11: 未知オプション → Deno.exit(1) ──────────────────────────────
+
+  describe('Given: 未知のオプション ["--unknown"]', () => {
+    describe('When: parseArgs(["--unknown"]) を呼び出す', () => {
+      describe('Then: T-PF-PA-11 - Deno.exit(1) が呼ばれる', () => {
+        let exitStub: Stub<typeof Deno, [code?: number], never>;
+        beforeEach(() => {
+          exitStub = stub(Deno, 'exit');
+        });
+        afterEach(() => {
+          exitStub.restore();
+        });
+
+        it('T-PF-PA-11-01: Deno.exit(1) がちょうど 1 回呼ばれる', () => {
+          parseArgs(['--unknown']);
+
+          assertEquals(exitStub.calls.length, 1);
+          assertEquals(exitStub.calls[0].args[0], 1);
+        });
+      });
+    });
+  });
+});

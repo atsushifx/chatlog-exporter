@@ -34,7 +34,7 @@
 // ─────────────────────────────────────────────
 
 /** ファイル名に含まれていれば即除外 */
-const NOISE_FILENAME_PATTERNS: RegExp[] = [
+export const NOISE_FILENAME_PATTERNS: RegExp[] = [
   /you-are-a-topic-and-tag-extraction-assistant/,
   /say-ok-and-nothing-else/,
   /command-message-claude-idd-framework/,
@@ -95,13 +95,13 @@ const SYSTEM_TAG_PATTERN =
   /^<(system-reminder|command-name|command-message|local-command-stdout|ide_opened_file|ide_selection)\b/;
 
 /** Assistantの応答が短すぎる場合の閾値（文字数） */
-const MIN_ASSISTANT_CHARS = 100;
+export const MIN_ASSISTANT_CHARS = 100;
 
 // ─────────────────────────────────────────────
 // Frontmatter パーサー
 // ─────────────────────────────────────────────
 
-function loadFrontmatter(text: string): { meta: Record<string, string>; body: string } {
+export function loadFrontmatter(text: string): { meta: Record<string, string>; body: string } {
   const normalized = text.replace(/\r\n/g, '\n');
   if (!normalized.startsWith('---\n')) { return { meta: {}, body: normalized }; }
 
@@ -125,12 +125,12 @@ function loadFrontmatter(text: string): { meta: Record<string, string>; body: st
 // 会話ターン解析
 // ─────────────────────────────────────────────
 
-interface Turn {
+export interface Turn {
   role: 'user' | 'assistant';
   text: string;
 }
 
-function parseConversation(body: string): Turn[] {
+export function parseConversation(body: string): Turn[] {
   const turns: Turn[] = [];
   const pattern = /^### (User|Assistant)\s*$/gm;
   const matches = [...body.matchAll(pattern)];
@@ -150,7 +150,7 @@ function parseConversation(body: string): Turn[] {
 // 個別判定ロジック
 // ─────────────────────────────────────────────
 
-function checkFilename(filename: string): string | null {
+export function checkFilename(filename: string): string | null {
   const lower = filename.toLowerCase();
   for (const pat of NOISE_FILENAME_PATTERNS) {
     if (pat.test(lower)) { return `ファイル名パターン: ${pat}`; }
@@ -158,7 +158,7 @@ function checkFilename(filename: string): string | null {
   return null;
 }
 
-function checkUserContent(turns: Turn[]): string | null {
+export function checkUserContent(turns: Turn[]): string | null {
   const userTurns = turns.filter((t) => t.role === 'user');
   if (userTurns.length === 0) { return 'Userターンが存在しない'; }
 
@@ -193,7 +193,7 @@ function checkUserContent(turns: Turn[]): string | null {
   return null;
 }
 
-function checkAssistantContent(turns: Turn[]): string | null {
+export function checkAssistantContent(turns: Turn[]): string | null {
   const userTurns = turns.filter((t) => t.role === 'user');
   const assistantTurns = turns.filter((t) => t.role === 'assistant');
 
@@ -210,7 +210,7 @@ function checkAssistantContent(turns: Turn[]): string | null {
 // メイン判定関数
 // ─────────────────────────────────────────────
 
-function classifyFile(filename: string, text: string): { isNoise: boolean; reason: string } {
+export function classifyFile(filename: string, text: string): { isNoise: boolean; reason: string } {
   // 1. ファイル名チェック
   const filenameReason = checkFilename(filename);
   if (filenameReason) { return { isNoise: true, reason: filenameReason }; }
@@ -236,7 +236,7 @@ function classifyFile(filename: string, text: string): { isNoise: boolean; reaso
 // ファイル列挙
 // ─────────────────────────────────────────────
 
-async function findMdFiles(baseDir: string, agent: string, period?: string): Promise<string[]> {
+export async function findMdFiles(baseDir: string, agent: string, period?: string): Promise<string[]> {
   const results: string[] = [];
 
   const agentDir = `${baseDir}/${agent}`;
@@ -296,7 +296,7 @@ interface Args {
   report: boolean;
 }
 
-function parseArgs(args: string[]): Args {
+export function parseArgs(args: string[]): Args {
   let agent = 'claude';
   let period: string | undefined;
   let inputDir = './temp/chatlog';
@@ -330,8 +330,8 @@ function parseArgs(args: string[]): Args {
 // メイン
 // ─────────────────────────────────────────────
 
-async function main(): Promise<void> {
-  const { agent, period, inputDir, dryRun, report } = parseArgs(Deno.args);
+export async function main(args: string[] = Deno.args): Promise<void> {
+  const { agent, period, inputDir, dryRun, report } = parseArgs(args);
 
   try {
     const stat = await Deno.stat(inputDir);
@@ -388,4 +388,6 @@ async function main(): Promise<void> {
   console.error(`\n完了${suffix}: noise=${counts.noise} keep=${counts.keep} error=${counts.error}`);
 }
 
-await main();
+if (import.meta.main) {
+  await main();
+}
