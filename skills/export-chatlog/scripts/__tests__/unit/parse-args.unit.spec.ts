@@ -204,17 +204,17 @@ describe('parseArgs', () => {
 
   /** 正常系: --input オプション */
   describe('Given: ["--input", "/data/chatgpt-export"]', () => {
-    it('T-EC-PA-12-01: baseDir が "/data/chatgpt-export"', () => {
+    it('T-EC-PA-12-01: inputDir が "/data/chatgpt-export"', () => {
       const result = parseArgs(['--input', '/data/chatgpt-export']);
-      assertEquals(result.baseDir, '/data/chatgpt-export');
+      assertEquals(result.inputDir, '/data/chatgpt-export');
     });
   });
 
   /** 正常系: --input= 形式 */
   describe('Given: ["--input=/data/chatgpt-export"]', () => {
-    it('T-EC-PA-12-02: baseDir が "/data/chatgpt-export"', () => {
+    it('T-EC-PA-12-02: inputDir が "/data/chatgpt-export"', () => {
       const result = parseArgs(['--input=/data/chatgpt-export']);
-      assertEquals(result.baseDir, '/data/chatgpt-export');
+      assertEquals(result.inputDir, '/data/chatgpt-export');
     });
   });
 
@@ -223,6 +223,48 @@ describe('parseArgs', () => {
     it('T-EC-PA-13-01: agent が "chatgpt"', () => {
       const result = parseArgs(['chatgpt']);
       assertEquals(result.agent, 'chatgpt');
+    });
+  });
+
+  /** 正常系: chatgpt + 位置引数パス */
+  describe('Given: ["chatgpt", "/path/to/export"]', () => {
+    it('T-EC-PA-15-01: inputDir が "/path/to/export"', () => {
+      const result = parseArgs(['chatgpt', '/path/to/export']);
+      assertEquals(result.inputDir, '/path/to/export');
+    });
+  });
+
+  /** 正常系: chatgpt + 期間 + 位置引数パス */
+  describe('Given: ["chatgpt", "2026-03", "/path/to/export"]', () => {
+    let result: ReturnType<typeof parseArgs>;
+    beforeEach(() => {
+      result = parseArgs(['chatgpt', '2026-03', '/path/to/export']);
+    });
+
+    it('T-EC-PA-15-02: period が "2026-03"、inputDir が "/path/to/export"', () => {
+      assertEquals(result.period, '2026-03');
+      assertEquals(result.inputDir, '/path/to/export');
+    });
+  });
+
+  /** 正常系: chatgpt + Windows パス（バックスラッシュ正規化） */
+  describe('Given: ["chatgpt", "C:\\\\Users\\\\foo\\\\export"]', () => {
+    it('T-EC-PA-15-04: inputDir が "C:/Users/foo/export"（\\ → / 正規化済み）', () => {
+      const result = parseArgs(['chatgpt', 'C:\\Users\\foo\\export']);
+      assertEquals(result.inputDir, 'C:/Users/foo/export');
+    });
+  });
+
+  /** 正常系: chatgpt + 位置引数パス + 期間（順番逆） */
+  describe('Given: ["chatgpt", "/path/to/export", "2026-03"]', () => {
+    let result: ReturnType<typeof parseArgs>;
+    beforeEach(() => {
+      result = parseArgs(['chatgpt', '/path/to/export', '2026-03']);
+    });
+
+    it('T-EC-PA-15-03: period が "2026-03"、inputDir が "/path/to/export"', () => {
+      assertEquals(result.period, '2026-03');
+      assertEquals(result.inputDir, '/path/to/export');
     });
   });
 
@@ -237,8 +279,8 @@ describe('parseArgs', () => {
       assertEquals(result.agent, 'chatgpt');
     });
 
-    it('T-EC-PA-14-02: baseDir が "/data/export"', () => {
-      assertEquals(result.baseDir, '/data/export');
+    it('T-EC-PA-14-02: inputDir が "/data/export"', () => {
+      assertEquals(result.inputDir, '/data/export');
     });
   });
 });
