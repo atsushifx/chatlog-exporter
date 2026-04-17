@@ -43,7 +43,7 @@ Glob ツールで `**/commands/export-chatlog.md` を検索し、そのディレ
 ```bash
 SKILL_DIR   = <export-chatlog.md が存在するディレクトリの絶対パス>
 SCRIPT_PATH = $SKILL_DIR/scripts/export-chatlog.ts
-OUTPUT      = <cwd>/temp/chatlog
+OUTPUT      = <cwd>/chatlogs
 ```
 
 ## ステップ2: スクリプト実行
@@ -81,7 +81,7 @@ deno run --allow-read --allow-write --allow-env "$SCRIPT_PATH" [agent] [period] 
 ## 出力ディレクトリ構造
 
 ```bash
-temp/chatlog/
+chatlogs/
   └── <agent>/
        └── YYYY/
             └── YYYY-MM/
