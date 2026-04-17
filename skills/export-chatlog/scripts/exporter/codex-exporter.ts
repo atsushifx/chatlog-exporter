@@ -11,6 +11,7 @@ import {
   inPeriod,
   isoToDate,
   isSkippable,
+  isSkippableSession,
   parsePeriod,
   walkFiles,
   writeSession,
@@ -20,6 +21,25 @@ import type { ExportConfig } from '../types/export-config.types.ts';
 import type { ExportResult } from '../types/export-result.types.ts';
 import type { PeriodRange } from '../types/filter.types.ts';
 import type { ExportedSession, SessionMeta, Turn } from '../types/session.types.ts';
+
+// ─────────────────────────────────────────────
+// テキスト前処理
+// ─────────────────────────────────────────────
+
+/**
+ * テキストから `<user_instructions>...</user_instructions>` ブロックを全て除去する。
+ *
+ * Codex が自動注入する `<user_instructions>` タグ（ユーザー設定のシステム指示）を
+ * 除去し、除去後のテキストをトリムして返す。
+ * これにより、スキップ判定やスラグ生成が `<user_instructions>` の内容に
+ * 影響されないようにする。
+ *
+ * @param text 処理対象のテキスト
+ * @returns `<user_instructions>` ブロックを除去してトリムしたテキスト
+ */
+export function _stripUserInstructions(text: string): string {
+  return text.replace(/<user_instructions>[\s\S]*?<\/user_instructions>/g, '').trim();
+}
 
 // ─────────────────────────────────────────────
 // Provider 型（テスト用依存性注入）
@@ -99,23 +119,26 @@ export async function parseCodexSession(
     }
     const text = parts.join('\n').trim();
     if (!text) { continue; }
-    if (role === 'user' && isSkippable(text)) { continue; }
+    const cleaned = role === 'user' ? _stripUserInstructions(text) : text;
+    if (!cleaned) { continue; }
+    if (role === 'user' && isSkippable(cleaned)) { continue; }
 
     // user の AGENTS.md/permissions/environment_context は除外
     if (
       role === 'user' && (
-        text.startsWith('# AGENTS.md instructions')
-        || text.startsWith('<permissions instructions>')
-        || text.startsWith('<environment_context>')
+        cleaned.startsWith('# AGENTS.md instructions')
+        || cleaned.startsWith('<permissions instructions>')
+        || cleaned.startsWith('<environment_context>')
       )
     ) { continue; }
 
-    turns.push({ role: role as 'user' | 'assistant', text });
+    turns.push({ role: role as 'user' | 'assistant', text: cleaned });
   }
 
   // 意味あるユーザーターンがなければスキップ
   const firstUserTurn = turns.find((t) => t.role === 'user');
   if (!firstUserTurn) { return null; }
+  if (isSkippableSession(firstUserTurn.text)) { return null; }
 
   const date = isoToDate(sessionTimestamp);
   const meta: SessionMeta = {
