@@ -201,4 +201,44 @@ describe('parseArgs', () => {
       assertEquals(result.outputDir, '/chatlog/claude');
     });
   });
+
+  /** 正常系: --input オプション */
+  describe('Given: ["--input", "/data/chatgpt-export"]', () => {
+    it('T-EC-PA-12-01: baseDir が "/data/chatgpt-export"', () => {
+      const result = parseArgs(['--input', '/data/chatgpt-export']);
+      assertEquals(result.baseDir, '/data/chatgpt-export');
+    });
+  });
+
+  /** 正常系: --input= 形式 */
+  describe('Given: ["--input=/data/chatgpt-export"]', () => {
+    it('T-EC-PA-12-02: baseDir が "/data/chatgpt-export"', () => {
+      const result = parseArgs(['--input=/data/chatgpt-export']);
+      assertEquals(result.baseDir, '/data/chatgpt-export');
+    });
+  });
+
+  /** 正常系: chatgpt agent 指定 */
+  describe('Given: ["chatgpt"]', () => {
+    it('T-EC-PA-13-01: agent が "chatgpt"', () => {
+      const result = parseArgs(['chatgpt']);
+      assertEquals(result.agent, 'chatgpt');
+    });
+  });
+
+  /** 正常系: chatgpt + --input の組み合わせ */
+  describe('Given: ["chatgpt", "--input", "/data/export"]', () => {
+    let result: ReturnType<typeof parseArgs>;
+    beforeEach(() => {
+      result = parseArgs(['chatgpt', '--input', '/data/export']);
+    });
+
+    it('T-EC-PA-14-01: agent が "chatgpt"', () => {
+      assertEquals(result.agent, 'chatgpt');
+    });
+
+    it('T-EC-PA-14-02: baseDir が "/data/export"', () => {
+      assertEquals(result.baseDir, '/data/export');
+    });
+  });
 });

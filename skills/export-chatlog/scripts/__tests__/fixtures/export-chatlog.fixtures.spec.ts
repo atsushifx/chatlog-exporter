@@ -17,7 +17,7 @@ import {
   parseCodexSession,
   parsePeriod,
 } from '../../export-chatlog.ts';
-import type { PeriodRange } from '../../export-chatlog.ts';
+import type { PeriodRange } from '../../types/filter.types.ts';
 
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────
 

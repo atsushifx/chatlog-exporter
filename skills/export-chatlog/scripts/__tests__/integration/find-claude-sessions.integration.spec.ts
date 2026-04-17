@@ -6,13 +6,18 @@
 //
 // This software is released under the MIT License.
 
+// -- BDD modules --
 import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
+// -- for stub --
 import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
-import { findClaudeSessions, parsePeriod } from '../../../../export-chatlog/scripts/export-chatlog.ts';
-import type { PeriodRange } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+// -- test target --
+import { findClaudeSessions, parsePeriod } from '../../export-chatlog.ts';
+
+// -- types --
+import type { PeriodRange } from '../../types/filter.types.ts';
 
 // ─── ヘルパー ──────────────────────────────────────────────────────────────────
 
