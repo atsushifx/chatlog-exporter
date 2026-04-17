@@ -434,12 +434,14 @@ export async function* walkFiles(dir: string, ext: string): AsyncGenerator<strin
  *
  * 認識する引数:
  * - `--output <dir>` または `--output=<dir>`: 出力ベースディレクトリを設定
- * - `--base <dir>` または `--base=<dir>`: 入力ベースディレクトリを設定
- * - `KNOWN_AGENTS` に含まれる文字列: エージェント名として認識（"claude", "codex"）
+ * - `--base <dir>` または `--base=<dir>`: 入力ベースディレクトリ（baseDir）を設定
+ * - `--input <dir>` または `--input=<dir>`: ChatGPT エクスポートディレクトリ（inputDir）を設定
+ * - `KNOWN_AGENTS` に含まれる文字列: エージェント名として認識（"claude", "codex", "chatgpt"）
  * - `/^\d{4}-\d{2}$/` または `/^\d{4}$/` にマッチする文字列: 期間として認識
+ * - `/` を含む位置引数（`\` → `/` 正規化後): ChatGPT エクスポートディレクトリ（inputDir）として認識
  *
  * 未知のオプション（`--` で始まる認識外の文字列）または
- * 未知の位置引数（エージェント名・期間以外）が指定された場合は
+ * 未知の位置引数（エージェント名・期間・パス以外）が指定された場合は
  * `console.error` にエラーメッセージを出力して `Deno.exit(1)` を呼ぶ。
  *
  * `DEFAULT_EXPORT_CONFIG` をベースとしてスプレッドコピーし、
@@ -462,9 +464,9 @@ export function parseArgs(args: string[]): ExportConfig {
     } else if (arg.startsWith('--base=')) {
       config.baseDir = arg.slice('--base='.length);
     } else if (arg === '--input' && i + 1 < args.length) {
-      config.baseDir = args[++i];
+      config.inputDir = args[++i];
     } else if (arg.startsWith('--input=')) {
-      config.baseDir = arg.slice('--input='.length);
+      config.inputDir = arg.slice('--input='.length);
     } else if (arg.startsWith('-')) {
       console.error(`不明なオプション: ${arg}`);
       Deno.exit(1);
@@ -473,8 +475,13 @@ export function parseArgs(args: string[]): ExportConfig {
     } else if (/^\d{4}-\d{2}$/.test(arg) || /^\d{4}$/.test(arg)) {
       config.period = arg;
     } else {
-      console.error(`不明な引数: ${arg}`);
-      Deno.exit(1);
+      const normalized = arg.replace(/\\/g, '/');
+      if (normalized.includes('/')) {
+        config.inputDir = normalized;
+      } else {
+        console.error(`不明な引数: ${arg}`);
+        Deno.exit(1);
+      }
     }
   }
 
@@ -518,8 +525,8 @@ export async function main(argv?: string[]): Promise<void> {
     } else if (agent === 'codex') {
       result = await exportCodex(config);
     } else if (agent === 'chatgpt') {
-      if (!config.baseDir) {
-        console.error('chatgpt エージェントには --input または --base でエクスポートディレクトリを指定してください');
+      if (!config.inputDir && !config.baseDir) {
+        console.error('chatgpt エージェントには入力ディレクトリを指定してください（位置引数または --input）');
         Deno.exit(1);
       }
       result = await exportChatGPT(config);
