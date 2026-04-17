@@ -146,7 +146,7 @@ describe('exportClaude', () => {
           BASE_CONFIG,
           _makeFlowProviders([
             ['/fake/a.jsonl', () => Promise.resolve(session), () => Promise.resolve('/tmp/out.md')],
-            ['/fake/b.jsonl', () => Promise.resolve(null),    () => Promise.resolve('')],
+            ['/fake/b.jsonl', () => Promise.resolve(null), () => Promise.resolve('')],
             ['/fake/c.jsonl', () => Promise.resolve(session), () => Promise.resolve('/tmp/out.md')],
           ]),
         );
@@ -202,7 +202,7 @@ describe('exportClaude', () => {
           BASE_CONFIG,
           _makeFlowProviders([
             ['/fake/a.jsonl', () => Promise.resolve(session), () => Promise.resolve('/tmp/out.md')],
-            ['/fake/b.jsonl', () => Promise.resolve(null),    () => Promise.resolve('')],
+            ['/fake/b.jsonl', () => Promise.resolve(null), () => Promise.resolve('')],
             ['/fake/c.jsonl', () => Promise.reject(new Error('parse failed')), () => Promise.resolve('')],
           ]),
         );
