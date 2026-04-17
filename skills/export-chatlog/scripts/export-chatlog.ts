@@ -27,6 +27,7 @@ import {
   SKIP_EXACT,
   SKIP_PREFIXES,
 } from './constants/skip-rules.constants.ts';
+import { exportChatGPT, findChatGPTFiles, parseChatGPTConversation } from './exporter/chatgpt-exporter.ts';
 import { exportClaude, findClaudeSessions, parseClaudeSession } from './exporter/claude-exporter.ts';
 import { exportCodex, findCodexSessions, parseCodexSession } from './exporter/codex-exporter.ts';
 import type { ExportConfig } from './types/export-config.types.ts';
@@ -35,6 +36,7 @@ import type { ExportedSession, SessionMeta, Turn } from './types/session.types.t
 
 export { findClaudeSessions, parseClaudeSession };
 export { findCodexSessions, parseCodexSession };
+export { findChatGPTFiles, parseChatGPTConversation };
 export type { ExportedSession };
 export type { PeriodRange };
 
@@ -459,6 +461,10 @@ export function parseArgs(args: string[]): ExportConfig {
       config.baseDir = args[++i];
     } else if (arg.startsWith('--base=')) {
       config.baseDir = arg.slice('--base='.length);
+    } else if (arg === '--input' && i + 1 < args.length) {
+      config.baseDir = args[++i];
+    } else if (arg.startsWith('--input=')) {
+      config.baseDir = arg.slice('--input='.length);
     } else if (arg.startsWith('-')) {
       console.error(`不明なオプション: ${arg}`);
       Deno.exit(1);
@@ -511,6 +517,12 @@ export async function main(argv?: string[]): Promise<void> {
       result = await exportClaude(config);
     } else if (agent === 'codex') {
       result = await exportCodex(config);
+    } else if (agent === 'chatgpt') {
+      if (!config.baseDir) {
+        console.error('chatgpt エージェントには --input または --base でエクスポートディレクトリを指定してください');
+        Deno.exit(1);
+      }
+      result = await exportChatGPT(config);
     } else {
       console.error(`未対応のエージェント: ${agent}`);
       Deno.exit(1);
