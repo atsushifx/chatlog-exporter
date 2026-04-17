@@ -20,4 +20,4 @@
  * @see parseArgs
  * @see DEFAULT_AGENT
  */
-export const KNOWN_AGENTS = ['claude', 'codex'];
+export const KNOWN_AGENTS = ['claude', 'codex', 'chatgpt'];
