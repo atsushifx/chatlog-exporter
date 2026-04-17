@@ -16,11 +16,11 @@ import {
   walkFiles,
   writeSession,
 } from '../export-chatlog.ts';
-import type { CodexEntry } from '../types/entries.types.ts';
 import type { ExportConfig } from '../types/export-config.types.ts';
 import type { ExportResult } from '../types/export-result.types.ts';
 import type { PeriodRange } from '../types/filter.types.ts';
 import type { ExportedSession, SessionMeta, Turn } from '../types/session.types.ts';
+import type { CodexEntry } from './types/codex-entry.types.ts';
 
 // ─────────────────────────────────────────────
 // テキスト前処理
