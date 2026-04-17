@@ -20,7 +20,13 @@
 
 import { KNOWN_AGENTS } from './constants/agents.constants.ts';
 import { DEFAULT_EXPORT_CONFIG } from './constants/defaults.constants.ts';
-import { SHORT_AFFIRMATION_MAX_LEN, SKIP_EXACT, SKIP_PREFIXES } from './constants/skip-rules.constants.ts';
+import {
+  SESSION_SKIP_KEYWORDS,
+  SESSION_SKIP_KEYWORDS_HEAD_LINES,
+  SHORT_AFFIRMATION_MAX_LEN,
+  SKIP_EXACT,
+  SKIP_PREFIXES,
+} from './constants/skip-rules.constants.ts';
 import { exportClaude, findClaudeSessions, parseClaudeSession } from './exporter/claude-exporter.ts';
 import { exportCodex, findCodexSessions, parseCodexSession } from './exporter/codex-exporter.ts';
 import type { ExportConfig } from './types/export-config.types.ts';
@@ -50,20 +56,38 @@ export function homeDir(): string {
 }
 
 /**
- * ISO8601 タイムスタンプ文字列を YYYY-MM-DD 形式の日付文字列に変換する。
+ * ISO8601 タイムスタンプをローカル時刻の年・月（0始まり）・日に分解する内部ヘルパー。
+ *
+ * UTC タイムスタンプを `new Date()` でパースした後、ローカル時刻の
+ * `getFullYear()` / `getMonth()` / `getDate()` で年月日を取得する。
+ * これにより JST+9 環境でも UTC と日付がズレない（例: `2025-12-31T15:00:00Z` → `2026-01-01`）。
+ *
+ * パース失敗（NaN）の場合は `null` を返す。
+ *
+ * @param iso ISO8601 形式のタイムスタンプ文字列（例: "2025-12-31T15:00:00Z"）
+ * @returns `{ y, m0, d }` ローカル年・月(0始まり)・日。パース失敗時は `null`
+ */
+function _isoToLocalParts(iso: string): { y: number; m0: number; d: number } | null {
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) { return null; }
+  return { y: date.getFullYear(), m0: date.getMonth(), d: date.getDate() };
+}
+
+/**
+ * ISO8601 タイムスタンプ文字列を YYYY-MM-DD 形式の日付文字列（ローカル時刻基準）に変換する。
  *
  * `SessionMeta.date` の生成および出力パスの年月ディレクトリ名の確定に使用する。
+ * JST+9 環境では UTC 文字列からローカル日付を正しく取得するため、
+ * `_isoToLocalParts()` を介してローカル年月日を取得する。
  * パース失敗時はエクスポートを中断せず 'unknown' を返してフォールバックする。
  *
- * @param iso ISO8601 形式のタイムスタンプ文字列（例: "2026-03-15T10:00:00.000Z"）
- * @returns YYYY-MM-DD 形式の日付文字列。パース失敗時は 'unknown'
+ * @param iso ISO8601 形式のタイムスタンプ文字列（例: "2025-12-31T15:00:00Z"）
+ * @returns YYYY-MM-DD 形式の日付文字列（ローカル時刻基準）。パース失敗時は 'unknown'
  */
 export function isoToDate(iso: string): string {
-  try {
-    return new Date(iso).toISOString().slice(0, 10);
-  } catch {
-    return 'unknown';
-  }
+  const p = _isoToLocalParts(iso);
+  if (!p) { return 'unknown'; }
+  return `${p.y}-${String(p.m0 + 1).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`;
 }
 
 /**
@@ -152,6 +176,37 @@ export function isSkippable(text: string): boolean {
   return false;
 }
 
+/**
+ * セッションの最初のユーザーテキストの先頭行に SESSION_SKIP_KEYWORDS のいずれかが
+ * 含まれるか判定する（大文字小文字不問）。
+ *
+ * 以下の 2 段階でチェックする:
+ * 1. 先頭 SESSION_SKIP_KEYWORDS_HEAD_LINES 行中の `name:`/`title:` の value にキーワードが含まれるか
+ * 2. 先頭 SESSION_SKIP_KEYWORDS_HEAD_LINES 行のテキスト本文にキーワードが直接含まれるか
+ *
+ * マッチした場合、セッション全体をエクスポート対象から除外すべきと判断する。
+ * サブエージェント呼び出し（commit-message-generator 等）のような
+ * 再利用価値のないセッションを除外するために使用する。
+ *
+ * @param firstUserText セッションの最初のユーザーメッセージテキスト
+ * @returns スキップすべき場合 true
+ * @see SESSION_SKIP_KEYWORDS
+ */
+export function isSkippableSession(firstUserText: string): boolean {
+  const headLines = firstUserText.split('\n').slice(0, SESSION_SKIP_KEYWORDS_HEAD_LINES);
+  // チェック1: name:/title: の value にキーワードが含まれるか
+  const hasYamlKeyword = headLines.some((line) => {
+    const match = line.match(/^(?:name|title)\s*:\s*(.+)$/i);
+    if (!match) { return false; }
+    const value = match[1].toLowerCase();
+    return SESSION_SKIP_KEYWORDS.some((keyword) => value.includes(keyword.toLowerCase()));
+  });
+  if (hasYamlKeyword) { return true; }
+  // チェック2: 本文テキストにキーワードが直接含まれるか（大文字小文字不問）
+  const headText = headLines.join('\n').toLowerCase();
+  return SESSION_SKIP_KEYWORDS.some((keyword) => headText.includes(keyword.toLowerCase()));
+}
+
 // ─────────────────────────────────────────────
 // 期間フィルタ
 // ─────────────────────────────────────────────
@@ -196,18 +251,24 @@ export function parsePeriod(period: string | undefined): PeriodRange {
  * ISO8601 タイムスタンプが指定した期間範囲内にあるかを判定する。
  *
  * `PeriodRange` は半開区間 [startMs, endMs) であり、startMs の値を含み
- * endMs の値を含まない。`isoToMs()` でミリ秒変換してから比較する。
+ * endMs の値を含まない。
+ * タイムスタンプを `_isoToLocalParts()` でローカル年月日に変換した後、
+ * ローカル日付の 00:00:00 ミリ秒値として `PeriodRange` と比較する。
+ * これにより UTC タイムスタンプでも JST 環境のローカル日付基準でフィルタリングできる。
+ * パース失敗時は `false` を返す。
  *
  * `parseClaudeSession` および `parseCodexSession` が各エントリの
  * タイムスタンプ照合に使用する。
  *
  * @param isoTimestamp 判定対象の ISO8601 タイムスタンプ文字列
  * @param range `parsePeriod()` が生成した半開区間フィルタ
- * @returns タイムスタンプが範囲内（startMs ≤ ms < endMs）の場合 `true`
+ * @returns タイムスタンプが範囲内（startMs ≤ localDayMs < endMs）の場合 `true`
  */
 export function inPeriod(isoTimestamp: string, range: PeriodRange): boolean {
-  const ms = isoToMs(isoTimestamp);
-  return ms >= range.startMs && ms < range.endMs;
+  const p = _isoToLocalParts(isoTimestamp);
+  if (!p) { return false; }
+  const localDayMs = new Date(p.y, p.m0, p.d).getTime();
+  return localDayMs >= range.startMs && localDayMs < range.endMs;
 }
 
 // ─────────────────────────────────────────────
@@ -443,7 +504,7 @@ export async function main(argv?: string[]): Promise<void> {
   console.error(`対象 agent: ${agent}`);
   if (period) { console.error(`対象期間: ${period}`); }
 
-  let result: { exportedCount: number; outputPaths: string[] };
+  let result: Awaited<ReturnType<typeof exportClaude>>;
 
   try {
     if (agent === 'claude') {
@@ -463,10 +524,11 @@ export async function main(argv?: string[]): Promise<void> {
     console.log(outPath);
   }
 
-  const skipped = 0; // exporter 内でスキップはサイレント処理
+  const total = result.exportedCount + result.skippedCount + result.errorCount;
   console.error(
-    `\n完了: ${result.exportedCount} ファイルを ${outputDir}/${agent}/ に書き出しました（${skipped} 件スキップ）`,
+    `\n完了: ${total} 件処理（出力: ${result.exportedCount} / スキップ: ${result.skippedCount} / エラー: ${result.errorCount}）`,
   );
+  console.error(`出力先: ${outputDir}/${agent}/`);
 }
 
 if (import.meta.main) { await main(); }
