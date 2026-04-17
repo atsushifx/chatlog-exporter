@@ -30,6 +30,10 @@ export interface ExportConfig {
    * 省略時は `homeDir()` を基点として各エージェントのデフォルトパスを使用する。
    */
   baseDir?: string;
+  /**
+   * ChatGPT エクスポートディレクトリ。`chatgpt` エージェント使用時に `baseDir` より優先される。
+   */
+  inputDir?: string;
   /** 出力先ディレクトリのベースパス。デフォルトは "./chatlogs" */
   outputDir: string;
 }
