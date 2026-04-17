@@ -58,6 +58,43 @@ export interface ClaudeEntry {
  *
  * @see parseCodexSession
  */
+/**
+ * ChatGPT conversations-*.json の1会話オブジェクトを表す型。
+ */
+export interface ChatGPTConversation {
+  id: string;
+  conversation_id: string;
+  create_time: number; // Unix timestamp (float)
+  title: string;
+  default_model_slug?: string;
+  current_node?: string; // 末尾ノードID（optional）
+  mapping: Record<string, ChatGPTMappingNode>;
+}
+
+/**
+ * ChatGPT conversations の mapping 内の1ノードを表す型。
+ */
+export interface ChatGPTMappingNode {
+  id: string;
+  message: ChatGPTMessage | null;
+  parent: string | null;
+  children: string[];
+}
+
+/**
+ * ChatGPT メッセージ本体を表す型。
+ */
+export interface ChatGPTMessage {
+  id: string;
+  author: { role: string };
+  create_time: number | null;
+  content: {
+    content_type: string;
+    parts?: unknown[];
+  };
+  weight?: number;
+}
+
 export interface CodexEntry {
   /** エントリの ISO8601 タイムスタンプ（必須）。session_meta の値で期間フィルタを行う */
   timestamp: string;
