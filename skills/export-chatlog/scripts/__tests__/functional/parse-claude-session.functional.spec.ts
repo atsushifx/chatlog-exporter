@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // test target
 import { parseClaudeSession, parsePeriod } from '../../export-chatlog.ts';
-import type { PeriodRange } from '../../export-chatlog.ts';
+import type { PeriodRange } from '../../types/filter.types.ts';
 
 // ─── ヘルパー ──────────────────────────────────────────────────────────────────
 
