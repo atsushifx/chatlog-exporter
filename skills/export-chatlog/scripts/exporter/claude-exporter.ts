@@ -11,6 +11,7 @@ import {
   inPeriod,
   isoToDate,
   isSkippable,
+  isSkippableSession,
   parsePeriod,
   walkFiles,
   writeSession,
@@ -179,6 +180,7 @@ export async function parseClaudeSession(
   if (turns.length === 0) { return null; }
 
   const firstUserText = extractClaudeUserText(firstEntry.message?.content);
+  if (isSkippableSession(firstUserText)) { return null; }
   const meta: SessionMeta = {
     sessionId: firstEntry.sessionId ?? 'unknown',
     date: isoToDate(firstEntry.timestamp ?? ''),
