@@ -25,6 +25,7 @@
 
 // import libraries
 import { parse as parseYaml } from '@std/yaml';
+import { logger } from '../../_scripts/libs/logger.ts';
 
 // ─────────────────────────────────────────────
 // 定数
@@ -116,7 +117,7 @@ export async function loadDics(dicsDir: string): Promise<Dics> {
     try {
       return await Deno.readTextFile(path);
     } catch {
-      console.error(`警告: 辞書ファイルが見つかりません: ${path}`);
+      logger.warn(`警告: 辞書ファイルが見つかりません: ${path}`);
       return '';
     }
   };
@@ -187,7 +188,7 @@ export async function loadDics(dicsDir: string): Promise<Dics> {
     const system = typeof obj['system'] === 'string' ? (obj['system'] as string).trim() : '';
     const user = typeof obj['user'] === 'string' ? (obj['user'] as string).trim() : '';
     if (!system || !user) {
-      console.error(`警告: プロンプトテンプレート "${name}" に system/user キーがありません`);
+      logger.warn(`警告: プロンプトテンプレート "${name}" に system/user キーがありません`);
     }
     return { system, user };
   };
@@ -557,7 +558,7 @@ export async function writeFrontmatter(
   stats: Stats,
 ): Promise<void> {
   if (!result.yaml) {
-    console.error(`  FAIL (yaml空): ${fm.file.split(/[/\\]/).pop()}`);
+    logger.error(`  FAIL (yaml空): ${fm.file.split(/[/\\]/).pop()}`);
     stats.fail++;
     return;
   }
@@ -575,8 +576,8 @@ export async function writeFrontmatter(
   ].join('\n');
 
   if (dryRun) {
-    console.log(`\n=== DRY RUN [${result.type}/${result.category}]: ${fm.file.split(/[/\\]/).pop()} ===`);
-    console.log(newFrontmatter);
+    logger.log(`\n=== DRY RUN [${result.type}/${result.category}]: ${fm.file.split(/[/\\]/).pop()} ===`);
+    logger.log(newFrontmatter);
     stats.success++;
     return;
   }
@@ -585,13 +586,13 @@ export async function writeFrontmatter(
   try {
     await Deno.writeTextFile(tmpFile, newFrontmatter + '\n' + fm.fullBody);
     await Deno.rename(tmpFile, fm.file);
-    console.error(`  OK [${result.type}/${result.category}]: ${fm.file.split(/[/\\]/).pop()}`);
+    logger.info(`  OK [${result.type}/${result.category}]: ${fm.file.split(/[/\\]/).pop()}`);
     stats.success++;
   } catch (e) {
     try {
       await Deno.remove(tmpFile);
     } catch { /* ignore */ }
-    console.error(`  FAIL (書き込みエラー): ${fm.file.split(/[/\\]/).pop()}: ${e}`);
+    logger.error(`  FAIL (書き込みエラー): ${fm.file.split(/[/\\]/).pop()}: ${e}`);
     stats.fail++;
   }
 }
@@ -649,23 +650,23 @@ export async function main(args: string[]): Promise<void> {
     const stat = await Deno.stat(targetDir);
     if (!stat.isDirectory) { throw new Error(); }
   } catch {
-    console.error(`エラー: ディレクトリが見つかりません: ${targetDir}`);
+    logger.error(`エラー: ディレクトリが見つかりません: ${targetDir}`);
     Deno.exit(1);
   }
 
   const dics = await loadDics(dicsDir);
-  console.error(
+  logger.info(
     `辞書読み込み完了: category=${dics.category.split(',').length}件 `
       + `topics=${dics.topicEntries.length}件 tags=${dics.tags.split(',').length}件 `
       + `types=${dics.typeEntries.length}件`,
   );
 
   const allFiles = await findMdFiles(targetDir);
-  console.error(`対象ファイル数: ${allFiles.length}`);
-  if (dryRun) { console.error('dry-run モード: ファイルは更新しません'); }
-  if (!review) { console.error('--no-review モード: Phase 3.5 をスキップします'); }
+  logger.info(`対象ファイル数: ${allFiles.length}`);
+  if (dryRun) { logger.info('dry-run モード: ファイルは更新しません'); }
+  if (!review) { logger.info('--no-review モード: Phase 3.5 をスキップします'); }
   if (allFiles.length === 0) {
-    console.error('対象ファイルなし');
+    logger.info('対象ファイルなし');
     Deno.exit(0);
   }
 
@@ -675,25 +676,25 @@ export async function main(args: string[]): Promise<void> {
   for (const filePath of allFiles) {
     const fm = await loadFileMeta(filePath);
     if (!fm) {
-      console.error(`  skip: ${filePath.split(/[/\\]/).pop()}`);
+      logger.info(`  skip: ${filePath.split(/[/\\]/).pop()}`);
       stats.skip++;
     } else { fileMetaList.push(fm); }
   }
-  console.error(`メタ読み込み: ${fileMetaList.length}件（スキップ: ${stats.skip}件）`);
+  logger.info(`メタ読み込み: ${fileMetaList.length}件（スキップ: ${stats.skip}件）`);
 
   // Phase 2: type判定（並列）
-  console.error(`\nPhase 2: type判定開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
+  logger.info(`\nPhase 2: type判定開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
   const typeResults = await withConcurrency(fileMetaList.map((fm) => () => judgeType(fm, dics)), concurrency);
   const typeMap = new Map(typeResults.map((r) => [r.file, r]));
-  for (const r of typeResults) { console.error(`  type [${r.type}]: ${r.file.split(/[/\\]/).pop()}`); }
+  for (const r of typeResults) { logger.info(`  type [${r.type}]: ${r.file.split(/[/\\]/).pop()}`); }
 
   // Phase 3a: category判定（並列）
-  console.error(`\nPhase 3a: category判定開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
+  logger.info(`\nPhase 3a: category判定開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
   const categoryResults = await withConcurrency(
     fileMetaList.map((fm) => async () => {
       const type = typeMap.get(fm.file)?.type ?? 'research';
       const category = await judgeCategory(fm, type, dics);
-      console.error(`  category [${category}]: ${fm.file.split(/[/\\]/).pop()}`);
+      logger.info(`  category [${category}]: ${fm.file.split(/[/\\]/).pop()}`);
       return { file: fm.file, type, category };
     }),
     concurrency,
@@ -701,7 +702,7 @@ export async function main(args: string[]): Promise<void> {
   const categoryMap = new Map(categoryResults.map((r) => [r.file, r]));
 
   // Phase 3b: フロントマター生成（並列）
-  console.error(`\nPhase 3b: フロントマター生成開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
+  logger.info(`\nPhase 3b: フロントマター生成開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
   const fmResults = await withConcurrency(
     fileMetaList.map((fm) => () => {
       const cr = categoryMap.get(fm.file);
@@ -712,18 +713,18 @@ export async function main(args: string[]): Promise<void> {
     concurrency,
   );
   const fmResultMap = new Map(fmResults.map((r) => [r.file, r]));
-  for (const r of fmResults) { console.error(`  generated: ${r.file.split(/[/\\]/).pop()}`); }
+  for (const r of fmResults) { logger.info(`  generated: ${r.file.split(/[/\\]/).pop()}`); }
 
   // Phase 3.5: レビュー（並列）
   if (review) {
-    console.error(`\nPhase 3.5: フロントマターレビュー開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
+    logger.info(`\nPhase 3.5: フロントマターレビュー開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
     const reviewResults = await withConcurrency(
       fmResults.filter((r) => r.yaml).map((r) => () => reviewFrontmatter(r, dics)),
       concurrency,
     );
     for (const r of reviewResults) {
       if (r.validity === 'fail') {
-        console.error(`  review FAIL: ${r.file.split(/[/\\]/).pop()} — ${r.errors.join('; ')}`);
+        logger.warn(`  review FAIL: ${r.file.split(/[/\\]/).pop()} — ${r.errors.join('; ')}`);
         const fm = fmResultMap.get(r.file);
         if (fm) {
           fmResultMap.set(r.file, {
@@ -734,15 +735,15 @@ export async function main(args: string[]): Promise<void> {
           });
         }
       } else {
-        console.error(`  review OK: ${r.file.split(/[/\\]/).pop()}`);
+        logger.info(`  review OK: ${r.file.split(/[/\\]/).pop()}`);
       }
     }
   } else {
-    console.error(`\nPhase 3.5: スキップ (--no-review)`);
+    logger.info(`\nPhase 3.5: スキップ (--no-review)`);
   }
 
   // Phase 4: 書き込み
-  console.error(`\nPhase 4: Markdownへ書き込み`);
+  logger.info(`\nPhase 4: Markdownへ書き込み`);
   for (const fm of fileMetaList) {
     const result = fmResultMap.get(fm.file);
     if (!result) {
@@ -753,7 +754,7 @@ export async function main(args: string[]): Promise<void> {
   }
 
   const drySuffix = dryRun ? ' (dry-run)' : '';
-  console.error(
+  logger.info(
     `\n完了${drySuffix}: total=${stats.total} success=${stats.success} fail=${stats.fail} skip=${stats.skip}`,
   );
 }
