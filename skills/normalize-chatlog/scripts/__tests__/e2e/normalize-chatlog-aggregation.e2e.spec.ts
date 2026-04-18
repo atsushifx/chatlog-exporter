@@ -19,8 +19,9 @@ import {
   makeSelectiveFailMock,
   makeSuccessMock,
 } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
-import type { LogCapture } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
-import { captureLog, makeTempDirs, removeTempDirs } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
+import { makeTempDirs, removeTempDirs } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // test target
 import { main } from '../../normalize-chatlog.ts';
@@ -39,7 +40,7 @@ describe('main - aggregation', () => {
     let inputDir: string;
     let outputDir: string;
     let commandHandle: CommandMockHandle;
-    let logCapture: LogCapture;
+    let loggerStub: LoggerStub;
 
     beforeEach(async () => {
       ({ inputDir, outputDir } = await makeTempDirs());
@@ -57,12 +58,12 @@ describe('main - aggregation', () => {
       commandHandle = installCommandMock(
         makeSuccessMock(new TextEncoder().encode(segmentResponse)),
       );
-      logCapture = captureLog();
+      loggerStub = makeLoggerStub();
     });
 
     afterEach(async () => {
       commandHandle.restore();
-      logCapture.restore();
+      loggerStub.restore();
       await removeTempDirs(inputDir, outputDir);
     });
 
@@ -71,7 +72,7 @@ describe('main - aggregation', () => {
         it('T-15-01-02-01: 全 4 件が処理されて結果レポートに success=4 が含まれる', async () => {
           await main(['--dir', inputDir, '--output', outputDir]);
 
-          assertMatch(logCapture.calls.join('\n'), /success=4/);
+          assertMatch(loggerStub.infoLogs.join('\n'), /success=4/);
         });
       });
     });
@@ -84,7 +85,7 @@ describe('main - aggregation', () => {
     let inputDir: string;
     let outputDir: string;
     let commandHandle: CommandMockHandle;
-    let logCapture: LogCapture;
+    let loggerStub: LoggerStub;
 
     beforeEach(async () => {
       ({ inputDir, outputDir } = await makeTempDirs());
@@ -101,12 +102,12 @@ describe('main - aggregation', () => {
       ]);
       const successBytes = new TextEncoder().encode(segmentResponse);
       commandHandle = installCommandMock(makeSelectiveFailMock(3, successBytes));
-      logCapture = captureLog();
+      loggerStub = makeLoggerStub();
     });
 
     afterEach(async () => {
       commandHandle.restore();
-      logCapture.restore();
+      loggerStub.restore();
       await removeTempDirs(inputDir, outputDir);
     });
 
@@ -115,8 +116,8 @@ describe('main - aggregation', () => {
         it('T-15-03-02-01: success=2 かつ fail=1 がレポートに含まれる', async () => {
           await main(['--dir', inputDir, '--output', outputDir]);
 
-          assertMatch(logCapture.calls.join('\n'), /success=2/);
-          assertMatch(logCapture.calls.join('\n'), /fail=1/);
+          assertMatch(loggerStub.infoLogs.join('\n'), /success=2/);
+          assertMatch([...loggerStub.infoLogs, ...loggerStub.warnLogs].join('\n'), /fail=1/);
         });
       });
     });
@@ -129,18 +130,18 @@ describe('main - aggregation', () => {
     let inputDir: string;
     let outputDir: string;
     let commandHandle: CommandMockHandle;
-    let logCapture: LogCapture;
+    let loggerStub: LoggerStub;
 
     beforeEach(async () => {
       ({ inputDir, outputDir } = await makeTempDirs());
 
       commandHandle = installCommandMock(makeSuccessMock(new Uint8Array()));
-      logCapture = captureLog();
+      loggerStub = makeLoggerStub();
     });
 
     afterEach(async () => {
       commandHandle.restore();
-      logCapture.restore();
+      loggerStub.restore();
       await removeTempDirs(inputDir, outputDir);
     });
 
@@ -149,7 +150,7 @@ describe('main - aggregation', () => {
         it('T-15-04-01-01: success=0, skip=0, fail=0 がレポートに含まれる', async () => {
           await main(['--dir', inputDir, '--output', outputDir]);
 
-          assertMatch(logCapture.calls.join('\n'), /success=0.*skip=0.*fail=0/);
+          assertMatch(loggerStub.infoLogs.join('\n'), /success=0.*skip=0.*fail=0/);
         });
       });
     });

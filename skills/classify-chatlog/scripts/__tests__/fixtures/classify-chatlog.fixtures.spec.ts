@@ -15,6 +15,10 @@ import { parse as parseYaml } from '@std/yaml';
 import { processChunk } from '../../classify-chatlog.ts';
 import type { FileMeta, Stats } from '../../classify-chatlog.ts';
 
+// helpers
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────
 
 const FIXTURES_DIR = new URL('./fixtures-data', import.meta.url)
@@ -24,6 +28,7 @@ const FIXTURES_DIR = new URL('./fixtures-data', import.meta.url)
 // ─── 型定義 ───────────────────────────────────────────────────────────────────
 
 interface FixtureOutput {
+  expected_project?: string;
   known_projects: string[];
   confidence_min: number;
 }
@@ -93,6 +98,7 @@ for (const _relPath of _fixtureDirs) {
       let _tempDir: string;
       let _stats: Stats;
       let _inputContent: string;
+      let _loggerStub: LoggerStub;
 
       beforeEach(async () => {
         _tempDir = await Deno.makeTempDir();
@@ -101,9 +107,11 @@ for (const _relPath of _fixtureDirs) {
 
         // input.md を tempdir にコピー
         await Deno.writeTextFile(`${_tempDir}/input.md`, _inputContent);
+        _loggerStub = makeLoggerStub();
       });
 
       afterEach(async () => {
+        _loggerStub.restore();
         await Deno.remove(_tempDir, { recursive: true });
       });
 
@@ -134,14 +142,34 @@ for (const _relPath of _fixtureDirs) {
 
           await processChunk([_fileMeta], _projects, false, _stats);
 
+          // classify / moved ログがキャプチャされていることを確認
+          assertEquals(
+            _loggerStub.infoLogs.some((l) => l.includes('classify:')),
+            true,
+            'classify ログが infoLogs に記録されていない',
+          );
+          assertEquals(
+            _loggerStub.infoLogs.some((l) => l.includes('moved:')),
+            true,
+            'moved ログが infoLogs に記録されていない',
+          );
+
           // 移動先ディレクトリを確認してプロジェクト名を取得
           const _movedProject = await _findMovedProject(_tempDir);
 
-          assertEquals(
-            _expectedOutput.known_projects.includes(_movedProject),
-            true,
-            `分類先 "${_movedProject}" が known_projects に含まれていない`,
-          );
+          if (_expectedOutput.expected_project !== undefined) {
+            assertEquals(
+              _movedProject,
+              _expectedOutput.expected_project,
+              `分類先 "${_movedProject}" が期待値 "${_expectedOutput.expected_project}" と一致しない`,
+            );
+          } else {
+            assertEquals(
+              _expectedOutput.known_projects.includes(_movedProject),
+              true,
+              `分類先 "${_movedProject}" が known_projects に含まれていない`,
+            );
+          }
         });
       });
     });

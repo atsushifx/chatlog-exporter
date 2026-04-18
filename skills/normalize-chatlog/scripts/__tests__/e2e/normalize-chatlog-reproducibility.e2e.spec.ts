@@ -15,13 +15,14 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 import type { CommandMockHandle } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
 import { installCommandMock, makeSuccessMock } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
-import type { LogCapture, LogSilencer } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
+import type { LogSilencer } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
 import {
-  captureLog,
   makeTempDirs,
   removeTempDirs,
   silenceLog,
 } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // test target
 import { findMdFiles, main } from '../../normalize-chatlog.ts';
@@ -42,7 +43,7 @@ describe('main - reproducibility', () => {
     let inputDir: string;
     let outputDir: string;
     let commandHandle: CommandMockHandle;
-    let logCapture: LogCapture;
+    let loggerStub: LoggerStub;
 
     beforeEach(async () => {
       ({ inputDir, outputDir } = await makeTempDirs());
@@ -58,12 +59,12 @@ describe('main - reproducibility', () => {
       commandHandle = installCommandMock(
         makeSuccessMock(new TextEncoder().encode(segmentResponse)),
       );
-      logCapture = captureLog();
+      loggerStub = makeLoggerStub();
     });
 
     afterEach(async () => {
       commandHandle.restore();
-      logCapture.restore();
+      loggerStub.restore();
       await removeTempDirs(inputDir, outputDir);
     });
 
@@ -77,12 +78,12 @@ describe('main - reproducibility', () => {
           await main(['--dir', inputDir, '--output', outputDir], fixedHash);
 
           // Reset log capture for second run
-          logCapture.calls.splice(0);
+          loggerStub.infoLogs.splice(0);
 
           // Second run: should backup existing file and rewrite
           await main(['--dir', inputDir, '--output', outputDir], fixedHash);
 
-          assertMatch(logCapture.calls.join('\n'), /success=1/);
+          assertMatch(loggerStub.infoLogs.join('\n'), /success=1/);
 
           // Verify the old file was backed up as .old-01.md (search recursively under outputDir)
           const allFiles = findMdFiles(outputDir);

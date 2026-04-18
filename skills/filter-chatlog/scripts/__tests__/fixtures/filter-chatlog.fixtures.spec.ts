@@ -9,9 +9,11 @@
 
 import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import type { Stub } from '@std/testing/mock';
-import { stub } from '@std/testing/mock';
 import { parse as parseYaml } from '@std/yaml';
+
+// test helpers
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // test target
 import { parseJsonArray, runClaude } from '../../filter-chatlog.ts';
@@ -96,15 +98,15 @@ for (const _relPath of _fixtureDirs) {
   describe(`runClaude + parseJsonArray — filter-chatlog/${_relPath}`, () => {
     describe(`Given: ${_relPath}/input.md を実際の claude CLI で判定`, () => {
       let _tempDir: string;
-      let _errStub: Stub;
+      let _loggerStub: LoggerStub;
 
       beforeEach(async () => {
         _tempDir = await Deno.makeTempDir();
-        _errStub = stub(console, 'error', () => {});
+        _loggerStub = makeLoggerStub();
       });
 
       afterEach(async () => {
-        _errStub.restore();
+        _loggerStub.restore();
         await Deno.remove(_tempDir, { recursive: true });
       });
 
@@ -124,7 +126,7 @@ for (const _relPath of _fixtureDirs) {
             } else {
               // 実 claude CLI を呼ぶ
               if (!_claudeAvailable) {
-                console.warn('  [SKIP] claude CLI が利用できないためスキップ');
+                // claude CLI が利用できないためスキップ
                 return;
               }
               _rawResult = await runClaude(_prompt);
@@ -134,7 +136,7 @@ for (const _relPath of _fixtureDirs) {
 
             // JSON パースに失敗した場合はスキップ（AI の出力形式が安定しない場合がある）
             if (!_parsed || _parsed.length === 0) {
-              console.warn(`  [SKIP] JSON パース失敗: ${_rawResult.slice(0, 100)}`);
+              // JSON パース失敗のためスキップ
               return;
             }
 

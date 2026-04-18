@@ -17,6 +17,8 @@
 // 定数
 // ─────────────────────────────────────────────
 
+import { logger } from '../../_scripts/libs/logger.ts';
+
 export const CHUNK_SIZE = 10;
 export const CONCURRENCY = 4;
 export const DISCARD_THRESHOLD = 0.7;
@@ -219,7 +221,7 @@ export async function prefilterFiles(files: string[]): Promise<string[]> {
     const filename = filePath.split(/[/\\]/).pop()!;
 
     if (isExcludedByFilename(filename)) {
-      console.error(`  skipped (ファイル名パターン): ${filename}`);
+      logger.info(`  skipped (ファイル名パターン): ${filename}`);
       skipped++;
       continue;
     }
@@ -240,7 +242,7 @@ export async function prefilterFiles(files: string[]): Promise<string[]> {
 
     const { excluded, reason } = isExcludedByContent(body);
     if (excluded) {
-      console.error(`  skipped (${reason}): ${filename}`);
+      logger.info(`  skipped (${reason}): ${filename}`);
       skipped++;
       continue;
     }
@@ -254,7 +256,7 @@ export async function prefilterFiles(files: string[]): Promise<string[]> {
     passed.push(filePath);
   }
 
-  console.error(`事前フィルタ: 対象=${files.length} 通過=${passed.length} スキップ=${skipped}`);
+  logger.info(`事前フィルタ: 対象=${files.length} 通過=${passed.length} スキップ=${skipped}`);
   return passed;
 }
 
@@ -398,10 +400,10 @@ export async function processChunk(
   try {
     rawResult = await runClaude(batchPrompt);
   } catch (e) {
-    console.error(`  警告: claude CLI 実行失敗。チャンク内ファイルをすべて KEEP 扱い`);
-    console.error(`  error: ${e}`);
+    logger.warn(`  警告: claude CLI 実行失敗。チャンク内ファイルをすべて KEEP 扱い`);
+    logger.warn(`  error: ${e}`);
     for (const f of chunkFiles) {
-      console.error(`  kept (claude error): ${f.split(/[/\\]/).pop()}`);
+      logger.info(`  kept (claude error): ${f.split(/[/\\]/).pop()}`);
       stats.kept++;
     }
     return;
@@ -409,10 +411,10 @@ export async function processChunk(
 
   const parsed = parseJsonArray(rawResult);
   if (!parsed) {
-    console.error(`  警告: JSON パース失敗。チャンク内ファイルをすべて KEEP 扱い`);
-    console.error(`  raw output: ${rawResult.slice(0, 200)}`);
+    logger.warn(`  警告: JSON パース失敗。チャンク内ファイルをすべて KEEP 扱い`);
+    logger.warn(`  raw output: ${rawResult.slice(0, 200)}`);
     for (const f of chunkFiles) {
-      console.error(`  kept (parse error): ${f.split(/[/\\]/).pop()}`);
+      logger.info(`  kept (parse error): ${f.split(/[/\\]/).pop()}`);
       stats.kept++;
     }
     return;
@@ -423,7 +425,7 @@ export async function processChunk(
     const result = parsed.find((r) => r.file === filename);
 
     if (!result) {
-      console.error(`  kept (not in result): ${filename}`);
+      logger.info(`  kept (not in result): ${filename}`);
       stats.kept++;
       continue;
     }
@@ -432,22 +434,22 @@ export async function processChunk(
 
     if (decision === 'DISCARD' && confidence >= DISCARD_THRESHOLD) {
       if (dryRun) {
-        console.log(`[dry-run] DISCARD (conf=${confidence}): ${filePath}`);
-        console.error(`  reason: ${reason}`);
+        logger.log(`[dry-run] DISCARD (conf=${confidence}): ${filePath}`);
+        logger.info(`  reason: ${reason}`);
         stats.discarded++;
       } else {
-        console.log(`DISCARD (conf=${confidence}): ${filePath}`);
-        console.error(`  reason: ${reason}`);
+        logger.log(`DISCARD (conf=${confidence}): ${filePath}`);
+        logger.info(`  reason: ${reason}`);
         try {
           await Deno.remove(filePath);
           stats.discarded++;
         } catch {
-          console.error(`  削除失敗: ${filePath}`);
+          logger.error(`  削除失敗: ${filePath}`);
           stats.error++;
         }
       }
     } else {
-      console.error(`  kept (decision=${decision}, conf=${confidence}): ${filename}`);
+      logger.info(`  kept (decision=${decision}, conf=${confidence}): ${filename}`);
       stats.kept++;
     }
   }
@@ -507,15 +509,15 @@ export async function main(args?: string[]): Promise<void> {
   try {
     const stat = await Deno.stat(agentDir);
     if (!stat.isDirectory) {
-      console.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
+      logger.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
       Deno.exit(1);
     }
   } catch {
-    console.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
+    logger.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
     Deno.exit(1);
   }
 
-  console.error(`対象 agent: ${agent}`);
+  logger.info(`対象 agent: ${agent}`);
 
   // ファイル列挙
   const allFiles = await findMdFiles(agentDir, period, project);
@@ -525,13 +527,13 @@ export async function main(args?: string[]): Promise<void> {
 
   const total = targetFiles.length;
   if (total === 0) {
-    console.error('対象ファイルなし');
-    console.error('完了: kept=0 discarded=0 skipped=0 error=0');
+    logger.info('対象ファイルなし');
+    logger.info('完了: kept=0 discarded=0 skipped=0 error=0');
     Deno.exit(0);
   }
 
-  console.error(`判定対象ファイル数: ${total}`);
-  if (dryRun) { console.error('dry-run モード: ファイルは削除しません'); }
+  logger.info(`判定対象ファイル数: ${total}`);
+  if (dryRun) { logger.info('dry-run モード: ファイルは削除しません'); }
 
   // チャンク分割して並列処理
   const stats: Stats = { kept: 0, discarded: 0, skipped: 0, error: 0 };
@@ -545,7 +547,7 @@ export async function main(args?: string[]): Promise<void> {
 
   // サマリー
   const drySuffix = dryRun ? ' (dry-run)' : '';
-  console.error(
+  logger.info(
     `\n完了${drySuffix}: kept=${stats.kept} discarded=${stats.discarded} skipped=${stats.skipped} error=${stats.error}`,
   );
 }

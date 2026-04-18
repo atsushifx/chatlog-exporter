@@ -13,6 +13,8 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 import { main } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 
 // ─── ヘルパー ──────────────────────────────────────────────────────────────────
@@ -106,7 +108,7 @@ describe('main (export-chatlog)', () => {
   let tempDir: string;
   let outputDir: string;
   let envStub: Stub<typeof Deno.env, [key: string], string | undefined>;
-  let errStub: Stub;
+  let loggerStub: LoggerStub;
 
   beforeEach(async () => {
     tempDir = await Deno.makeTempDir();
@@ -116,13 +118,12 @@ describe('main (export-chatlog)', () => {
       if (key === 'USERPROFILE' || key === 'HOME') { return tempDir; }
       return undefined;
     });
-    // console.error を抑制
-    errStub = stub(console, 'error', () => {});
+    loggerStub = makeLoggerStub();
   });
 
   afterEach(async () => {
     envStub.restore();
-    errStub.restore();
+    loggerStub.restore();
     await Deno.remove(tempDir, { recursive: true });
   });
 
@@ -141,25 +142,15 @@ describe('main (export-chatlog)', () => {
 
       describe('Then: T-EC-E2E-01 - ファイルが outputDir に生成される', () => {
         it('T-EC-E2E-01-01: outputDir に .md ファイルが生成される', async () => {
-          const logPaths: string[] = [];
-          const logStub = stub(console, 'log', (path: unknown) => {
-            logPaths.push(String(path));
-          });
           await main(['claude', '--output', outputDir]);
-          logStub.restore();
 
-          assertEquals(logPaths.length >= 1, true);
+          assertEquals(loggerStub.logLogs.length >= 1, true);
         });
 
-        it('T-EC-E2E-01-02: console.log に生成パスが出力される', async () => {
-          const logPaths: string[] = [];
-          const logStub = stub(console, 'log', (path: unknown) => {
-            logPaths.push(String(path));
-          });
+        it('T-EC-E2E-01-02: logger.log に生成パスが出力される', async () => {
           await main(['claude', '--output', outputDir]);
-          logStub.restore();
 
-          assertEquals(logPaths.some((p) => p.endsWith('.md')), true);
+          assertEquals(loggerStub.logLogs.some((p) => p.endsWith('.md')), true);
         });
       });
     });
@@ -190,14 +181,9 @@ describe('main (export-chatlog)', () => {
 
       describe('Then: T-EC-E2E-02 - ファイルが outputDir に生成される', () => {
         it('T-EC-E2E-02-01: outputDir に .md ファイルが生成される', async () => {
-          const logPaths: string[] = [];
-          const logStub = stub(console, 'log', (path: unknown) => {
-            logPaths.push(String(path));
-          });
           await main(['codex', '--output', outputDir]);
-          logStub.restore();
 
-          assertEquals(logPaths.some((p) => p.endsWith('.md')), true);
+          assertEquals(loggerStub.logLogs.some((p) => p.endsWith('.md')), true);
         });
       });
     });
@@ -236,14 +222,9 @@ describe('main (export-chatlog)', () => {
     describe('When: period="2026-03" でフィルタする', () => {
       describe('Then: T-EC-E2E-03-01 - 範囲内セッションのみエクスポートされる', () => {
         it('T-EC-E2E-03-01: ファイルが1件生成される', async () => {
-          const logPaths: string[] = [];
-          const logStub = stub(console, 'log', (path: unknown) => {
-            logPaths.push(String(path));
-          });
           await main(['claude', '2026-03', '--output', outputDir]);
-          logStub.restore();
 
-          assertEquals(logPaths.length, 1);
+          assertEquals(loggerStub.logLogs.length, 1);
         });
       });
     });
@@ -251,14 +232,9 @@ describe('main (export-chatlog)', () => {
     describe('When: period="2026-04" でフィルタする（全件範囲外）', () => {
       describe('Then: T-EC-E2E-03-02 - ファイルが生成されない', () => {
         it('T-EC-E2E-03-02: ファイルが0件', async () => {
-          const logPaths: string[] = [];
-          const logStub = stub(console, 'log', (path: unknown) => {
-            logPaths.push(String(path));
-          });
           await main(['claude', '2026-04', '--output', outputDir]);
-          logStub.restore();
 
-          assertEquals(logPaths.length, 0);
+          assertEquals(loggerStub.logLogs.length, 0);
         });
       });
     });
@@ -308,17 +284,12 @@ describe('main (export-chatlog)', () => {
 
       describe('Then: T-EC-E2E-06 - outputDir/claude/YYYY/YYYY-MM/ 構造が生成される', () => {
         it('T-EC-E2E-06-01: 出力パスに "claude/2026/2026-03" が含まれる', async () => {
-          const logPaths: string[] = [];
-          const logStub = stub(console, 'log', (path: unknown) => {
-            logPaths.push(String(path));
-          });
           await main(['claude', '--output', outputDir]);
-          logStub.restore();
 
-          assertEquals(logPaths.length >= 1, true);
-          assertStringIncludes(logPaths[0], 'claude');
-          assertStringIncludes(logPaths[0], '2026');
-          assertStringIncludes(logPaths[0], '2026-03');
+          assertEquals(loggerStub.logLogs.length >= 1, true);
+          assertStringIncludes(loggerStub.logLogs[0], 'claude');
+          assertStringIncludes(loggerStub.logLogs[0], '2026');
+          assertStringIncludes(loggerStub.logLogs[0], '2026-03');
         });
       });
     });
@@ -345,14 +316,9 @@ describe('main (export-chatlog)', () => {
 
       describe('Then: T-EC-E2E-07 - ファイルが生成されない', () => {
         it('T-EC-E2E-07-01: ログパスが 0 件（スキップされた）', async () => {
-          const logPaths: string[] = [];
-          const logStub = stub(console, 'log', (path: unknown) => {
-            logPaths.push(String(path));
-          });
           await main(['claude', '--output', outputDir]);
-          logStub.restore();
 
-          assertEquals(logPaths.length, 0);
+          assertEquals(loggerStub.logLogs.length, 0);
         });
       });
     });
@@ -389,36 +355,21 @@ describe('main (export-chatlog)', () => {
     describe('When: period="2026" で年指定エクスポートする', () => {
       describe('Then: T-EC-E2E-08 - 2つの yyyy-mm サブディレクトリに分散出力される', () => {
         it('T-EC-E2E-08-01: ファイルが 2 件生成される', async () => {
-          const logPaths: string[] = [];
-          const logStub = stub(console, 'log', (path: unknown) => {
-            logPaths.push(String(path));
-          });
           await main(['claude', '2026', '--output', outputDir]);
-          logStub.restore();
 
-          assertEquals(logPaths.length, 2);
+          assertEquals(loggerStub.logLogs.length, 2);
         });
 
         it('T-EC-E2E-08-02: 一方のパスに "2026-01" が含まれる', async () => {
-          const logPaths: string[] = [];
-          const logStub = stub(console, 'log', (path: unknown) => {
-            logPaths.push(String(path));
-          });
           await main(['claude', '2026', '--output', outputDir]);
-          logStub.restore();
 
-          assertEquals(logPaths.some((p) => p.includes('2026-01')), true);
+          assertEquals(loggerStub.logLogs.some((p) => p.includes('2026-01')), true);
         });
 
         it('T-EC-E2E-08-03: 他方のパスに "2026-03" が含まれる', async () => {
-          const logPaths: string[] = [];
-          const logStub = stub(console, 'log', (path: unknown) => {
-            logPaths.push(String(path));
-          });
           await main(['claude', '2026', '--output', outputDir]);
-          logStub.restore();
 
-          assertEquals(logPaths.some((p) => p.includes('2026-03')), true);
+          assertEquals(loggerStub.logLogs.some((p) => p.includes('2026-03')), true);
         });
       });
     });

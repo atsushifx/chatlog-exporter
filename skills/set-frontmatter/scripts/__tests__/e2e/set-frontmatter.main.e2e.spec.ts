@@ -20,6 +20,8 @@ import {
   installCommandMock,
   makeSuccessMock,
 } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // ─── テスト用一時ディレクトリセットアップ ─────────────────────────────────────
 
@@ -87,9 +89,7 @@ describe('main - dry-run モード', () => {
         let targetDir: string;
         let dicsDir: string;
         let commandHandle: CommandMockHandle;
-        let errStub: Stub;
-        let logLogs: string[];
-        let logStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(async () => {
           targetDir = await _makeTargetDir();
@@ -108,17 +108,12 @@ describe('main - dry-run モード', () => {
           );
           void callIdx;
 
-          errStub = stub(console, 'error', () => {});
-          logLogs = [];
-          logStub = stub(console, 'log', (...args: unknown[]) => {
-            logLogs.push(args.map(String).join(' '));
-          });
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(async () => {
           commandHandle.restore();
-          errStub.restore();
-          logStub.restore();
+          loggerStub.restore();
           await Deno.remove(targetDir, { recursive: true }).catch(() => {});
           // dicsDir は baseDir/dics なので親ディレクトリを削除
           await Deno.remove(dicsDir.replace(/[/\\]dics$/, ''), { recursive: true }).catch(() => {});
@@ -136,7 +131,7 @@ describe('main - dry-run モード', () => {
         it('T-SF-E2E-01-02: "DRY RUN" がログに出力される', async () => {
           await main([targetDir, '--dry-run', '--no-review', '--dics', dicsDir]);
 
-          assertEquals(logLogs.some((l) => l.includes('DRY RUN')), true);
+          assertEquals(loggerStub.logLogs.some((l) => l.includes('DRY RUN')), true);
         });
       });
     });
@@ -152,8 +147,7 @@ describe('main - --no-review モード', () => {
         let targetDir: string;
         let dicsDir: string;
         let commandHandle: CommandMockHandle;
-        let errLogs: string[];
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(async () => {
           targetDir = await _makeTargetDir();
@@ -161,15 +155,12 @@ describe('main - --no-review モード', () => {
           commandHandle = installCommandMock(
             makeSuccessMock(_enc.encode('research')),
           );
-          errLogs = [];
-          errStub = stub(console, 'error', (...args: unknown[]) => {
-            errLogs.push(args.map(String).join(' '));
-          });
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(async () => {
           commandHandle.restore();
-          errStub.restore();
+          loggerStub.restore();
           await Deno.remove(targetDir, { recursive: true }).catch(() => {});
           // dicsDir は baseDir/dics なので親ディレクトリを削除
           await Deno.remove(dicsDir.replace(/[/\\]dics$/, ''), { recursive: true }).catch(() => {});
@@ -179,7 +170,9 @@ describe('main - --no-review モード', () => {
           await main([targetDir, '--dry-run', '--no-review', '--dics', dicsDir]);
 
           assertEquals(
-            errLogs.some((l) => l.includes('no-review') || l.includes('スキップ') || l.includes('Phase 3.5')),
+            loggerStub.infoLogs.some((l) =>
+              l.includes('no-review') || l.includes('スキップ') || l.includes('Phase 3.5')
+            ),
             true,
           );
         });
@@ -195,18 +188,18 @@ describe('main - 存在しない targetDir', () => {
     describe('When: main(["/nonexistent", "--dics", dicsDir]) を呼び出す', () => {
       describe('Then: T-SF-E2E-03 - Deno.exit(1) が呼ばれる', () => {
         let exitStub: Stub<typeof Deno, [code?: number], never>;
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
         let dicsDir: string;
 
         beforeEach(async () => {
           dicsDir = await _makeDicsDir();
           exitStub = stub(Deno, 'exit');
-          errStub = stub(console, 'error', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(async () => {
           exitStub.restore();
-          errStub.restore();
+          loggerStub.restore();
           // dicsDir は baseDir/dics なので親ディレクトリを削除
           await Deno.remove(dicsDir.replace(/[/\\]dics$/, ''), { recursive: true }).catch(() => {});
         });
@@ -231,18 +224,18 @@ describe('main - 対象ファイルなし', () => {
         let emptyDir: string;
         let dicsDir: string;
         let exitStub: Stub<typeof Deno, [code?: number], never>;
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(async () => {
           emptyDir = await Deno.makeTempDir();
           dicsDir = await _makeDicsDir();
           exitStub = stub(Deno, 'exit');
-          errStub = stub(console, 'error', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(async () => {
           exitStub.restore();
-          errStub.restore();
+          loggerStub.restore();
           await Deno.remove(emptyDir, { recursive: true }).catch(() => {});
           // dicsDir は baseDir/dics なので親ディレクトリを削除
           await Deno.remove(dicsDir.replace(/[/\\]dics$/, ''), { recursive: true }).catch(() => {});
@@ -268,8 +261,7 @@ describe('main - yaml 生成失敗', () => {
         let targetDir: string;
         let dicsDir: string;
         let commandHandle: CommandMockHandle;
-        let errLogs: string[];
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(async () => {
           targetDir = await _makeTargetDir();
@@ -278,15 +270,12 @@ describe('main - yaml 生成失敗', () => {
           commandHandle = installCommandMock(
             makeSuccessMock(_enc.encode('')),
           );
-          errLogs = [];
-          errStub = stub(console, 'error', (...args: unknown[]) => {
-            errLogs.push(args.map(String).join(' '));
-          });
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(async () => {
           commandHandle.restore();
-          errStub.restore();
+          loggerStub.restore();
           await Deno.remove(targetDir, { recursive: true }).catch(() => {});
           // dicsDir は baseDir/dics なので親ディレクトリを削除
           await Deno.remove(dicsDir.replace(/[/\\]dics$/, ''), { recursive: true }).catch(() => {});
@@ -295,7 +284,7 @@ describe('main - yaml 生成失敗', () => {
         it('T-SF-E2E-05-01: "fail=1" がサマリーに出力される', async () => {
           await main([targetDir, '--no-review', '--dics', dicsDir]);
 
-          assertEquals(errLogs.some((l) => l.includes('fail=1')), true);
+          assertEquals(loggerStub.infoLogs.some((l) => l.includes('fail=1')), true);
         });
       });
     });

@@ -18,6 +18,7 @@
  *   codex   — ~/.codex/sessions/YYYY/MM/DD/ 以下のJSONL
  */
 
+import { logger } from '../../_scripts/libs/logger.ts';
 import { KNOWN_AGENTS } from './constants/agents.constants.ts';
 import { DEFAULT_EXPORT_CONFIG } from './constants/defaults.constants.ts';
 import {
@@ -514,8 +515,8 @@ export async function main(argv?: string[]): Promise<void> {
   const config = parseArgs(argv ?? Deno.args);
   const { agent, period, outputDir } = config;
 
-  console.error(`対象 agent: ${agent}`);
-  if (period) { console.error(`対象期間: ${period}`); }
+  logger.info(`対象 agent: ${agent}`);
+  if (period) { logger.info(`対象期間: ${period}`); }
 
   let result: Awaited<ReturnType<typeof exportClaude>>;
 
@@ -526,28 +527,28 @@ export async function main(argv?: string[]): Promise<void> {
       result = await exportCodex(config);
     } else if (agent === 'chatgpt') {
       if (!config.inputDir && !config.baseDir) {
-        console.error('chatgpt エージェントには入力ディレクトリを指定してください（位置引数または --input）');
+        logger.error('chatgpt エージェントには入力ディレクトリを指定してください（位置引数または --input）');
         Deno.exit(1);
       }
       result = await exportChatGPT(config);
     } else {
-      console.error(`未対応のエージェント: ${agent}`);
+      logger.error(`未対応のエージェント: ${agent}`);
       Deno.exit(1);
     }
   } catch (e) {
-    console.error(`エラー: ${e}`);
+    logger.error(`エラー: ${e}`);
     Deno.exit(1);
   }
 
   for (const outPath of result.outputPaths) {
-    console.log(outPath);
+    logger.log(outPath);
   }
 
   const total = result.exportedCount + result.skippedCount + result.errorCount;
-  console.error(
+  logger.info(
     `\n完了: ${total} 件処理（出力: ${result.exportedCount} / スキップ: ${result.skippedCount} / エラー: ${result.errorCount}）`,
   );
-  console.error(`出力先: ${outputDir}/${agent}/`);
+  logger.info(`出力先: ${outputDir}/${agent}/`);
 }
 
 if (import.meta.main) { await main(); }

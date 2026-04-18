@@ -25,6 +25,8 @@ import {
   makeSuccessMock,
 } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
 import type { CommandMockHandle } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // ─── テスト用一時ディレクトリセットアップ ─────────────────────────────────────
 
@@ -55,7 +57,7 @@ describe('main - dry-run モード', () => {
         let dicsDir: string;
         let monthDir: string;
         let commandHandle: CommandMockHandle;
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(async () => {
           ({ inputDir, dicsDir, monthDir } = await _makeTestDirs());
@@ -69,12 +71,12 @@ describe('main - dry-run モード', () => {
           commandHandle = installCommandMock(
             makeSuccessMock(new TextEncoder().encode(response)),
           );
-          errStub = stub(console, 'error', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(async () => {
           commandHandle.restore();
-          errStub.restore();
+          loggerStub.restore();
           await Deno.remove(inputDir, { recursive: true });
           await Deno.remove(dicsDir, { recursive: true });
         });
@@ -87,15 +89,9 @@ describe('main - dry-run モード', () => {
         });
 
         it('T-CL-E2E-01-02: "[dry-run]" がログに出力される', async () => {
-          const logs: string[] = [];
-          const logStub = stub(console, 'log', (...args: unknown[]) => {
-            logs.push(args.map(String).join(' '));
-          });
-
           await main(['claude', '2026-03', '--dry-run', '--input', inputDir, '--dics', dicsDir]);
-          logStub.restore();
 
-          assertEquals(logs.some((l) => l.includes('[dry-run]')), true);
+          assertEquals(loggerStub.infoLogs.some((l) => l.includes('[dry-run]')), true);
         });
       });
     });

@@ -17,13 +17,14 @@ import { stub } from '@std/testing/mock';
 
 import type { CommandMockHandle } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
 import { installCommandMock, makeSuccessMock } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
-import type { LogCapture, LogSilencer } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
+import type { LogSilencer } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
 import {
-  captureLog,
   makeTempDirs,
   removeTempDirs,
   silenceLog,
 } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // test target
 import { findMdFiles, main } from '../../normalize-chatlog.ts';
@@ -92,7 +93,7 @@ describe('main - I/O', () => {
     const AGENT_DIR = 'temp/chatlog/claude/2026/2026-03';
     let outputDir: string;
     let commandHandle: CommandMockHandle;
-    let logCapture: LogCapture;
+    let loggerStub: LoggerStub;
 
     before(async () => {
       await Deno.mkdir(AGENT_DIR, { recursive: true });
@@ -115,12 +116,12 @@ describe('main - I/O', () => {
       commandHandle = installCommandMock(
         makeSuccessMock(new TextEncoder().encode(segmentResponse)),
       );
-      logCapture = captureLog();
+      loggerStub = makeLoggerStub();
     });
 
     afterEach(async () => {
       commandHandle.restore();
-      logCapture.restore();
+      loggerStub.restore();
       await Deno.remove(outputDir, { recursive: true });
     });
 
@@ -129,7 +130,7 @@ describe('main - I/O', () => {
         it('T-15-02-01-01: temp/chatlog/claude/2026/2026-03/ 内のファイルが処理されて出力が生成される', async () => {
           await main(['--agent', 'claude', '--year-month', '2026-03', '--output', outputDir]);
 
-          assertMatch(logCapture.calls.join('\n'), /success=1/);
+          assertMatch(loggerStub.infoLogs.join('\n'), /success=1/);
         });
       });
     });

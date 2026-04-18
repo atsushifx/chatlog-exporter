@@ -18,10 +18,23 @@
 // 定数・型 (libs から import & re-export)
 // ─────────────────────────────────────────────
 
-export { CHUNK_SIZE, CONCURRENCY, FALLBACK_PROJECT, KNOWN_AGENTS } from './constants/classify.constants.ts';
+export {
+  CHUNK_SIZE,
+  CONCURRENCY,
+  FALLBACK_PROJECT,
+  KNOWN_AGENTS,
+  MIN_CLASSIFIABLE_LENGTH,
+} from './constants/classify.constants.ts';
 export type { Args, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
 
-import { CHUNK_SIZE, CONCURRENCY, FALLBACK_PROJECT, KNOWN_AGENTS } from './constants/classify.constants.ts';
+import { logger } from '../../_scripts/libs/logger.ts';
+import {
+  CHUNK_SIZE,
+  CONCURRENCY,
+  FALLBACK_PROJECT,
+  KNOWN_AGENTS,
+  MIN_CLASSIFIABLE_LENGTH,
+} from './constants/classify.constants.ts';
 import type { Args, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
 
 // ─────────────────────────────────────────────
@@ -34,7 +47,7 @@ export async function loadProjects(dicsDir: string): Promise<string[]> {
   try {
     text = await Deno.readTextFile(dicPath);
   } catch {
-    console.error(`警告: projects.dic が見つかりません: ${dicPath}`);
+    logger.warn(`警告: projects.dic が見つかりません: ${dicPath}`);
     return [];
   }
   return text
@@ -261,13 +274,19 @@ export function buildClassifyPrompt(files: FileMeta[], projects: string[]): stri
   const parts = files.map((f, i) => {
     const topicsStr = f.topics.length > 0 ? f.topics.join(', ') : '(none)';
     const tagsStr = f.tags.length > 0 ? f.tags.join(', ') : '(none)';
-    return [
+    const hasMeta = f.title || f.category || f.topics.length > 0 || f.tags.length > 0;
+    const lines = [
       `=== FILE ${i + 1}: ${f.filename} ===`,
       `title: ${f.title || '(no title)'}`,
       `category: ${f.category || '(none)'}`,
       `topics: ${topicsStr}`,
       `tags: ${tagsStr}`,
-    ].join('\n');
+    ];
+    if (!hasMeta) {
+      const snippet = f.fullText.slice(0, 500).trim();
+      lines.push(`body: ${snippet}`);
+    }
+    return lines.join('\n');
   });
 
   return header + parts.join('\n\n');
@@ -389,7 +408,7 @@ export async function classifyFile(
   const dstPath = `${dstDir}/${fileMeta.filename}`;
 
   if (dryRun) {
-    console.log(`[dry-run] ${fileMeta.filename} → ${project}/`);
+    logger.info(`[dry-run] ${fileMeta.filename} → ${project}/`);
     stats.moved++;
     return;
   }
@@ -402,10 +421,10 @@ export async function classifyFile(
     const newText = insertProjectField(fileMeta.fullText, project);
     await Deno.writeTextFile(dstPath, newText);
 
-    console.log(`moved: ${fileMeta.filename} → ${project}/`);
+    logger.info(`moved: ${fileMeta.filename} → ${project}/`);
     stats.moved++;
   } catch (e) {
-    console.error(`  移動失敗: ${fileMeta.filename}: ${e}`);
+    logger.error(`  移動失敗: ${fileMeta.filename}: ${e}`);
     stats.error++;
   }
 }
@@ -420,16 +439,29 @@ export async function processChunk(
   dryRun: boolean,
   stats: Stats,
 ): Promise<void> {
-  const batchPrompt = buildClassifyPrompt(chunkMetas, projects);
+  // フロントマターなし かつ 本文が短すぎるファイルは Claude に渡さず misc に直接分類
+  const classifiable: FileMeta[] = [];
+  for (const f of chunkMetas) {
+    const hasMeta = f.title || f.category || f.topics.length > 0 || f.tags.length > 0;
+    if (!hasMeta && f.fullText.trim().length < MIN_CLASSIFIABLE_LENGTH) {
+      logger.info(`  classify: ${f.filename} → ${FALLBACK_PROJECT} (本文が短すぎるため直接分類)`);
+      await classifyFile(f, FALLBACK_PROJECT, dryRun, stats);
+    } else {
+      classifiable.push(f);
+    }
+  }
+  if (classifiable.length === 0) { return; }
+
+  const batchPrompt = buildClassifyPrompt(classifiable, projects);
   const systemPrompt = buildSystemPrompt(projects);
 
   let rawResult: string;
   try {
     rawResult = await runClaude(systemPrompt, batchPrompt);
   } catch (e) {
-    console.error(`  警告: claude CLI 実行失敗。チャンク内ファイルをすべて ${FALLBACK_PROJECT} 扱い`);
-    console.error(`  error: ${e}`);
-    for (const f of chunkMetas) {
+    logger.warn(`  警告: claude CLI 実行失敗。チャンク内ファイルをすべて ${FALLBACK_PROJECT} 扱い`);
+    logger.warn(`  error: ${e}`);
+    for (const f of classifiable) {
       await classifyFile(f, FALLBACK_PROJECT, dryRun, stats);
     }
     return;
@@ -437,18 +469,18 @@ export async function processChunk(
 
   const parsed = parseJsonArray(rawResult);
   if (!parsed) {
-    console.error(`  警告: JSON パース失敗。チャンク内ファイルをすべて ${FALLBACK_PROJECT} 扱い`);
-    console.error(`  raw output: ${rawResult.slice(0, 200)}`);
-    for (const f of chunkMetas) {
+    logger.warn(`  警告: JSON パース失敗。チャンク内ファイルをすべて ${FALLBACK_PROJECT} 扱い`);
+    logger.warn(`  raw output: ${rawResult.slice(0, 200)}`);
+    for (const f of classifiable) {
       await classifyFile(f, FALLBACK_PROJECT, dryRun, stats);
     }
     return;
   }
 
-  for (const fileMeta of chunkMetas) {
+  for (const fileMeta of classifiable) {
     const result = parsed.find((r) => r.file === fileMeta.filename);
     const project = result?.project ?? FALLBACK_PROJECT;
-    console.error(`  classify: ${fileMeta.filename} → ${project} (conf=${result?.confidence ?? 0})`);
+    logger.info(`  classify: ${fileMeta.filename} → ${project} (conf=${result?.confidence ?? 0})`);
     await classifyFile(fileMeta, project, dryRun, stats);
   }
 }
@@ -504,30 +536,30 @@ export async function main(argv?: string[]): Promise<void> {
   try {
     const stat = await Deno.stat(agentDir);
     if (!stat.isDirectory) {
-      console.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
+      logger.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
       Deno.exit(1);
     }
   } catch {
-    console.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
+    logger.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
     Deno.exit(1);
   }
 
   // プロジェクト辞書読み込み
   const projects = await loadProjects(dicsDir);
   if (projects.length === 0) {
-    console.error('警告: projects.dic にプロジェクトが定義されていません。すべて misc に分類されます。');
+    logger.warn('警告: projects.dic にプロジェクトが定義されていません。すべて misc に分類されます。');
   }
 
-  console.error(`対象 agent: ${agent}`);
-  if (period) { console.error(`対象期間: ${period}`); }
-  if (dryRun) { console.error('dry-run モード: ファイルは移動しません'); }
-  console.error(`プロジェクト候補: ${projects.join(', ')}`);
+  logger.info(`対象 agent: ${agent}`);
+  if (period) { logger.info(`対象期間: ${period}`); }
+  if (dryRun) { logger.info('dry-run モード: ファイルは移動しません'); }
+  logger.info(`プロジェクト候補: ${projects.join(', ')}`);
 
   // ファイル列挙
   const allFiles = await findMdFilesFlat(inputDir, agent, period);
   if (allFiles.length === 0) {
-    console.error('対象ファイルなし');
-    console.error('完了: moved=0 skipped=0 error=0');
+    logger.info('対象ファイルなし');
+    logger.info('完了: moved=0 skipped=0 error=0');
     Deno.exit(0);
   }
 
@@ -542,17 +574,17 @@ export async function main(argv?: string[]): Promise<void> {
       continue;
     }
     if (meta.existingProject) {
-      console.error(`  skipped (既にプロジェクト設定済み: ${meta.existingProject}): ${meta.filename}`);
+      logger.info(`  skipped (既にプロジェクト設定済み: ${meta.existingProject}): ${meta.filename}`);
       stats.skipped++;
       continue;
     }
     targetMetas.push(meta);
   }
 
-  console.error(`\n対象ファイル数: ${targetMetas.length} (スキップ: ${stats.skipped})`);
+  logger.info(`\n対象ファイル数: ${targetMetas.length} (スキップ: ${stats.skipped})`);
 
   if (targetMetas.length === 0) {
-    console.error(`\n完了: moved=${stats.moved} skipped=${stats.skipped} error=${stats.error}`);
+    logger.info(`\n完了: moved=${stats.moved} skipped=${stats.skipped} error=${stats.error}`);
     Deno.exit(0);
   }
 
@@ -566,7 +598,7 @@ export async function main(argv?: string[]): Promise<void> {
 
   // サマリー
   const drySuffix = dryRun ? ' (dry-run)' : '';
-  console.error(
+  logger.info(
     `\n完了${drySuffix}: moved=${stats.moved} skipped=${stats.skipped} error=${stats.error}`,
   );
 }

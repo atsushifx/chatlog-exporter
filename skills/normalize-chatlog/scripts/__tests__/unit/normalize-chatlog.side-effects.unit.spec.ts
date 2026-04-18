@@ -11,8 +11,6 @@
 // Deno Test module
 import { assertEquals, assertMatch, assertNotEquals, assertRejects } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import type { Stub } from '@std/testing/mock';
-import { stub } from '@std/testing/mock';
 
 // test helpers
 import {
@@ -20,6 +18,8 @@ import {
   makeNotFoundMock,
   makeSuccessMock,
 } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // test target
 import {
@@ -31,18 +31,14 @@ import type { Stats } from '../../normalize-chatlog.ts';
 // ─── reportResults tests ──────────────────────────────────────────────────────
 
 describe('reportResults', () => {
-  let logStub: Stub;
-  let logCalls: string[];
+  let loggerStub: LoggerStub;
 
   beforeEach(() => {
-    logCalls = [];
-    logStub = stub(console, 'log', (...args: unknown[]) => {
-      logCalls.push(args.map(String).join(' '));
-    });
+    loggerStub = makeLoggerStub();
   });
 
   afterEach(() => {
-    logStub.restore();
+    loggerStub.restore();
   });
 
   /** 正常系: success/skip/fail カウントを stdout に集計レポートとして出力する */
@@ -52,7 +48,7 @@ describe('reportResults', () => {
 
       reportResults(stats);
 
-      const output = logCalls.join('\n');
+      const output = loggerStub.infoLogs.join('\n');
       assertMatch(output, /success.*5|5.*success|成功.*5|5.*成功/i);
     });
 
@@ -61,7 +57,7 @@ describe('reportResults', () => {
 
       reportResults(stats);
 
-      const output = logCalls.join('\n');
+      const output = loggerStub.infoLogs.join('\n');
       assertMatch(output, /1/);
       assertMatch(output, /2/);
     });
@@ -74,8 +70,8 @@ describe('reportResults', () => {
 
       reportResults(stats);
 
-      assertNotEquals(logCalls.length, 0);
-      assertNotEquals(logCalls.join(''), '');
+      assertNotEquals(loggerStub.infoLogs.length, 0);
+      assertNotEquals(loggerStub.infoLogs.join(''), '');
     });
   });
 
@@ -86,7 +82,7 @@ describe('reportResults', () => {
 
       reportResults(stats);
 
-      const output = logCalls.join('\n');
+      const output = loggerStub.warnLogs.join('\n');
       assertMatch(output, /fail.*3|3.*fail|失敗.*3|3.*失敗/i);
     });
   });

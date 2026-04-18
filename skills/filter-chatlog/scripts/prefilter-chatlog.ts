@@ -29,6 +29,8 @@
  *   deno run --allow-read --allow-write scripts/prefilter_chatlog.ts --input ./temp/chatlog
  */
 
+import { logger } from '../../_scripts/libs/logger.ts';
+
 // ─────────────────────────────────────────────
 // ノイズ判定パターン定義
 // ─────────────────────────────────────────────
@@ -337,14 +339,14 @@ export async function main(args: string[] = Deno.args): Promise<void> {
     const stat = await Deno.stat(inputDir);
     if (!stat.isDirectory) { throw new Error(); }
   } catch {
-    console.error(`エラー: 入力ディレクトリが見つかりません: ${inputDir}`);
+    logger.error(`エラー: 入力ディレクトリが見つかりません: ${inputDir}`);
     Deno.exit(1);
   }
 
   const files = await findMdFiles(inputDir, agent, period);
-  console.error(`対象ファイル数: ${files.length}`);
+  logger.info(`対象ファイル数: ${files.length}`);
   if (dryRun) {
-    console.error(`${report ? 'report' : 'dry-run'} モード: ファイルは削除しません`);
+    logger.info(`${report ? 'report' : 'dry-run'} モード: ファイルは削除しません`);
   }
 
   const counts = { noise: 0, keep: 0, error: 0 };
@@ -356,7 +358,7 @@ export async function main(args: string[] = Deno.args): Promise<void> {
     try {
       text = await Deno.readTextFile(filePath);
     } catch (e) {
-      console.error(`  error (${filename}): ${e}`);
+      logger.error(`  error (${filename}): ${e}`);
       counts.error++;
       continue;
     }
@@ -366,15 +368,15 @@ export async function main(args: string[] = Deno.args): Promise<void> {
     if (isNoise) {
       counts.noise++;
       if (report) {
-        console.log(`NOISE\t${reason}\t${filePath}`);
+        logger.log(`NOISE\t${reason}\t${filePath}`);
       } else if (dryRun) {
-        console.log(filePath);
+        logger.log(filePath);
       } else {
         try {
           await Deno.remove(filePath);
-          console.error(`deleted: ${filePath}`);
+          logger.info(`deleted: ${filePath}`);
         } catch (e) {
-          console.error(`  削除失敗: ${filename}: ${e}`);
+          logger.error(`  削除失敗: ${filename}: ${e}`);
           counts.error++;
           counts.noise--;
         }
@@ -385,7 +387,7 @@ export async function main(args: string[] = Deno.args): Promise<void> {
   }
 
   const suffix = dryRun ? ` (${report ? 'report' : 'dry-run'})` : '';
-  console.error(`\n完了${suffix}: noise=${counts.noise} keep=${counts.keep} error=${counts.error}`);
+  logger.info(`\n完了${suffix}: noise=${counts.noise} keep=${counts.keep} error=${counts.error}`);
 }
 
 if (import.meta.main) {
