@@ -15,10 +15,3 @@ export const FALLBACK_PROJECT = 'misc';
 
 /** フロントマターなし時に分類を試みる最低本文長（文字数）。これ未満は misc に直接分類する。 */
 export const MIN_CLASSIFIABLE_LENGTH = 50;
-
-// ─────────────────────────────────────────────
-// エージェント定義
-// ─────────────────────────────────────────────
-
-/** サポートする AI エージェント識別子の一覧。CLI 引数のバリデーションに使用する。 */
-export const KNOWN_AGENTS = ['claude', 'chatgpt', 'codex'];
