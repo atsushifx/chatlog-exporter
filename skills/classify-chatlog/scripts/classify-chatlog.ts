@@ -19,7 +19,7 @@ import {
   CHUNK_SIZE,
   CONCURRENCY,
   FALLBACK_PROJECT,
-  KNOWN_AGENTS,
+  isKnownAgent,
   MIN_CLASSIFIABLE_LENGTH,
 } from './constants/classify.constants.ts';
 import type { Args, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
@@ -500,7 +500,7 @@ export function parseArgs(args: string[]): Args {
       Deno.exit(1);
     } else if (/^\d{4}-\d{2}$/.test(arg)) {
       period = arg;
-    } else if (KNOWN_AGENTS.includes(arg)) {
+    } else if (isKnownAgent(arg)) {
       agent = arg;
     } else {
       console.error(`不明な引数: ${arg}`);
