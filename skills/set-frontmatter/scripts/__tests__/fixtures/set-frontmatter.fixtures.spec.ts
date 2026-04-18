@@ -9,8 +9,6 @@
 
 import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import type { Stub } from '@std/testing/mock';
-import { stub } from '@std/testing/mock';
 import { parse as parseYaml } from '@std/yaml';
 
 // test helpers
@@ -20,6 +18,8 @@ import {
   makeFailMock,
   makeSuccessMock,
 } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // test target
 import type { Dics, FileMeta } from '../../set-frontmatter.ts';
@@ -198,7 +198,7 @@ for (const _relPath of _fixtureDirs) {
     describe(`Given: ${_relPath}/input.md と辞書ファイル`, () => {
       let _tempDir: string;
       let _fileMeta: FileMeta;
-      let _errStub: Stub<Console>;
+      let _loggerStub: LoggerStub;
       let _commandHandle: CommandMockHandle | null = null;
 
       beforeEach(async () => {
@@ -206,7 +206,7 @@ for (const _relPath of _fixtureDirs) {
         const _tempPath = `${_tempDir}/input.md`;
         await Deno.copyFile(_inputPath, _tempPath);
         _fileMeta = await _makeFileMeta(_tempPath);
-        _errStub = stub(console, 'error', () => {});
+        _loggerStub = makeLoggerStub();
 
         if (_isFallbackCase) {
           const _mockType = _expectedOutput.fallback!.mock_type;
@@ -221,7 +221,7 @@ for (const _relPath of _fixtureDirs) {
       afterEach(async () => {
         _commandHandle?.restore();
         _commandHandle = null;
-        _errStub.restore();
+        _loggerStub.restore();
         await Deno.remove(_tempDir, { recursive: true });
       });
 
@@ -250,11 +250,11 @@ for (const _relPath of _fixtureDirs) {
           }
 
           if (!_claudeAvailable) {
-            console.warn('  [SKIP] claude CLI が利用できないためスキップ');
+            // claude CLI が利用できないためスキップ
             return;
           }
           if (!_dics) {
-            console.warn('  [SKIP] 辞書ファイルが読み込めないためスキップ');
+            // 辞書ファイルが読み込めないためスキップ
             return;
           }
 
@@ -296,11 +296,11 @@ for (const _relPath of _fixtureDirs) {
           }
 
           if (!_claudeAvailable) {
-            console.warn('  [SKIP] claude CLI が利用できないためスキップ');
+            // claude CLI が利用できないためスキップ
             return;
           }
           if (!_dics) {
-            console.warn('  [SKIP] 辞書ファイルが読み込めないためスキップ');
+            // 辞書ファイルが読み込めないためスキップ
             return;
           }
 
@@ -347,11 +347,11 @@ for (const _relPath of _fixtureDirs) {
           }
 
           if (!_claudeAvailable) {
-            console.warn('  [SKIP] claude CLI が利用できないためスキップ');
+            // claude CLI が利用できないためスキップ
             return;
           }
           if (!_dics) {
-            console.warn('  [SKIP] 辞書ファイルが読み込めないためスキップ');
+            // 辞書ファイルが読み込めないためスキップ
             return;
           }
 
@@ -361,7 +361,7 @@ for (const _relPath of _fixtureDirs) {
 
           // yaml が生成されたことを確認（空でないこと）
           if (!_fmResult.yaml) {
-            console.warn(`  [SKIP] generateFrontmatter が空の yaml を返したためスキップ: ${_relPath}`);
+            // generateFrontmatter が空の yaml を返したためスキップ
             return;
           }
 
