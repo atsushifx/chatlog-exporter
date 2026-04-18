@@ -13,7 +13,7 @@ import { parse as parseYaml } from '@std/yaml';
 
 // test target
 import { processChunk } from '../../classify-chatlog.ts';
-import type { FileMeta, Stats } from '../../classify-chatlog.ts';
+import type { FileMeta, Stats } from '../../types/classify.types.ts';
 
 // helpers
 import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';

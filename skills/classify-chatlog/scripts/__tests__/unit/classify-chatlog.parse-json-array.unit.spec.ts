@@ -11,7 +11,7 @@ import { describe, it } from '@std/testing/bdd';
 
 // test target
 import { parseJsonArray } from '../../classify-chatlog.ts';
-import type { ClassifyResult } from '../../classify-chatlog.ts';
+import type { ClassifyResult } from '../../types/classify.types.ts';
 
 // ─── 直接 JSON 配列パース（第1段階） ─────────────────────────────────────────
 
