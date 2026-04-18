@@ -7,6 +7,8 @@
 // https://opensource.org/licenses/MIT
 // normalize_chatlog.ts — Utilities for normalizing chatlog processing
 
+import { logger } from '../../_scripts/libs/logger.ts';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /** Structured result of {@link parseArgs}. */
@@ -500,7 +502,7 @@ export async function writeOutput(
   listDir: (dir: string) => Promise<string[]> = _defaultListDir,
 ): Promise<void> {
   if (dryRun) {
-    console.log(`[dry-run] would write: ${outputPath}`);
+    logger.info(`[dry-run] would write: ${outputPath}`);
     return;
   }
 
@@ -526,9 +528,9 @@ export async function writeOutput(
  * @param stats - Counters collected across a batch run
  */
 export function reportResults(stats: Stats): void {
-  console.log(`Results: success=${stats.success}, skip=${stats.skip}, fail=${stats.fail}`);
+  logger.info(`Results: success=${stats.success}, skip=${stats.skip}, fail=${stats.fail}`);
   if (stats.fail > 0) {
-    console.log(`WARNING: ${stats.fail} file(s) failed`);
+    logger.warn(`WARNING: ${stats.fail} file(s) failed`);
   }
 }
 
@@ -727,11 +729,11 @@ export async function main(argv?: string[], hashFn?: HashProvider): Promise<void
   const args = parseArgs(argv ?? Deno.args);
   const resolved = resolveInputDir(args);
   if (!resolved.ok) {
-    console.error(`Error: ${resolved.error}`);
+    logger.error(`Error: ${resolved.error}`);
     Deno.exit(1);
   }
   if (!validateInputDir(resolved.dir)) {
-    console.error(`Error: directory not found: ${resolved.dir}`);
+    logger.error(`Error: directory not found: ${resolved.dir}`);
     Deno.exit(1);
   }
   const inputDir = resolved.dir;
