@@ -26,6 +26,8 @@ import {
   makeSuccessMock,
 } from '../../../../../skills/_scripts/__tests__/helpers/deno-command-mock.ts';
 import type { CommandMockHandle } from '../../../../../skills/_scripts/__tests__/helpers/deno-command-mock.ts';
+import type { LoggerStub } from '../../../../../skills/_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../../skills/_scripts/__tests__/helpers/logger-stub.ts';
 
 // ─── テスト用一時ディレクトリセットアップ ─────────────────────────────────────
 
@@ -57,8 +59,7 @@ describe('main - dry-run モード', () => {
         let inputDir: string;
         let monthDir: string;
         let commandHandle: CommandMockHandle;
-        let errStub: Stub;
-        let logStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(async () => {
           ({ inputDir, monthDir } = await _makeTestDirs());
@@ -69,14 +70,12 @@ describe('main - dry-run モード', () => {
           commandHandle = installCommandMock(
             makeSuccessMock(new TextEncoder().encode(response)),
           );
-          errStub = stub(console, 'error', () => {});
-          logStub = stub(console, 'log', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(async () => {
           commandHandle.restore();
-          errStub.restore();
-          logStub.restore();
+          loggerStub.restore();
           await Deno.remove(inputDir, { recursive: true });
         });
 
@@ -88,15 +87,9 @@ describe('main - dry-run モード', () => {
         });
 
         it('T-FL-E2E-01-02: "[dry-run]" がログに出力される', async () => {
-          const logs: string[] = [];
-          logStub.restore();
-          logStub = stub(console, 'log', (...args: unknown[]) => {
-            logs.push(args.map(String).join(' '));
-          });
-
           await main(['claude', '2026-03', '--dry-run', '--input', inputDir]);
 
-          assertEquals(logs.some((l) => l.includes('[dry-run]')), true);
+          assertEquals(loggerStub.logLogs.some((l) => l.includes('[dry-run]')), true);
         });
       });
     });
@@ -112,8 +105,7 @@ describe('main - DISCARD 判定', () => {
         let inputDir: string;
         let monthDir: string;
         let commandHandle: CommandMockHandle;
-        let errStub: Stub;
-        let logStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(async () => {
           ({ inputDir, monthDir } = await _makeTestDirs());
@@ -124,14 +116,12 @@ describe('main - DISCARD 判定', () => {
           commandHandle = installCommandMock(
             makeSuccessMock(new TextEncoder().encode(response)),
           );
-          errStub = stub(console, 'error', () => {});
-          logStub = stub(console, 'log', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(async () => {
           commandHandle.restore();
-          errStub.restore();
-          logStub.restore();
+          loggerStub.restore();
           await Deno.remove(inputDir, { recursive: true });
         });
 
@@ -160,7 +150,7 @@ describe('main - KEEP 判定', () => {
         let inputDir: string;
         let monthDir: string;
         let commandHandle: CommandMockHandle;
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(async () => {
           ({ inputDir, monthDir } = await _makeTestDirs());
@@ -171,12 +161,12 @@ describe('main - KEEP 判定', () => {
           commandHandle = installCommandMock(
             makeSuccessMock(new TextEncoder().encode(response)),
           );
-          errStub = stub(console, 'error', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(async () => {
           commandHandle.restore();
-          errStub.restore();
+          loggerStub.restore();
           await Deno.remove(inputDir, { recursive: true });
         });
 
@@ -199,8 +189,7 @@ describe('main - 対象ファイルなし', () => {
       describe('Then: T-FL-E2E-04 - "対象ファイルなし" ログが出力される', () => {
         let inputDir: string;
         let commandHandle: CommandMockHandle;
-        let errLogs: string[];
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
         let exitStub: Stub;
 
         beforeEach(async () => {
@@ -208,16 +197,13 @@ describe('main - 対象ファイルなし', () => {
           commandHandle = installCommandMock(
             makeSuccessMock(new TextEncoder().encode('[]')),
           );
-          errLogs = [];
-          errStub = stub(console, 'error', (...args: unknown[]) => {
-            errLogs.push(args.map(String).join(' '));
-          });
+          loggerStub = makeLoggerStub();
           exitStub = stub(Deno, 'exit');
         });
 
         afterEach(async () => {
           commandHandle.restore();
-          errStub.restore();
+          loggerStub.restore();
           exitStub.restore();
           await Deno.remove(inputDir, { recursive: true });
         });
@@ -225,7 +211,7 @@ describe('main - 対象ファイルなし', () => {
         it('T-FL-E2E-04-01: "対象ファイルなし" がログに出力される', async () => {
           await main(['claude', '2026-03', '--input', inputDir]);
 
-          assertEquals(errLogs.some((l) => l.includes('対象ファイルなし')), true);
+          assertEquals(loggerStub.infoLogs.some((l) => l.includes('対象ファイルなし')), true);
         });
       });
     });
@@ -239,16 +225,16 @@ describe('main - 存在しない inputDir', () => {
     describe('When: main([...args, "--input", "/nonexistent"]) を呼び出す', () => {
       describe('Then: T-FL-E2E-05 - Deno.exit(1) が最初に呼ばれる', () => {
         let exitStub: Stub<typeof Deno, [code?: number], never>;
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
           exitStub = stub(Deno, 'exit');
-          errStub = stub(console, 'error', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(() => {
           exitStub.restore();
-          errStub.restore();
+          loggerStub.restore();
         });
 
         it('T-FL-E2E-05-01: 最初の Deno.exit 呼び出しが exit(1) である', async () => {
@@ -270,8 +256,7 @@ describe('main - period 絞り込み', () => {
       describe('Then: T-FL-E2E-06 - 指定月のファイルのみ削除対象になる', () => {
         let inputDir: string;
         let commandHandle: CommandMockHandle;
-        let errStub: Stub;
-        let logStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(async () => {
           inputDir = await Deno.makeTempDir();
@@ -290,14 +275,12 @@ describe('main - period 絞り込み', () => {
           commandHandle = installCommandMock(
             makeSuccessMock(new TextEncoder().encode(response)),
           );
-          errStub = stub(console, 'error', () => {});
-          logStub = stub(console, 'log', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(async () => {
           commandHandle.restore();
-          errStub.restore();
-          logStub.restore();
+          loggerStub.restore();
           await Deno.remove(inputDir, { recursive: true });
         });
 
@@ -333,18 +316,18 @@ describe('main - Claude CLI NotFound', () => {
         let inputDir: string;
         let monthDir: string;
         let commandHandle: CommandMockHandle;
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(async () => {
           ({ inputDir, monthDir } = await _makeTestDirs());
           await Deno.writeTextFile(`${monthDir}/chat.md`, _makeValidContent());
           commandHandle = installCommandMock(makeNotFoundMock());
-          errStub = stub(console, 'error', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(async () => {
           commandHandle.restore();
-          errStub.restore();
+          loggerStub.restore();
           await Deno.remove(inputDir, { recursive: true });
         });
 
