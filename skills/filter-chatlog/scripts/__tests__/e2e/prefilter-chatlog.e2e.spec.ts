@@ -20,6 +20,10 @@ import { stub } from '@std/testing/mock';
 // test target
 import { main } from '../../prefilter-chatlog.ts';
 
+// helpers
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+
 // ─── テスト用一時ディレクトリセットアップ ─────────────────────────────────────
 
 let tempDir: string;
@@ -53,21 +57,14 @@ describe('main (prefilter) - dry-run モード', () => {
   describe('Given: ノイズファイル名の .md ファイルと --dry-run フラグ', () => {
     describe('When: main(["claude", "--dry-run", "--input", tempDir]) を呼び出す', () => {
       describe('Then: T-PF-E2E-01 - ファイルが削除されずパスが stdout に出力される', () => {
-        let logOutput: string[];
-        let logStub: Stub;
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
-          logOutput = [];
-          logStub = stub(console, 'log', (msg: string) => {
-            logOutput.push(msg);
-          });
-          errStub = stub(console, 'error', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(() => {
-          logStub.restore();
-          errStub.restore();
+          loggerStub.restore();
         });
 
         it('T-PF-E2E-01-01: ノイズファイルが削除されずに残っている', async () => {
@@ -88,7 +85,7 @@ describe('main (prefilter) - dry-run モード', () => {
 
           await main(['claude', '2026-03', '--dry-run', '--input', tempDir]);
 
-          assertEquals(logOutput.some((line) => line.includes('say-ok-and-nothing-else.md')), true);
+          assertEquals(loggerStub.logLogs.some((line) => line.includes('say-ok-and-nothing-else.md')), true);
         });
       });
     });
@@ -101,30 +98,23 @@ describe('main (prefilter) - report モード', () => {
   describe('Given: ノイズファイル名の .md ファイルと --report フラグ', () => {
     describe('When: main(["claude", "--report", "--input", tempDir]) を呼び出す', () => {
       describe('Then: T-PF-E2E-02 - NOISE タブ区切り形式で出力、削除なし', () => {
-        let logOutput: string[];
-        let logStub: Stub;
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
-          logOutput = [];
-          logStub = stub(console, 'log', (msg: string) => {
-            logOutput.push(msg);
-          });
-          errStub = stub(console, 'error', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(() => {
-          logStub.restore();
-          errStub.restore();
+          loggerStub.restore();
         });
 
-        it('T-PF-E2E-02-01: console.log の出力が "NOISE\\t" で始まる', async () => {
+        it('T-PF-E2E-02-01: logger.log の出力が "NOISE\\t" で始まる', async () => {
           const dir = await _makeAgentDir('claude', '2026-03');
           await Deno.writeTextFile(`${dir}/say-ok-and-nothing-else.md`, _makeValidContent());
 
           await main(['claude', '2026-03', '--report', '--input', tempDir]);
 
-          assertEquals(logOutput.some((line) => line.startsWith('NOISE\t')), true);
+          assertEquals(loggerStub.logLogs.some((line) => line.startsWith('NOISE\t')), true);
         });
 
         it('T-PF-E2E-02-02: タブ区切りで reason と filePath が含まれる', async () => {
@@ -133,7 +123,7 @@ describe('main (prefilter) - report モード', () => {
 
           await main(['claude', '2026-03', '--report', '--input', tempDir]);
 
-          const noiseLine = logOutput.find((line) => line.startsWith('NOISE\t'));
+          const noiseLine = loggerStub.logLogs.find((line) => line.startsWith('NOISE\t'));
           assertEquals(noiseLine !== undefined, true);
           assertEquals(noiseLine!.split('\t').length >= 3, true);
         });
@@ -159,14 +149,14 @@ describe('main (prefilter) - 通常実行（削除あり）', () => {
   describe('Given: ノイズと正常ファイルが混在するディレクトリ', () => {
     describe('When: main(["claude", "--input", tempDir]) を呼び出す', () => {
       describe('Then: T-PF-E2E-03 - ノイズは削除、正常は残る', () => {
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
-          errStub = stub(console, 'error', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(() => {
-          errStub.restore();
+          loggerStub.restore();
         });
 
         it('T-PF-E2E-03-01: say-ok-and-nothing-else.md が削除される', async () => {
@@ -208,18 +198,14 @@ describe('main (prefilter) - 全件 keep', () => {
   describe('Given: 正常ファイル 2 件', () => {
     describe('When: main(["claude", "--input", tempDir]) を呼び出す', () => {
       describe('Then: T-PF-E2E-04 - 全ファイルが残っており keep=2 のログ', () => {
-        let errOutput: string[];
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
-          errOutput = [];
-          errStub = stub(console, 'error', (msg: string) => {
-            errOutput.push(String(msg));
-          });
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(() => {
-          errStub.restore();
+          loggerStub.restore();
         });
 
         it('T-PF-E2E-04-01: 全ファイルが削除されずに残っている', async () => {
@@ -243,7 +229,7 @@ describe('main (prefilter) - 全件 keep', () => {
 
           await main(['claude', '2026-03', '--input', tempDir]);
 
-          assertEquals(errOutput.some((line) => line.includes('noise=0')), true);
+          assertEquals(loggerStub.infoLogs.some((line) => line.includes('noise=0')), true);
         });
       });
     });
@@ -257,16 +243,16 @@ describe('main (prefilter) - 存在しない inputDir', () => {
     describe('When: main(["claude", "--input", "/nonexistent/path"]) を呼び出す', () => {
       describe('Then: T-PF-E2E-05 - Deno.exit(1) が呼ばれる', () => {
         let exitStub: Stub<typeof Deno, [code?: number], never>;
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
           exitStub = stub(Deno, 'exit');
-          errStub = stub(console, 'error', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(() => {
           exitStub.restore();
-          errStub.restore();
+          loggerStub.restore();
         });
 
         it('T-PF-E2E-05-01: Deno.exit(1) がちょうど 1 回呼ばれる', async () => {
@@ -286,18 +272,14 @@ describe('main (prefilter) - 空ディレクトリ', () => {
   describe('Given: .md ファイルが 0 件のディレクトリ', () => {
     describe('When: main(["claude", "--input", tempDir]) を呼び出す', () => {
       describe('Then: T-PF-E2E-06 - "noise=0 keep=0 error=0" を含むログが出力される', () => {
-        let errOutput: string[];
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
-          errOutput = [];
-          errStub = stub(console, 'error', (msg: string) => {
-            errOutput.push(String(msg));
-          });
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(() => {
-          errStub.restore();
+          loggerStub.restore();
         });
 
         it('T-PF-E2E-06-01: 完了ログに "noise=0 keep=0 error=0" が含まれる', async () => {
@@ -305,7 +287,7 @@ describe('main (prefilter) - 空ディレクトリ', () => {
 
           await main(['claude', '--input', tempDir]);
 
-          assertEquals(errOutput.some((line) => line.includes('noise=0') && line.includes('keep=0')), true);
+          assertEquals(loggerStub.infoLogs.some((line) => line.includes('noise=0') && line.includes('keep=0')), true);
         });
       });
     });
@@ -318,14 +300,14 @@ describe('main (prefilter) - period 絞り込み', () => {
   describe('Given: 2026-03 と 2026-04 両方にノイズファイル', () => {
     describe('When: main(["claude", "2026-03", "--input", tempDir]) を呼び出す', () => {
       describe('Then: T-PF-E2E-07 - 2026-03 のみ削除され 2026-04 は残る', () => {
-        let errStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
-          errStub = stub(console, 'error', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(() => {
-          errStub.restore();
+          loggerStub.restore();
         });
 
         it('T-PF-E2E-07-01: 2026-03 のノイズファイルが削除される', async () => {
@@ -368,21 +350,14 @@ describe('main (prefilter) - report 完了ログ', () => {
   describe('Given: 正常ファイル 1 件と --report フラグ', () => {
     describe('When: main(["claude", "--report", "--input", tempDir]) を呼び出す', () => {
       describe('Then: T-PF-E2E-08 - 完了ログに "report" が含まれる', () => {
-        let errOutput: string[];
-        let errStub: Stub;
-        let logStub: Stub;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
-          errOutput = [];
-          errStub = stub(console, 'error', (msg: string) => {
-            errOutput.push(String(msg));
-          });
-          logStub = stub(console, 'log', () => {});
+          loggerStub = makeLoggerStub();
         });
 
         afterEach(() => {
-          errStub.restore();
-          logStub.restore();
+          loggerStub.restore();
         });
 
         it('T-PF-E2E-08-01: 完了ログに "report" が含まれる', async () => {
@@ -391,7 +366,7 @@ describe('main (prefilter) - report 完了ログ', () => {
 
           await main(['claude', '2026-03', '--report', '--input', tempDir]);
 
-          assertEquals(errOutput.some((line) => line.includes('report')), true);
+          assertEquals(loggerStub.infoLogs.some((line) => line.includes('report')), true);
         });
       });
     });
