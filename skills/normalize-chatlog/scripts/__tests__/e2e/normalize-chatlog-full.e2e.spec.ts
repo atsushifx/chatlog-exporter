@@ -15,8 +15,9 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 import type { CommandMockHandle } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
 import { installCommandMock, makeSuccessMock } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
-import type { LogCapture } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
-import { captureLog, makeTempDirs, removeTempDirs } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
+import { makeTempDirs, removeTempDirs } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 import { assertAllOutputFiles } from '../../../../_scripts/__tests__/helpers/output-validator.ts';
 
 // test target
@@ -36,7 +37,7 @@ describe('normalize-chatlog - full E2E', () => {
     let inputDir: string;
     let outputDir: string;
     let commandHandle: CommandMockHandle;
-    let logCapture: LogCapture;
+    let loggerStub: LoggerStub;
 
     beforeEach(async () => {
       ({ inputDir, outputDir } = await makeTempDirs());
@@ -60,12 +61,12 @@ describe('normalize-chatlog - full E2E', () => {
       commandHandle = installCommandMock(
         makeSuccessMock(new TextEncoder().encode(segmentResponse)),
       );
-      logCapture = captureLog();
+      loggerStub = makeLoggerStub();
     });
 
     afterEach(async () => {
       commandHandle.restore();
-      logCapture.restore();
+      loggerStub.restore();
       await removeTempDirs(inputDir, outputDir);
     });
 
@@ -77,7 +78,7 @@ describe('normalize-chatlog - full E2E', () => {
       assertEquals(files.length >= 3, true);
 
       // aggregation: 全件 success に集計されている
-      assertMatch(logCapture.calls.join('\n'), /success=3/);
+      assertMatch(loggerStub.infoLogs.join('\n'), /success=3/);
     });
   });
 
@@ -87,7 +88,7 @@ describe('normalize-chatlog - full E2E', () => {
     let inputDir: string;
     let outputDir: string;
     let commandHandle: CommandMockHandle;
-    let logCapture: LogCapture;
+    let loggerStub: LoggerStub;
 
     beforeEach(async () => {
       ({ inputDir, outputDir } = await makeTempDirs());
@@ -103,12 +104,12 @@ describe('normalize-chatlog - full E2E', () => {
       commandHandle = installCommandMock(
         makeSuccessMock(new TextEncoder().encode(segmentResponse)),
       );
-      logCapture = captureLog();
+      loggerStub = makeLoggerStub();
     });
 
     afterEach(async () => {
       commandHandle.restore();
-      logCapture.restore();
+      loggerStub.restore();
       await removeTempDirs(inputDir, outputDir);
     });
 
@@ -131,7 +132,7 @@ describe('normalize-chatlog - full E2E', () => {
     let inputDir: string;
     let outputDir: string;
     let commandHandle: CommandMockHandle;
-    let logCapture: LogCapture;
+    let loggerStub: LoggerStub;
     const inputContent = '---\nproject: repro-project\n---\n### User\nTest reproducibility.\n\n### AI\nOK.';
 
     beforeEach(async () => {
@@ -145,12 +146,12 @@ describe('normalize-chatlog - full E2E', () => {
       commandHandle = installCommandMock(
         makeSuccessMock(new TextEncoder().encode(segmentResponse)),
       );
-      logCapture = captureLog();
+      loggerStub = makeLoggerStub();
     });
 
     afterEach(async () => {
       commandHandle.restore();
-      logCapture.restore();
+      loggerStub.restore();
       await removeTempDirs(inputDir, outputDir);
     });
 
@@ -161,11 +162,11 @@ describe('normalize-chatlog - full E2E', () => {
       await main(['--dir', inputDir, '--output', outputDir], fixedHash);
 
       // 2 回目: バックアップを生成
-      logCapture.calls.splice(0);
+      loggerStub.infoLogs.splice(0);
       await main(['--dir', inputDir, '--output', outputDir], fixedHash);
 
       // reproducibility: 2 回目も success=1
-      assertMatch(logCapture.calls.join('\n'), /success=1/);
+      assertMatch(loggerStub.infoLogs.join('\n'), /success=1/);
 
       // reproducibility: .old-01.md バックアップが存在する（サブディレクトリも含めて再帰検索）
       const allFiles = findMdFiles(outputDir);
