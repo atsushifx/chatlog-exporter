@@ -23,6 +23,8 @@ import {
   makeSuccessMock,
 } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
 import type { CommandMockHandle } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // ─── テスト用ヘルパー ──────────────────────────────────────────────────────────
 
@@ -51,8 +53,10 @@ describe('processChunk', () => {
     describe('When: processChunk([fileMeta], projects, true, stats) を呼び出す', () => {
       describe('Then: T-CL-PC-01 - 正常分類 → stats.moved インクリメント', () => {
         let mockHandle: CommandMockHandle;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
+          loggerStub = makeLoggerStub();
           const response = JSON.stringify([
             { file: 'a.md', project: 'app1', confidence: 0.9, reason: 'matched' },
           ]);
@@ -63,6 +67,7 @@ describe('processChunk', () => {
 
         afterEach(() => {
           mockHandle.restore();
+          loggerStub.restore();
         });
 
         it('T-CL-PC-01-01: stats.moved が 1 になる', async () => {
@@ -82,6 +87,32 @@ describe('processChunk', () => {
 
           assertEquals(stats.error, 0);
         });
+
+        it('T-CL-PC-01-03: classify ログが infoLogs に記録される', async () => {
+          const metas = [_makeFileMeta('a.md')];
+          const stats = _makeStats();
+
+          await processChunk(metas, ['app1', 'app2'], true, stats);
+
+          assertEquals(
+            loggerStub.infoLogs.some((l) => l.includes('classify:')),
+            true,
+            'classify ログが infoLogs に記録されていない',
+          );
+        });
+
+        it('T-CL-PC-01-04: [dry-run] ログが infoLogs に記録される', async () => {
+          const metas = [_makeFileMeta('a.md')];
+          const stats = _makeStats();
+
+          await processChunk(metas, ['app1', 'app2'], true, stats);
+
+          assertEquals(
+            loggerStub.infoLogs.some((l) => l.includes('[dry-run]')),
+            true,
+            '[dry-run] ログが infoLogs に記録されていない',
+          );
+        });
       });
     });
   });
@@ -92,13 +123,16 @@ describe('processChunk', () => {
     describe('When: processChunk([fileMeta1, fileMeta2], projects, true, stats) を呼び出す', () => {
       describe(`Then: T-CL-PC-02 - CLI エラー → ${FALLBACK_PROJECT} で全件処理`, () => {
         let mockHandle: CommandMockHandle;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
+          loggerStub = makeLoggerStub();
           mockHandle = installCommandMock(makeFailMock(1));
         });
 
         afterEach(() => {
           mockHandle.restore();
+          loggerStub.restore();
         });
 
         it('T-CL-PC-02-01: stats.moved が ファイル数（2）になる', async () => {
@@ -118,6 +152,19 @@ describe('processChunk', () => {
 
           assertEquals(stats.error, 0);
         });
+
+        it('T-CL-PC-02-03: warn ログが warnLogs に記録される', async () => {
+          const metas = [_makeFileMeta('a.md'), _makeFileMeta('b.md')];
+          const stats = _makeStats();
+
+          await processChunk(metas, ['app1'], true, stats);
+
+          assertEquals(
+            loggerStub.warnLogs.some((l) => l.includes('警告')),
+            true,
+            '警告ログが warnLogs に記録されていない',
+          );
+        });
       });
     });
   });
@@ -128,8 +175,10 @@ describe('processChunk', () => {
     describe('When: processChunk([fileMeta], projects, true, stats) を呼び出す', () => {
       describe(`Then: T-CL-PC-03 - JSON パース失敗 → ${FALLBACK_PROJECT} で全件処理`, () => {
         let mockHandle: CommandMockHandle;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
+          loggerStub = makeLoggerStub();
           mockHandle = installCommandMock(
             makeSuccessMock(new TextEncoder().encode('これはJSONではありません')),
           );
@@ -137,6 +186,7 @@ describe('processChunk', () => {
 
         afterEach(() => {
           mockHandle.restore();
+          loggerStub.restore();
         });
 
         it('T-CL-PC-03-01: stats.moved が 1 になる', async () => {
@@ -156,6 +206,19 @@ describe('processChunk', () => {
 
           assertEquals(stats.error, 0);
         });
+
+        it('T-CL-PC-03-03: warn ログが warnLogs に記録される', async () => {
+          const metas = [_makeFileMeta('a.md')];
+          const stats = _makeStats();
+
+          await processChunk(metas, ['app1'], true, stats);
+
+          assertEquals(
+            loggerStub.warnLogs.some((l) => l.includes('警告')),
+            true,
+            '警告ログが warnLogs に記録されていない',
+          );
+        });
       });
     });
   });
@@ -166,8 +229,10 @@ describe('processChunk', () => {
     describe('When: processChunk([fileMeta], projects, true, stats) を呼び出す', () => {
       describe(`Then: T-CL-PC-04 - ファイル名不一致 → ${FALLBACK_PROJECT} で処理`, () => {
         let mockHandle: CommandMockHandle;
+        let loggerStub: LoggerStub;
 
         beforeEach(() => {
+          loggerStub = makeLoggerStub();
           // "b.md" の結果を返すが、対象ファイルは "a.md"
           const response = JSON.stringify([
             { file: 'b.md', project: 'app1', confidence: 0.9, reason: 'matched' },
@@ -179,6 +244,7 @@ describe('processChunk', () => {
 
         afterEach(() => {
           mockHandle.restore();
+          loggerStub.restore();
         });
 
         it('T-CL-PC-04-01: stats.moved が 1 になる（FALLBACK_PROJECT で移動）', async () => {
@@ -188,6 +254,19 @@ describe('processChunk', () => {
           await processChunk(metas, ['app1'], true, stats);
 
           assertEquals(stats.moved, 1);
+        });
+
+        it('T-CL-PC-04-02: [dry-run] ログが infoLogs に記録される', async () => {
+          const metas = [_makeFileMeta('a.md')];
+          const stats = _makeStats();
+
+          await processChunk(metas, ['app1'], true, stats);
+
+          assertEquals(
+            loggerStub.infoLogs.some((l) => l.includes('[dry-run]')),
+            true,
+            '[dry-run] ログが infoLogs に記録されていない',
+          );
         });
       });
     });
