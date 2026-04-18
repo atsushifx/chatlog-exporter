@@ -14,19 +14,6 @@
  *     [agent] [YYYY-MM] [--dry-run] --input DIR --dics DIR
  */
 
-// ─────────────────────────────────────────────
-// 定数・型 (libs から import & re-export)
-// ─────────────────────────────────────────────
-
-export {
-  CHUNK_SIZE,
-  CONCURRENCY,
-  FALLBACK_PROJECT,
-  KNOWN_AGENTS,
-  MIN_CLASSIFIABLE_LENGTH,
-} from './constants/classify.constants.ts';
-export type { Args, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
-
 import { logger } from '../../_scripts/libs/logger.ts';
 import { FALLBACK_PROJECT, MIN_CLASSIFIABLE_LENGTH } from './constants/classify.constants.ts';
 import type { ClassifyConfig, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
