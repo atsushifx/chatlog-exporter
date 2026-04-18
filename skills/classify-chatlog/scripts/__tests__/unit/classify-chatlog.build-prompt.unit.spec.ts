@@ -96,6 +96,71 @@ describe('buildClassifyPrompt', () => {
     });
   });
 
+  describe('Given: フロントマターなし（title/category/topics/tags が空）の FileMeta', () => {
+    describe('When: buildClassifyPrompt([fileMeta], projects) を呼び出す', () => {
+      describe('Then: T-CL-BCP-04 - 本文スニペットが追加される', () => {
+        it('T-CL-BCP-04-01: "body:" フィールドが含まれる', () => {
+          const files = [
+            makeFileMeta({
+              title: '',
+              category: '',
+              topics: [],
+              tags: [],
+              fullText: 'Deno でファイル入出力を実装した。readTextFile と writeTextFile の使い方を確認した。',
+            }),
+          ];
+
+          const result = buildClassifyPrompt(files, ['app1']);
+
+          assertStringIncludes(result, 'body:');
+        });
+
+        it('T-CL-BCP-04-02: 本文が 500 文字以内にトリムされて含まれる', () => {
+          const longBody = 'a'.repeat(600);
+          const files = [
+            makeFileMeta({
+              title: '',
+              category: '',
+              topics: [],
+              tags: [],
+              fullText: longBody,
+            }),
+          ];
+
+          const result = buildClassifyPrompt(files, ['app1']);
+
+          assertStringIncludes(result, `body: ${'a'.repeat(500)}`);
+        });
+      });
+    });
+  });
+
+  describe('Given: フロントマターあり（title が存在する）の FileMeta', () => {
+    describe('When: buildClassifyPrompt([fileMeta], projects) を呼び出す', () => {
+      describe('Then: T-CL-BCP-05 - 本文スニペットは追加されない', () => {
+        it('T-CL-BCP-05-01: "body:" フィールドが含まれない', () => {
+          const files = [
+            makeFileMeta({
+              title: 'テストタイトル',
+              category: '',
+              topics: [],
+              tags: [],
+              fullText: '本文テキスト',
+            }),
+          ];
+
+          const result = buildClassifyPrompt(files, ['app1']);
+
+          // body: が含まれないことを確認（indexOf で -1）
+          const hasBody = result.includes('body:');
+          if (hasBody) {
+            throw new Error('body: フィールドが含まれているが、含まれてはいけない');
+          }
+        });
+      });
+    });
+  });
+
   describe('Given: topics/tags が存在する FileMeta', () => {
     describe('When: buildClassifyPrompt([fileMeta], projects) を呼び出す', () => {
       describe('Then: T-CL-BCP-03 - topics/tags がカンマ区切りで出力される', () => {
