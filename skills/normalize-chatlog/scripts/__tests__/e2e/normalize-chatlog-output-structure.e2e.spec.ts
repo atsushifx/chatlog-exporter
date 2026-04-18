@@ -14,8 +14,9 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 import type { CommandMockHandle } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
 import { installCommandMock, makeSuccessMock } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
-import type { LogSilencer } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
-import { makeTempDirs, removeTempDirs, silenceLog } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
+import { makeTempDirs, removeTempDirs } from '../../../../_scripts/__tests__/helpers/e2e-setup.ts';
+import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 import { assertAllOutputFiles } from '../../../../_scripts/__tests__/helpers/output-validator.ts';
 
 // test target
@@ -36,7 +37,7 @@ describe('main - output structure', () => {
     let inputDir: string;
     let outputDir: string;
     let commandHandle: CommandMockHandle;
-    let logSilencer: LogSilencer;
+    let loggerStub: LoggerStub;
 
     beforeEach(async () => {
       ({ inputDir, outputDir } = await makeTempDirs());
@@ -56,12 +57,12 @@ describe('main - output structure', () => {
       commandHandle = installCommandMock(
         makeSuccessMock(new TextEncoder().encode(segmentResponse)),
       );
-      logSilencer = silenceLog();
+      loggerStub = makeLoggerStub();
     });
 
     afterEach(async () => {
       commandHandle.restore();
-      logSilencer.restore();
+      loggerStub.restore();
       await removeTempDirs(inputDir, outputDir);
     });
 
@@ -84,7 +85,7 @@ describe('main - output structure', () => {
     let inputDir: string;
     let outputDir: string;
     let commandHandle: CommandMockHandle;
-    let logSilencer: LogSilencer;
+    let loggerStub: LoggerStub;
 
     beforeEach(async () => {
       ({ inputDir, outputDir } = await makeTempDirs());
@@ -100,12 +101,12 @@ describe('main - output structure', () => {
       commandHandle = installCommandMock(
         makeSuccessMock(new TextEncoder().encode(segmentResponse)),
       );
-      logSilencer = silenceLog();
+      loggerStub = makeLoggerStub();
     });
 
     afterEach(async () => {
       commandHandle.restore();
-      logSilencer.restore();
+      loggerStub.restore();
       await removeTempDirs(inputDir, outputDir);
     });
 
