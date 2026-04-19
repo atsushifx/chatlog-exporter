@@ -268,14 +268,14 @@ export async function collectDirectMdFiles(dir: string, results: string[]): Prom
 // ─────────────────────────────────────────────
 
 export function buildClassifyPrompt(files: FileMeta[], projects: string[]): string {
-  const projectList = [...projects, FALLBACK_PROJECT].join(', ');
-  const header = `Projects: ${projectList}\n\n`;
+  const _projectList = [...projects, FALLBACK_PROJECT].join(', ');
+  const header = `Projects: ${_projectList}\n\n`;
 
-  const parts = files.map((f, i) => {
+  const _parts = files.map((f, i) => {
     const topicsStr = f.topics.length > 0 ? f.topics.join(', ') : '(none)';
     const tagsStr = f.tags.length > 0 ? f.tags.join(', ') : '(none)';
     const hasMeta = f.title || f.category || f.topics.length > 0 || f.tags.length > 0;
-    const lines = [
+    const _lines = [
       `=== FILE ${i + 1}: ${f.filename} ===`,
       `title: ${f.title || '(no title)'}`,
       `category: ${f.category || '(none)'}`,
@@ -284,20 +284,20 @@ export function buildClassifyPrompt(files: FileMeta[], projects: string[]): stri
     ];
     if (!hasMeta) {
       const snippet = f.fullText.slice(0, 500).trim();
-      lines.push(`body: ${snippet}`);
+      _lines.push(`body: ${snippet}`);
     }
-    return lines.join('\n');
+    return _lines.join('\n');
   });
 
-  return header + parts.join('\n\n');
+  return header + _parts.join('\n\n');
 }
 
 export function buildSystemPrompt(projects: string[]): string {
-  const projectList = [...projects, FALLBACK_PROJECT].join(', ');
+  const _projectList = [...projects, FALLBACK_PROJECT].join(', ');
   return `Output ONLY a JSON array. No markdown, no explanation, no text before or after the array.
 [{"file":"<filename>","project":"<project_name>","confidence":0.0,"reason":"..."},...]
 
-Choose project ONLY from this list: ${projectList}
+Choose project ONLY from this list: ${_projectList}
 If no project matches well, use "${FALLBACK_PROJECT}".
 Base your decision on: title, category, topics, tags.`;
 }
@@ -452,12 +452,12 @@ export async function processChunk(
   }
   if (classifiable.length === 0) { return; }
 
-  const batchPrompt = buildClassifyPrompt(classifiable, projects);
-  const systemPrompt = buildSystemPrompt(projects);
+  const _batchPrompt = buildClassifyPrompt(classifiable, projects);
+  const _systemPrompt = buildSystemPrompt(projects);
 
   let rawResult: string;
   try {
-    rawResult = await runClaude(systemPrompt, batchPrompt);
+    rawResult = await runClaude(_systemPrompt, _batchPrompt);
   } catch (e) {
     logger.warn(`  警告: claude CLI 実行失敗。チャンク内ファイルをすべて ${FALLBACK_PROJECT} 扱い`);
     logger.warn(`  error: ${e}`);
