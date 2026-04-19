@@ -7,12 +7,11 @@
 //
 // This software is released under the MIT License.
 
-import { assertEquals, assertNotEquals } from '@std/assert';
-import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import type { Stub } from '@std/testing/mock';
-import { stub } from '@std/testing/mock';
+import { assertEquals, assertNotEquals, assertThrows } from '@std/assert';
+import { describe, it } from '@std/testing/bdd';
 
 // test target
+import { ChatlogError } from '../../../../_scripts/classes/ChatlogError.class.ts';
 import {
   checkAssistantContent,
   checkFilename,
@@ -959,24 +958,17 @@ describe('parseArgs (prefilter)', () => {
     });
   });
 
-  // ─── T-PF-PA-11: 未知オプション → Deno.exit(1) ──────────────────────────────
+  // ─── T-PF-PA-11: 未知オプション → ChatlogError(InvalidArgs) ──────────────────────────────
 
   describe('Given: 未知のオプション ["--unknown"]', () => {
     describe('When: parseArgs(["--unknown"]) を呼び出す', () => {
-      describe('Then: T-PF-PA-11 - Deno.exit(1) が呼ばれる', () => {
-        let exitStub: Stub<typeof Deno, [code?: number], never>;
-        beforeEach(() => {
-          exitStub = stub(Deno, 'exit');
-        });
-        afterEach(() => {
-          exitStub.restore();
-        });
-
-        it('T-PF-PA-11-01: Deno.exit(1) がちょうど 1 回呼ばれる', () => {
-          parseArgs(['--unknown']);
-
-          assertEquals(exitStub.calls.length, 1);
-          assertEquals(exitStub.calls[0].args[0], 1);
+      describe('Then: T-PF-PA-11 - ChatlogError(InvalidArgs) がスローされる', () => {
+        it('T-PF-PA-11-01: ChatlogError(InvalidArgs) がスローされる', () => {
+          assertThrows(
+            () => parseArgs(['--unknown']),
+            ChatlogError,
+            'Invalid Args',
+          );
         });
       });
     });

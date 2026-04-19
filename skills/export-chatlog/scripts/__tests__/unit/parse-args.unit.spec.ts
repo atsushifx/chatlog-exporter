@@ -6,281 +6,157 @@
 //
 // This software is released under the MIT License.
 
-import { assertEquals } from '@std/assert';
-import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import type { Stub } from '@std/testing/mock';
-import { stub } from '@std/testing/mock';
+import { assertEquals, assertThrows } from '@std/assert';
+import { describe, it } from '@std/testing/bdd';
 
+import { ChatlogError } from '../../../../_scripts/classes/ChatlogError.class.ts';
 import {
   DEFAULT_EXPORT_CONFIG,
 } from '../../../../export-chatlog/scripts/constants/defaults.constants.ts';
 import { parseArgs } from '../../../../export-chatlog/scripts/export-chatlog.ts';
 
-// ─── parseArgs tests ──────────────────────────────────────────────────────────
+type ExportConfig = ReturnType<typeof parseArgs>;
 
-/**
- * `parseArgs` のユニットテストスイート。
- *
- * CLI 引数配列を解析して ExportConfig を生成する関数の動作を検証する。
- * テスト対象ケース:
- * - デフォルト値（引数なし）
- * - agent 指定（"codex"）
- * - 期間指定（YYYY-MM・YYYY）
- * - --output / --output= オプション
- * - --base / --base= オプション
- * - --output と --base の併用
- * - 全フィールド同時指定
- * - 未知のオプション・位置引数での Deno.exit(1) 呼び出し
- *
- * 異常系テストでは `stub(Deno, 'exit')` でプロセス終了をモックして検証する。
- *
- * @see parseArgs
- * @see DEFAULT_EXPORT_CONFIG
- */
 describe('parseArgs', () => {
+  // ─── T-EC-PA-01: デフォルト値 ────────────────────────────────────────────────
+
   describe('Given: 空の引数配列 []', () => {
-    let result: ReturnType<typeof parseArgs>;
-    beforeEach(() => {
-      result = parseArgs([]);
-    });
-
-    it('T-EC-PA-01-01: agent が DEFAULT_EXPORT_CONFIG.agent（デフォルト）', () => {
-      assertEquals(result.agent, DEFAULT_EXPORT_CONFIG.agent);
-    });
-
-    it('T-EC-PA-01-02: outputDir が DEFAULT_EXPORT_CONFIG.outputDir（デフォルト）', () => {
-      assertEquals(result.outputDir, DEFAULT_EXPORT_CONFIG.outputDir);
-    });
-
-    it('T-EC-PA-01-03: period が undefined', () => {
-      assertEquals(result.period, undefined);
-    });
-
-    it('T-EC-PA-01-05: baseDir が undefined', () => {
-      assertEquals(result.baseDir, undefined);
+    describe('When: parseArgs([]) を呼び出す', () => {
+      describe('Then: T-EC-PA-01 - デフォルト値が適用される', () => {
+        const _defaultCases: { id: string; field: keyof ExportConfig; expected: unknown }[] = [
+          { id: 'T-EC-PA-01-01', field: 'agent', expected: DEFAULT_EXPORT_CONFIG.agent },
+          { id: 'T-EC-PA-01-02', field: 'outputDir', expected: DEFAULT_EXPORT_CONFIG.outputDir },
+          { id: 'T-EC-PA-01-03', field: 'period', expected: undefined },
+          { id: 'T-EC-PA-01-05', field: 'baseDir', expected: undefined },
+        ];
+        for (const { id, field, expected } of _defaultCases) {
+          it(`${id}: ${field} が ${JSON.stringify(expected)} になる`, () => {
+            assertEquals(parseArgs([])[field], expected);
+          });
+        }
+      });
     });
   });
 
-  /** 正常系: agent 指定 */
-  describe('Given: ["codex"]', () => {
-    it('T-EC-PA-02-01: agent が "codex"', () => {
-      const result = parseArgs(['codex']);
-      assertEquals(result.agent, 'codex');
+  // ─── T-EC-PA-02〜15: 単一オプション ──────────────────────────────────────────
+
+  describe('Given: 単一オプション', () => {
+    describe('When: parseArgs(args) を呼び出す', () => {
+      describe('Then: 対応フィールドに値が設定される', () => {
+        const _cases: { id: string; args: string[]; field: keyof ExportConfig; expected: unknown }[] = [
+          { id: 'T-EC-PA-02-01', args: ['codex'], field: 'agent', expected: 'codex' },
+          { id: 'T-EC-PA-03-01', args: ['2026-03'], field: 'period', expected: '2026-03' },
+          { id: 'T-EC-PA-03-02', args: ['2026'], field: 'period', expected: '2026' },
+          { id: 'T-EC-PA-04-01', args: ['--output', '/tmp/out'], field: 'outputDir', expected: '/tmp/out' },
+          { id: 'T-EC-PA-04-02', args: ['--output=/tmp/out'], field: 'outputDir', expected: '/tmp/out' },
+          { id: 'T-EC-PA-08-01', args: ['--base', '/data/logs'], field: 'baseDir', expected: '/data/logs' },
+          { id: 'T-EC-PA-08-02', args: ['--base=/data/logs'], field: 'baseDir', expected: '/data/logs' },
+          {
+            id: 'T-EC-PA-11-01',
+            args: ['--output', '/chatlog/claude'],
+            field: 'outputDir',
+            expected: '/chatlog/claude',
+          },
+          {
+            id: 'T-EC-PA-12-01',
+            args: ['--input', '/data/chatgpt-export'],
+            field: 'inputDir',
+            expected: '/data/chatgpt-export',
+          },
+          {
+            id: 'T-EC-PA-12-02',
+            args: ['--input=/data/chatgpt-export'],
+            field: 'inputDir',
+            expected: '/data/chatgpt-export',
+          },
+          { id: 'T-EC-PA-13-01', args: ['chatgpt'], field: 'agent', expected: 'chatgpt' },
+          { id: 'T-EC-PA-15-01', args: ['chatgpt', '/path/to/export'], field: 'inputDir', expected: '/path/to/export' },
+          {
+            id: 'T-EC-PA-15-04',
+            args: ['chatgpt', 'C:\\Users\\foo\\export'],
+            field: 'inputDir',
+            expected: 'C:/Users/foo/export',
+          },
+        ];
+        for (const { id, args, field, expected } of _cases) {
+          it(`${id}: ${field} が ${JSON.stringify(expected)} になる`, () => {
+            assertEquals(parseArgs(args)[field], expected);
+          });
+        }
+      });
     });
   });
 
-  /** 正常系: 期間指定（YYYY-MM）*/
-  describe('Given: ["2026-03"]', () => {
-    it('T-EC-PA-03-01: period が "2026-03"', () => {
-      const result = parseArgs(['2026-03']);
-      assertEquals(result.period, '2026-03');
-    });
-  });
+  // ─── 複数フィールド組み合わせ ─────────────────────────────────────────────────
 
-  /** 正常系: 期間指定（YYYY）*/
-  describe('Given: ["2026"]', () => {
-    it('T-EC-PA-03-02: period が "2026"', () => {
-      const result = parseArgs(['2026']);
-      assertEquals(result.period, '2026');
-    });
-  });
-
-  /** 正常系: --output オプション */
-  describe('Given: ["--output", "/tmp/out"]', () => {
-    it('T-EC-PA-04-01: outputDir が "/tmp/out"', () => {
-      const result = parseArgs(['--output', '/tmp/out']);
-      assertEquals(result.outputDir, '/tmp/out');
-    });
-  });
-
-  /** 正常系: --output= 形式 */
-  describe('Given: ["--output=/tmp/out"]', () => {
-    it('T-EC-PA-04-02: outputDir が "/tmp/out"', () => {
-      const result = parseArgs(['--output=/tmp/out']);
-      assertEquals(result.outputDir, '/tmp/out');
-    });
-  });
-
-  /** 正常系: --base オプション */
-  describe('Given: ["--base", "/data/logs"]', () => {
-    it('T-EC-PA-08-01: baseDir が "/data/logs"', () => {
-      const result = parseArgs(['--base', '/data/logs']);
-      assertEquals(result.baseDir, '/data/logs');
-    });
-  });
-
-  /** 正常系: --base= 形式 */
-  describe('Given: ["--base=/data/logs"]', () => {
-    it('T-EC-PA-08-02: baseDir が "/data/logs"', () => {
-      const result = parseArgs(['--base=/data/logs']);
-      assertEquals(result.baseDir, '/data/logs');
-    });
-  });
-
-  /** 正常系: --output と --base の併用 */
   describe('Given: ["--base", "/data", "--output", "/data/claude"]', () => {
-    let result: ReturnType<typeof parseArgs>;
-    beforeEach(() => {
-      result = parseArgs(['--base', '/data', '--output', '/data/claude']);
-    });
-
-    it('T-EC-PA-09-01: baseDir が "/data"', () => {
+    it('T-EC-PA-09: baseDir と outputDir が同時に設定される', () => {
+      const result = parseArgs(['--base', '/data', '--output', '/data/claude']);
       assertEquals(result.baseDir, '/data');
-    });
-
-    it('T-EC-PA-09-02: outputDir が "/data/claude"', () => {
       assertEquals(result.outputDir, '/data/claude');
     });
   });
 
-  /** 異常系: 未知のオプション */
-  describe('Given: ["--unknown"]', () => {
-    let exitStub: Stub<typeof Deno, [code?: number], never>;
-
-    beforeEach(() => {
-      exitStub = stub(Deno, 'exit');
-    });
-
-    afterEach(() => {
-      exitStub.restore();
-    });
-
-    it('T-EC-PA-06-01: Deno.exit(1) が呼ばれる', () => {
-      parseArgs(['--unknown']);
-      assertEquals(exitStub.calls.length, 1);
-      assertEquals(exitStub.calls[0].args[0], 1);
-    });
-
-    it('T-EC-PA-06-02: 未知の位置引数で Deno.exit(1) が呼ばれる', () => {
-      parseArgs(['my-project']);
-      assertEquals(exitStub.calls.length, 1);
-      assertEquals(exitStub.calls[0].args[0], 1);
-    });
-  });
-
-  /** 正常系: 全フィールドを同時指定 */
   describe('Given: ["claude", "2026-03", "--output", "/out"]', () => {
-    let result: ReturnType<typeof parseArgs>;
-    beforeEach(() => {
-      result = parseArgs(['claude', '2026-03', '--output', '/out']);
-    });
-
-    it('T-EC-PA-07-01: agent が "claude"', () => {
+    it('T-EC-PA-07: agent・period・outputDir が同時に設定される', () => {
+      const result = parseArgs(['claude', '2026-03', '--output', '/out']);
       assertEquals(result.agent, 'claude');
-    });
-
-    it('T-EC-PA-07-02: period が "2026-03"', () => {
       assertEquals(result.period, '2026-03');
-    });
-
-    it('T-EC-PA-07-04: outputDir が "/out"', () => {
       assertEquals(result.outputDir, '/out');
     });
   });
 
-  /** 正常系: --base と agent の組み合わせ */
   describe('Given: ["claude", "--base", "/data/logs"]', () => {
-    let result: ReturnType<typeof parseArgs>;
-    beforeEach(() => {
-      result = parseArgs(['claude', '--base', '/data/logs']);
-    });
-
-    it('T-EC-PA-10-01: agent が "claude"', () => {
+    it('T-EC-PA-10: agent と baseDir が同時に設定される', () => {
+      const result = parseArgs(['claude', '--base', '/data/logs']);
       assertEquals(result.agent, 'claude');
-    });
-
-    it('T-EC-PA-10-02: baseDir が "/data/logs"', () => {
       assertEquals(result.baseDir, '/data/logs');
     });
   });
 
-  /** 正常系: /chatlog/<agent> スタイルの --output パス */
-  describe('Given: ["--output", "/chatlog/claude"]', () => {
-    it('T-EC-PA-11-01: outputDir が "/chatlog/claude"', () => {
-      const result = parseArgs(['--output', '/chatlog/claude']);
-      assertEquals(result.outputDir, '/chatlog/claude');
-    });
-  });
-
-  /** 正常系: --input オプション */
-  describe('Given: ["--input", "/data/chatgpt-export"]', () => {
-    it('T-EC-PA-12-01: inputDir が "/data/chatgpt-export"', () => {
-      const result = parseArgs(['--input', '/data/chatgpt-export']);
-      assertEquals(result.inputDir, '/data/chatgpt-export');
-    });
-  });
-
-  /** 正常系: --input= 形式 */
-  describe('Given: ["--input=/data/chatgpt-export"]', () => {
-    it('T-EC-PA-12-02: inputDir が "/data/chatgpt-export"', () => {
-      const result = parseArgs(['--input=/data/chatgpt-export']);
-      assertEquals(result.inputDir, '/data/chatgpt-export');
-    });
-  });
-
-  /** 正常系: chatgpt agent 指定 */
-  describe('Given: ["chatgpt"]', () => {
-    it('T-EC-PA-13-01: agent が "chatgpt"', () => {
-      const result = parseArgs(['chatgpt']);
-      assertEquals(result.agent, 'chatgpt');
-    });
-  });
-
-  /** 正常系: chatgpt + 位置引数パス */
-  describe('Given: ["chatgpt", "/path/to/export"]', () => {
-    it('T-EC-PA-15-01: inputDir が "/path/to/export"', () => {
-      const result = parseArgs(['chatgpt', '/path/to/export']);
-      assertEquals(result.inputDir, '/path/to/export');
-    });
-  });
-
-  /** 正常系: chatgpt + 期間 + 位置引数パス */
-  describe('Given: ["chatgpt", "2026-03", "/path/to/export"]', () => {
-    let result: ReturnType<typeof parseArgs>;
-    beforeEach(() => {
-      result = parseArgs(['chatgpt', '2026-03', '/path/to/export']);
-    });
-
-    it('T-EC-PA-15-02: period が "2026-03"、inputDir が "/path/to/export"', () => {
-      assertEquals(result.period, '2026-03');
-      assertEquals(result.inputDir, '/path/to/export');
-    });
-  });
-
-  /** 正常系: chatgpt + Windows パス（バックスラッシュ正規化） */
-  describe('Given: ["chatgpt", "C:\\\\Users\\\\foo\\\\export"]', () => {
-    it('T-EC-PA-15-04: inputDir が "C:/Users/foo/export"（\\ → / 正規化済み）', () => {
-      const result = parseArgs(['chatgpt', 'C:\\Users\\foo\\export']);
-      assertEquals(result.inputDir, 'C:/Users/foo/export');
-    });
-  });
-
-  /** 正常系: chatgpt + 位置引数パス + 期間（順番逆） */
-  describe('Given: ["chatgpt", "/path/to/export", "2026-03"]', () => {
-    let result: ReturnType<typeof parseArgs>;
-    beforeEach(() => {
-      result = parseArgs(['chatgpt', '/path/to/export', '2026-03']);
-    });
-
-    it('T-EC-PA-15-03: period が "2026-03"、inputDir が "/path/to/export"', () => {
-      assertEquals(result.period, '2026-03');
-      assertEquals(result.inputDir, '/path/to/export');
-    });
-  });
-
-  /** 正常系: chatgpt + --input の組み合わせ */
   describe('Given: ["chatgpt", "--input", "/data/export"]', () => {
-    let result: ReturnType<typeof parseArgs>;
-    beforeEach(() => {
-      result = parseArgs(['chatgpt', '--input', '/data/export']);
-    });
-
-    it('T-EC-PA-14-01: agent が "chatgpt"', () => {
+    it('T-EC-PA-14: agent と inputDir が同時に設定される', () => {
+      const result = parseArgs(['chatgpt', '--input', '/data/export']);
       assertEquals(result.agent, 'chatgpt');
-    });
-
-    it('T-EC-PA-14-02: inputDir が "/data/export"', () => {
       assertEquals(result.inputDir, '/data/export');
+    });
+  });
+
+  describe('Given: ["chatgpt", "2026-03", "/path/to/export"]', () => {
+    it('T-EC-PA-15-02: period と inputDir が同時に設定される', () => {
+      const result = parseArgs(['chatgpt', '2026-03', '/path/to/export']);
+      assertEquals(result.period, '2026-03');
+      assertEquals(result.inputDir, '/path/to/export');
+    });
+  });
+
+  describe('Given: ["chatgpt", "/path/to/export", "2026-03"]（順番逆）', () => {
+    it('T-EC-PA-15-03: 順番が逆でも period と inputDir が正しく設定される', () => {
+      const result = parseArgs(['chatgpt', '/path/to/export', '2026-03']);
+      assertEquals(result.period, '2026-03');
+      assertEquals(result.inputDir, '/path/to/export');
+    });
+  });
+
+  // ─── 異常系: ChatlogError がスローされる ──────────────────────────────────────
+
+  describe('Given: 不正な引数', () => {
+    describe('When: parseArgs(args) を呼び出す', () => {
+      describe('Then: ChatlogError(InvalidArgs) がスローされる', () => {
+        const _errorCases: { id: string; args: string[]; label: string }[] = [
+          { id: 'T-EC-PA-06-01', args: ['--unknown'], label: '未知オプション' },
+          { id: 'T-EC-PA-06-02', args: ['my-project'], label: '未知の位置引数' },
+        ];
+        for (const { id, args, label } of _errorCases) {
+          it(`${id}: ${label} → ChatlogError(InvalidArgs) がスローされる`, () => {
+            assertThrows(
+              () => parseArgs(args),
+              ChatlogError,
+              'Invalid Args',
+            );
+          });
+        }
+      });
     });
   });
 });

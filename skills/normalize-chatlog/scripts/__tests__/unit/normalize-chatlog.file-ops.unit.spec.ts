@@ -270,7 +270,7 @@ describe('writeOutput', () => {
       await assertRejects(
         () => writeOutput(outputPath, 'content', false, stats),
         Error,
-        'R-010',
+        'Forbidden Output',
       );
     });
   });

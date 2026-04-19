@@ -302,7 +302,7 @@ describe('writeOutput', () => {
                 await writeOutput(inputPath, 'overwrite', false, stats);
               },
               Error,
-              'R-010',
+              'Forbidden Output',
             );
           });
         });

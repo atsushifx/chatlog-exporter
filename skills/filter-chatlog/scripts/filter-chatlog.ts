@@ -485,8 +485,7 @@ export function parseArgs(args: string[]): Args {
     } else if (arg.startsWith('--input=')) {
       inputDir = arg.slice('--input='.length);
     } else if (arg.startsWith('-')) {
-      console.error(`不明なオプション: ${arg}`);
-      Deno.exit(1);
+      throw new ChatlogError('InvalidArgs', `不明なオプション: ${arg}`);
     } else if (/^\d{4}-\d{2}$/.test(arg)) {
       period = arg;
     } else if (period) {
@@ -504,54 +503,61 @@ export function parseArgs(args: string[]): Args {
 // ─────────────────────────────────────────────
 
 export async function main(args?: string[]): Promise<void> {
-  const { agent, period, project, dryRun, inputDir } = parseArgs(args ?? Deno.args);
-  const agentDir = `${inputDir}/${agent}`;
-
-  // 入力ディレクトリ確認
   try {
-    const stat = await Deno.stat(agentDir);
-    if (!stat.isDirectory) {
-      logger.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
+    const { agent, period, project, dryRun, inputDir } = parseArgs(args ?? Deno.args);
+    const agentDir = `${inputDir}/${agent}`;
+
+    // 入力ディレクトリ確認
+    try {
+      const stat = await Deno.stat(agentDir);
+      if (!stat.isDirectory) {
+        throw new ChatlogError('InputNotFound', `入力ディレクトリが見つかりません: ${agentDir}`);
+      }
+    } catch (e) {
+      if (e instanceof ChatlogError) { throw e; }
+      throw new ChatlogError('InputNotFound', `入力ディレクトリが見つかりません: ${agentDir}`);
+    }
+
+    logger.info(`対象 agent: ${agent}`);
+
+    // ファイル列挙
+    const allFiles = await findMdFiles(agentDir, period, project);
+
+    // 事前フィルタ
+    const targetFiles = await prefilterFiles(allFiles);
+
+    const total = targetFiles.length;
+    if (total === 0) {
+      logger.info('対象ファイルなし');
+      logger.info('完了: kept=0 discarded=0 skipped=0 error=0');
+      return;
+    }
+
+    logger.info(`判定対象ファイル数: ${total}`);
+    if (dryRun) { logger.info('dry-run モード: ファイルは削除しません'); }
+
+    // チャンク分割して並列処理
+    const stats: Stats = { kept: 0, discarded: 0, skipped: 0, error: 0 };
+
+    const tasks: (() => Promise<void>)[] = [];
+    for (let i = 0; i < targetFiles.length; i += CHUNK_SIZE) {
+      const chunk = targetFiles.slice(i, i + CHUNK_SIZE);
+      tasks.push(() => processChunk(chunk, dryRun, stats));
+    }
+    await withConcurrency(tasks, CONCURRENCY);
+
+    // サマリー
+    const drySuffix = dryRun ? ' (dry-run)' : '';
+    logger.info(
+      `\n完了${drySuffix}: kept=${stats.kept} discarded=${stats.discarded} skipped=${stats.skipped} error=${stats.error}`,
+    );
+  } catch (e) {
+    if (e instanceof ChatlogError) {
+      logger.error(e.message);
       Deno.exit(1);
     }
-  } catch {
-    logger.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
-    Deno.exit(1);
+    throw e;
   }
-
-  logger.info(`対象 agent: ${agent}`);
-
-  // ファイル列挙
-  const allFiles = await findMdFiles(agentDir, period, project);
-
-  // 事前フィルタ
-  const targetFiles = await prefilterFiles(allFiles);
-
-  const total = targetFiles.length;
-  if (total === 0) {
-    logger.info('対象ファイルなし');
-    logger.info('完了: kept=0 discarded=0 skipped=0 error=0');
-    Deno.exit(0);
-  }
-
-  logger.info(`判定対象ファイル数: ${total}`);
-  if (dryRun) { logger.info('dry-run モード: ファイルは削除しません'); }
-
-  // チャンク分割して並列処理
-  const stats: Stats = { kept: 0, discarded: 0, skipped: 0, error: 0 };
-
-  const tasks: (() => Promise<void>)[] = [];
-  for (let i = 0; i < targetFiles.length; i += CHUNK_SIZE) {
-    const chunk = targetFiles.slice(i, i + CHUNK_SIZE);
-    tasks.push(() => processChunk(chunk, dryRun, stats));
-  }
-  await withConcurrency(tasks, CONCURRENCY);
-
-  // サマリー
-  const drySuffix = dryRun ? ' (dry-run)' : '';
-  logger.info(
-    `\n完了${drySuffix}: kept=${stats.kept} discarded=${stats.discarded} skipped=${stats.skipped} error=${stats.error}`,
-  );
 }
 
 if (import.meta.main) {

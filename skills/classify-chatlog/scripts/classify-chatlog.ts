@@ -34,7 +34,7 @@ export async function loadProjects(dicsDir: string): Promise<string[]> {
   try {
     text = await Deno.readTextFile(dicPath);
   } catch {
-    logger.warn(`警告: projects.dic が見つかりません: ${dicPath}`);
+    logger.warn(`projects.dic が見つかりません: ${dicPath}`);
     return [];
   }
   return text
@@ -496,15 +496,13 @@ export function parseArgs(args: string[]): ClassifyConfig {
     } else if (arg.startsWith('--dics=')) {
       dicsDir = arg.slice('--dics='.length);
     } else if (arg.startsWith('-')) {
-      console.error(`不明なオプション: ${arg}`);
-      Deno.exit(1);
+      throw new ChatlogError('InvalidArgs', `不明なオプション: ${arg}`);
     } else if (/^\d{4}-\d{2}$/.test(arg)) {
       period = arg;
     } else if (isKnownAgent(arg)) {
       agent = arg;
     } else {
-      console.error(`不明な引数: ${arg}`);
-      Deno.exit(1);
+      throw new ChatlogError('InvalidArgs', `不明な引数: ${arg}`);
     }
   }
 
@@ -516,78 +514,85 @@ export function parseArgs(args: string[]): ClassifyConfig {
 // ─────────────────────────────────────────────
 
 export async function main(argv?: string[]): Promise<void> {
-  const _config = parseArgs(argv ?? Deno.args);
-
-  // 入力ディレクトリ確認
-  const agentDir = `${_config.inputDir}/${_config.agent}`;
   try {
-    const stat = await Deno.stat(agentDir);
-    if (!stat.isDirectory) {
-      logger.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
+    const _config = parseArgs(argv ?? Deno.args);
+
+    // 入力ディレクトリ確認
+    const agentDir = `${_config.inputDir}/${_config.agent}`;
+    try {
+      const stat = await Deno.stat(agentDir);
+      if (!stat.isDirectory) {
+        throw new ChatlogError('InputNotFound', `入力ディレクトリが見つかりません: ${agentDir}`);
+      }
+    } catch (e) {
+      if (e instanceof ChatlogError) { throw e; }
+      throw new ChatlogError('InputNotFound', `入力ディレクトリが見つかりません: ${agentDir}`);
+    }
+
+    // プロジェクト辞書読み込み
+    const projects = await loadProjects(_config.dicsDir);
+    if (projects.length === 0) {
+      logger.warn('警告: projects.dic にプロジェクトが定義されていません。すべて misc に分類されます。');
+    }
+
+    logger.info(`対象 agent: ${_config.agent}`);
+    if (_config.period) { logger.info(`対象期間: ${_config.period}`); }
+    if (_config.dryRun) { logger.info('dry-run モード: ファイルは移動しません'); }
+    logger.info(`プロジェクト候補: ${projects.join(', ')}`);
+
+    // ファイル列挙
+    const allFiles = await findMdFilesFlat(_config.inputDir, _config.agent, _config.period);
+    if (allFiles.length === 0) {
+      logger.info('対象ファイルなし');
+      logger.info('完了: moved=0 skipped=0 error=0');
+      return;
+    }
+
+    // メタデータ読み込みとスキップ判定
+    const targetMetas: FileMeta[] = [];
+    const stats: Stats = { moved: 0, skipped: 0, error: 0 };
+
+    for (const filePath of allFiles) {
+      const meta = await loadFileMeta(filePath);
+      if (!meta) {
+        stats.error++;
+        continue;
+      }
+      if (meta.existingProject) {
+        logger.info(`  skipped (既にプロジェクト設定済み: ${meta.existingProject}): ${meta.filename}`);
+        stats.skipped++;
+        continue;
+      }
+      targetMetas.push(meta);
+    }
+
+    logger.info(`\n対象ファイル数: ${targetMetas.length} (スキップ: ${stats.skipped})`);
+
+    if (targetMetas.length === 0) {
+      logger.info(`\n完了: moved=${stats.moved} skipped=${stats.skipped} error=${stats.error}`);
+      return;
+    }
+
+    // チャンク分割して並列処理
+    const tasks: (() => Promise<void>)[] = [];
+    for (let i = 0; i < targetMetas.length; i += DEFAULT_CHUNK_SIZE) {
+      const chunk = targetMetas.slice(i, i + DEFAULT_CHUNK_SIZE);
+      tasks.push(() => processChunk(chunk, projects, _config.dryRun, stats));
+    }
+    await withConcurrency(tasks, DEFAULT_CONCURRENCY);
+
+    // サマリー
+    const drySuffix = _config.dryRun ? ' (dry-run)' : '';
+    logger.info(
+      `\n完了${drySuffix}: moved=${stats.moved} skipped=${stats.skipped} error=${stats.error}`,
+    );
+  } catch (e) {
+    if (e instanceof ChatlogError) {
+      logger.error(e.message);
       Deno.exit(1);
     }
-  } catch {
-    logger.error(`エラー: 入力ディレクトリが見つかりません: ${agentDir}`);
-    Deno.exit(1);
+    throw e;
   }
-
-  // プロジェクト辞書読み込み
-  const projects = await loadProjects(_config.dicsDir);
-  if (projects.length === 0) {
-    logger.warn('警告: projects.dic にプロジェクトが定義されていません。すべて misc に分類されます。');
-  }
-
-  logger.info(`対象 agent: ${_config.agent}`);
-  if (_config.period) { logger.info(`対象期間: ${_config.period}`); }
-  if (_config.dryRun) { logger.info('dry-run モード: ファイルは移動しません'); }
-  logger.info(`プロジェクト候補: ${projects.join(', ')}`);
-
-  // ファイル列挙
-  const allFiles = await findMdFilesFlat(_config.inputDir, _config.agent, _config.period);
-  if (allFiles.length === 0) {
-    logger.info('対象ファイルなし');
-    logger.info('完了: moved=0 skipped=0 error=0');
-    Deno.exit(0);
-  }
-
-  // メタデータ読み込みとスキップ判定
-  const targetMetas: FileMeta[] = [];
-  const stats: Stats = { moved: 0, skipped: 0, error: 0 };
-
-  for (const filePath of allFiles) {
-    const meta = await loadFileMeta(filePath);
-    if (!meta) {
-      stats.error++;
-      continue;
-    }
-    if (meta.existingProject) {
-      logger.info(`  skipped (既にプロジェクト設定済み: ${meta.existingProject}): ${meta.filename}`);
-      stats.skipped++;
-      continue;
-    }
-    targetMetas.push(meta);
-  }
-
-  logger.info(`\n対象ファイル数: ${targetMetas.length} (スキップ: ${stats.skipped})`);
-
-  if (targetMetas.length === 0) {
-    logger.info(`\n完了: moved=${stats.moved} skipped=${stats.skipped} error=${stats.error}`);
-    Deno.exit(0);
-  }
-
-  // チャンク分割して並列処理
-  const tasks: (() => Promise<void>)[] = [];
-  for (let i = 0; i < targetMetas.length; i += DEFAULT_CHUNK_SIZE) {
-    const chunk = targetMetas.slice(i, i + DEFAULT_CHUNK_SIZE);
-    tasks.push(() => processChunk(chunk, projects, _config.dryRun, stats));
-  }
-  await withConcurrency(tasks, DEFAULT_CONCURRENCY);
-
-  // サマリー
-  const drySuffix = _config.dryRun ? ' (dry-run)' : '';
-  logger.info(
-    `\n完了${drySuffix}: moved=${stats.moved} skipped=${stats.skipped} error=${stats.error}`,
-  );
 }
 
 if (import.meta.main) { await main(); }
