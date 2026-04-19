@@ -5,5 +5,7 @@ export const ERROR_KIND_LABELS = {
   TooManyBackups: 'Too Many Backups',
   InvalidPeriod: 'Invalid Period',
   MissingArg: 'Missing Arg',
-  ForbiddenOutput: 'R-010',
+  ForbiddenOutput: 'Forbidden Output',
+  InvalidArgs: 'Invalid Args',
+  InputNotFound: 'Input Not Found',
 } as const;
