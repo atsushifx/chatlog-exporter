@@ -43,16 +43,16 @@ export type ResolveResult =
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Default maximum number of concurrent tasks for {@link parseArgs}. */
-const DEFAULT_CONCURRENCY = 4;
+const _DEFAULT_CONCURRENCY = 4;
 
 /** Maximum number of segments returned by {@link segmentChatlog}. */
-const MAX_SEGMENTS = 10;
+const _MAX_SEGMENTS = 10;
 
 /** Markdown heading that marks the start of the body section in a segment file. */
 export const START_BODY_HEADING = '## Excerpt';
 
 /** Model IDs and aliases accepted by the Claude Code CLI. */
-const VALID_MODELS = new Set([
+const _VALID_MODELS = new Set([
   'claude-opus-4-6',
   'claude-sonnet-4-6',
   'claude-haiku-4-5-20251001',
@@ -310,8 +310,8 @@ export function attachFrontmatter(
  * @throws Propagates spawn errors (e.g., command not found) naturally
  */
 export async function runAI(model: string, systemPrompt: string, userPrompt: string): Promise<string> {
-  if (!VALID_MODELS.has(model)) {
-    throw new Error(`Unknown model: "${model}". Valid models: ${[...VALID_MODELS].join(', ')}`);
+  if (!_VALID_MODELS.has(model)) {
+    throw new Error(`Unknown model: "${model}". Valid models: ${[..._VALID_MODELS].join(', ')}`);
   }
   const cmd = new Deno.Command('claude', {
     args: [
@@ -379,7 +379,7 @@ export async function segmentChatlog(filePath: string, content: string): Promise
   }
 
   const segments = parsed as Segment[];
-  return segments.slice(0, MAX_SEGMENTS);
+  return segments.slice(0, _MAX_SEGMENTS);
 }
 
 // ─── File Operations ──────────────────────────────────────────────────────────
@@ -612,7 +612,7 @@ export function resolveOutputDir(inputDir: string, outputBase: string, project: 
  * @param p - The path string to normalize
  * @returns The normalized path string with `/` as separator
  */
-function normalizePath(p: string): string {
+function _normalizePath(p: string): string {
   return p.replaceAll('\\', '/');
 }
 
@@ -637,13 +637,13 @@ function normalizePath(p: string): string {
  * @returns Parsed options as a {@link ParsedArgs} object
  */
 export function parseArgs(argv: string[]): ParsedArgs {
-  const result: ParsedArgs = { concurrency: DEFAULT_CONCURRENCY, dryRun: false };
+  const result: ParsedArgs = { concurrency: _DEFAULT_CONCURRENCY, dryRun: false };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     switch (arg) {
       case '--dir':
-        result.dir = normalizePath(argv[++i]);
+        result.dir = _normalizePath(argv[++i]);
         break;
       case '--agent':
         result.agent = argv[++i];
@@ -661,7 +661,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
         result.output = argv[++i];
         break;
       default: {
-        const normalized = normalizePath(arg);
+        const normalized = _normalizePath(arg);
         if (!normalized.startsWith('--') && normalized.includes('/')) {
           // Positional path argument: already normalized, assign to dir
           result.dir = normalized;
@@ -691,10 +691,10 @@ export async function withConcurrency<T>(
   concurrency: number,
 ): Promise<T[]> {
   const results: T[] = new Array(tasks.length);
-  let nextIndex = 0;
+  let _nextIndex = 0;
 
   async function runNext(): Promise<void> {
-    const index = nextIndex++;
+    const index = _nextIndex++;
     if (index >= tasks.length) {
       return;
     }
@@ -714,7 +714,7 @@ export async function withConcurrency<T>(
 // ─── Main Orchestration ───────────────────────────────────────────────────────
 
 /** Default output directory for normalized segment files. */
-const DEFAULT_OUTPUT_DIR = 'temp/normalize_logs';
+const _DEFAULT_OUTPUT_DIR = 'temp/normalize_logs';
 
 /**
  * Orchestrates the full normalize-chatlog pipeline.
@@ -737,7 +737,7 @@ export async function main(argv?: string[], hashFn?: HashProvider): Promise<void
     Deno.exit(1);
   }
   const inputDir = resolved.dir;
-  const outputBase = args.output ?? DEFAULT_OUTPUT_DIR;
+  const outputBase = args.output ?? _DEFAULT_OUTPUT_DIR;
 
   const mdFiles = findMdFiles(inputDir);
   const stats: Stats = { success: 0, skip: 0, fail: 0 };
