@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write
 // src: scripts/__tests__/integration/normalize-chatlog-findMd.integration.spec.ts
-// @(#): findMdFiles / collectMdFiles の統合テスト - 実ファイルシステムを使った検証
-//       対象: findMdFiles, collectMdFiles
+// @(#): findMdFiles の統合テスト - 実ファイルシステムを使った検証
+//       対象: findMdFiles (skills/_scripts/libs/find-md-files.ts)
 //       テスト種別: 正常系 / 異常系 / エッジケース
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
@@ -13,7 +13,7 @@ import { assertEquals, assertGreater } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // test target
-import { collectMdFiles, findMdFiles } from '../../normalize-chatlog.ts';
+import { findMdFiles } from '../../../../_scripts/libs/find-md-files.ts';
 
 // ─── findMdFiles integration tests ───────────────────────────────────────────
 
@@ -47,9 +47,9 @@ describe('findMdFiles', () => {
           await Deno.writeTextFile(`${dir}/sub1/b.md`, '');
           await Deno.writeTextFile(`${dir}/sub1/sub2/c.md`, '');
 
-          const result = findMdFiles(dir);
+          const _result = await findMdFiles(dir);
 
-          assertEquals(result.length, 3);
+          assertEquals(_result.length, 3);
         });
 
         /** 正常系: ソート順が辞書順になっている */
@@ -58,10 +58,10 @@ describe('findMdFiles', () => {
           await Deno.writeTextFile(`${dir}/a.md`, '');
           await Deno.writeTextFile(`${dir}/b.md`, '');
 
-          const result = findMdFiles(dir);
+          const _result = await findMdFiles(dir);
 
-          const sorted = [...result].sort();
-          assertEquals(result, sorted);
+          const _sorted = [..._result].sort();
+          assertEquals(_result, _sorted);
         });
 
         /** 正常系: サブディレクトリより深い階層のパスも絶対パスに含む */
@@ -69,10 +69,10 @@ describe('findMdFiles', () => {
           await Deno.mkdir(`${dir}/sub1`);
           await Deno.writeTextFile(`${dir}/sub1/b.md`, '');
 
-          const result = findMdFiles(dir);
+          const _result = await findMdFiles(dir);
 
-          assertEquals(result.length, 1);
-          assertEquals(result[0].includes('sub1'), true);
+          assertEquals(_result.length, 1);
+          assertEquals(_result[0].includes('sub1'), true);
         });
       });
     });
@@ -100,10 +100,10 @@ describe('findMdFiles', () => {
           await Deno.writeTextFile(`${dir}/b.txt`, '');
           await Deno.writeTextFile(`${dir}/c.yaml`, '');
 
-          const result = findMdFiles(dir);
+          const _result = await findMdFiles(dir);
 
-          assertEquals(result.length, 1);
-          assertEquals(result[0].endsWith('.md'), true);
+          assertEquals(_result.length, 1);
+          assertEquals(_result[0].endsWith('.md'), true);
         });
 
         /** 正常系: .md ゼロ件のディレクトリでは空配列 */
@@ -111,9 +111,9 @@ describe('findMdFiles', () => {
           await Deno.writeTextFile(`${dir}/b.txt`, '');
           await Deno.writeTextFile(`${dir}/c.yaml`, '');
 
-          const result = findMdFiles(dir);
+          const _result = await findMdFiles(dir);
 
-          assertEquals(result, []);
+          assertEquals(_result, []);
         });
 
         /** 正常系: 大文字拡張子 .MD はフィルタリングされる */
@@ -121,11 +121,11 @@ describe('findMdFiles', () => {
           await Deno.writeTextFile(`${dir}/a.md`, '');
           await Deno.writeTextFile(`${dir}/b.MD`, '');
 
-          const result = findMdFiles(dir);
+          const _result = await findMdFiles(dir);
 
           // .md（小文字）のみ収集され、.MD は除外される
-          assertEquals(result.length, 1);
-          assertEquals(result[0].endsWith('.md'), true);
+          assertEquals(_result.length, 1);
+          assertEquals(_result[0].endsWith('.md'), true);
         });
 
         /** 正常系: .md 拡張子を含まない名前（例: readme.mdx）は除外される */
@@ -134,9 +134,9 @@ describe('findMdFiles', () => {
           await Deno.writeTextFile(`${dir}/b.mdx`, '');
           await Deno.writeTextFile(`${dir}/c.markdown`, '');
 
-          const result = findMdFiles(dir);
+          const _result = await findMdFiles(dir);
 
-          assertEquals(result.length, 1);
+          assertEquals(_result.length, 1);
         });
       });
     });
@@ -159,28 +159,28 @@ describe('findMdFiles', () => {
     describe('When: findMdFiles(dir) を呼び出す', () => {
       describe('Then: Task T-16-03 - 空ディレクトリのエッジケース', () => {
         /** エッジケース: 完全に空のディレクトリ */
-        it('T-16-03-01: 空ディレクトリで空配列が返される', () => {
-          const result = findMdFiles(dir);
+        it('T-16-03-01: 空ディレクトリで空配列が返される', async () => {
+          const _result = await findMdFiles(dir);
 
-          assertEquals(result, []);
+          assertEquals(_result, []);
         });
 
         /** エッジケース: 空のサブディレクトリのみ存在する場合 */
         it('T-16-03-02: 空のサブディレクトリのみの場合も空配列が返される', async () => {
           await Deno.mkdir(`${dir}/empty_sub`);
 
-          const result = findMdFiles(dir);
+          const _result = await findMdFiles(dir);
 
-          assertEquals(result, []);
+          assertEquals(_result, []);
         });
 
         /** エッジケース: 存在しないパスを渡した場合も空配列が返される */
-        it('T-16-03-03: 存在しないパスを渡した場合も空配列が返される', () => {
-          const nonExistentDir = `${dir}/does_not_exist`;
+        it('T-16-03-03: 存在しないパスを渡した場合も空配列が返される', async () => {
+          const _nonExistentDir = `${dir}/does_not_exist`;
 
-          const result = findMdFiles(nonExistentDir);
+          const _result = await findMdFiles(_nonExistentDir);
 
-          assertEquals(result, []);
+          assertEquals(_result, []);
         });
       });
     });
@@ -207,129 +207,21 @@ describe('findMdFiles', () => {
           await Deno.writeTextFile(`${dir}/normal.md`, '');
           await Deno.writeTextFile(`${dir}/.hidden.md`, '');
 
-          const result = findMdFiles(dir);
+          const _result = await findMdFiles(dir);
 
           // どちらも .md なので両方収集される
-          assertGreater(result.length, 0);
-          assertEquals(result.some((p) => p.endsWith('.md')), true);
+          assertGreater(_result.length, 0);
+          assertEquals(_result.some((p) => p.endsWith('.md')), true);
         });
 
         /** エッジケース: ファイル名が .md だけのファイルも収集される */
         it('T-16-06-02: ファイル名が ".md" だけのファイルも収集される', async () => {
           await Deno.writeTextFile(`${dir}/.md`, '');
 
-          const result = findMdFiles(dir);
+          const _result = await findMdFiles(dir);
 
-          assertEquals(result.length, 1);
-          assertEquals(result[0].endsWith('.md'), true);
-        });
-      });
-    });
-  });
-});
-
-// ─── collectMdFiles integration tests ────────────────────────────────────────
-
-/**
- * collectMdFiles のインテグレーションテスト。
- * 実ファイルシステムを使って results アキュムレータへの追記と
- * 存在しないディレクトリでのエラー耐性を検証する。
- */
-describe('collectMdFiles', () => {
-  // ─── T-16-04: results アキュムレータへの追記（正常系） ───────────────────
-
-  /** 正常系: .md ファイルを results に追記する */
-  describe('Given: .md、.txt ファイルを含むディレクトリ', () => {
-    let dir: string;
-
-    beforeEach(async () => {
-      dir = await Deno.makeTempDir();
-    });
-
-    afterEach(async () => {
-      await Deno.remove(dir, { recursive: true });
-    });
-
-    describe('When: collectMdFiles(dir, results) を呼び出す', () => {
-      describe('Then: Task T-16-04 - .md ファイルの results への追記', () => {
-        /** 正常系: .md のみが results に追加される */
-        it('T-16-04-01: .md ファイルのみが results に追記される', async () => {
-          await Deno.writeTextFile(`${dir}/a.md`, '');
-          await Deno.writeTextFile(`${dir}/b.txt`, '');
-
-          const results: string[] = [];
-          collectMdFiles(dir, results);
-
-          assertEquals(results.length, 1);
-          assertEquals(results[0].endsWith('.md'), true);
-        });
-
-        /** 正常系: 複数ディレクトリを渡すと results に累積される */
-        it('T-16-04-02: 2つのディレクトリを連続して呼び出すと results に累積される', async () => {
-          const dir2 = await Deno.makeTempDir();
-          try {
-            await Deno.writeTextFile(`${dir}/a.md`, '');
-            await Deno.writeTextFile(`${dir2}/b.md`, '');
-
-            const results: string[] = [];
-            collectMdFiles(dir, results);
-            collectMdFiles(dir2, results);
-
-            // 両ディレクトリの .md ファイルが累積されている
-            assertEquals(results.length, 2);
-          } finally {
-            await Deno.remove(dir2, { recursive: true });
-          }
-        });
-
-        /** 正常系: サブディレクトリ内の .md も results に追記される */
-        it('T-16-04-03: サブディレクトリ内の .md ファイルも results に追記される', async () => {
-          await Deno.mkdir(`${dir}/sub`);
-          await Deno.writeTextFile(`${dir}/a.md`, '');
-          await Deno.writeTextFile(`${dir}/sub/b.md`, '');
-          await Deno.writeTextFile(`${dir}/sub/c.txt`, '');
-
-          const results: string[] = [];
-          collectMdFiles(dir, results);
-
-          assertEquals(results.length, 2);
-          assertEquals(results.every((p) => p.endsWith('.md')), true);
-        });
-      });
-    });
-  });
-
-  // ─── T-16-05: 存在しないディレクトリのエラー耐性（異常系） ──────────────
-
-  /** 異常系/エッジケース: 存在しないパスはエラーをスローせず results を空のまま返す */
-  describe('Given: ファイルシステムに存在しないパス', () => {
-    describe('When: collectMdFiles(nonExistentPath, results) を呼び出す', () => {
-      describe('Then: Task T-16-05 - 存在しないディレクトリのエラー耐性', () => {
-        /** 異常系: 存在しないパスでもエラーをスローしない */
-        it('T-16-05-01: エラーがスローされず results が空のままである', () => {
-          const nonExistentPath = '/this/path/does/not/exist/at/all/9999';
-
-          const results: string[] = [];
-          collectMdFiles(nonExistentPath, results);
-
-          assertEquals(results, []);
-        });
-
-        /** 異常系: 既存 results に追記済みの場合、存在しないパスでも既存エントリは保持される */
-        it('T-16-05-02: 既存 results に影響せず既存エントリが保持される', async () => {
-          const tempDir = await Deno.makeTempDir();
-          try {
-            await Deno.writeTextFile(`${tempDir}/a.md`, '');
-            const results: string[] = [];
-            collectMdFiles(tempDir, results);
-
-            // 存在しないパスを渡しても既存 results は変わらない
-            collectMdFiles('/nonexistent/xyz/9999', results);
-
-            assertEquals(results.length, 1);
-          } finally {
-            await Deno.remove(tempDir, { recursive: true });
-          }
+          assertEquals(_result.length, 1);
+          assertEquals(_result[0].endsWith('.md'), true);
         });
       });
     });
