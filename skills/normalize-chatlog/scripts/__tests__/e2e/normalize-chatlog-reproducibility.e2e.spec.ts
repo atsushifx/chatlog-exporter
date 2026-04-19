@@ -25,7 +25,8 @@ import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-s
 import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // test target
-import { findMdFiles, main } from '../../normalize-chatlog.ts';
+import { findMdFiles } from '../../../../_scripts/libs/find-md-files.ts';
+import { main } from '../../normalize-chatlog.ts';
 import type { HashProvider } from '../../normalize-chatlog.ts';
 
 // ─── 再現性テスト ──────────────────────────────────────────────────────────────
@@ -86,7 +87,7 @@ describe('main - reproducibility', () => {
           assertMatch(loggerStub.infoLogs.join('\n'), /success=1/);
 
           // Verify the old file was backed up as .old-01.md (search recursively under outputDir)
-          const allFiles = findMdFiles(outputDir);
+          const allFiles = await findMdFiles(outputDir);
           const backupExists = allFiles.some((path) => path.includes('.old-01.md'));
           assertEquals(backupExists, true);
         });
