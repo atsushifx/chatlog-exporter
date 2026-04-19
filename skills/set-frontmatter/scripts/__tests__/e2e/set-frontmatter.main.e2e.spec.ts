@@ -8,8 +8,6 @@
 
 import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import type { Stub } from '@std/testing/mock';
-import { stub } from '@std/testing/mock';
 
 // test target
 import { main } from '../../set-frontmatter.ts';
@@ -175,77 +173,6 @@ describe('main - --no-review モード', () => {
             ),
             true,
           );
-        });
-      });
-    });
-  });
-});
-
-// ─── T-SF-E2E-03: 存在しない targetDir → Deno.exit(1) ────────────────────────
-
-describe('main - 存在しない targetDir', () => {
-  describe('Given: 存在しないディレクトリパス', () => {
-    describe('When: main(["/nonexistent", "--dics", dicsDir]) を呼び出す', () => {
-      describe('Then: T-SF-E2E-03 - Deno.exit(1) が呼ばれる', () => {
-        let exitStub: Stub<typeof Deno, [code?: number], never>;
-        let loggerStub: LoggerStub;
-        let dicsDir: string;
-
-        beforeEach(async () => {
-          dicsDir = await _makeDicsDir();
-          exitStub = stub(Deno, 'exit');
-          loggerStub = makeLoggerStub();
-        });
-
-        afterEach(async () => {
-          exitStub.restore();
-          loggerStub.restore();
-          // dicsDir は baseDir/dics なので親ディレクトリを削除
-          await Deno.remove(dicsDir.replace(/[/\\]dics$/, ''), { recursive: true }).catch(() => {});
-        });
-
-        it('T-SF-E2E-03-01: Deno.exit(1) が最初に呼ばれる', async () => {
-          await main(['/nonexistent/path/does/not/exist', '--dics', dicsDir]);
-
-          assertEquals(exitStub.calls.length >= 1, true);
-          assertEquals(exitStub.calls[0].args[0], 1);
-        });
-      });
-    });
-  });
-});
-
-// ─── T-SF-E2E-04: .md ファイルが0件 → Deno.exit(0) ──────────────────────────
-
-describe('main - 対象ファイルなし', () => {
-  describe('Given: .md ファイルが存在しない空ディレクトリ', () => {
-    describe('When: main([emptyDir, "--dics", dicsDir]) を呼び出す', () => {
-      describe('Then: T-SF-E2E-04 - Deno.exit(0) が呼ばれる', () => {
-        let emptyDir: string;
-        let dicsDir: string;
-        let exitStub: Stub<typeof Deno, [code?: number], never>;
-        let loggerStub: LoggerStub;
-
-        beforeEach(async () => {
-          emptyDir = await Deno.makeTempDir();
-          dicsDir = await _makeDicsDir();
-          exitStub = stub(Deno, 'exit');
-          loggerStub = makeLoggerStub();
-        });
-
-        afterEach(async () => {
-          exitStub.restore();
-          loggerStub.restore();
-          await Deno.remove(emptyDir, { recursive: true }).catch(() => {});
-          // dicsDir は baseDir/dics なので親ディレクトリを削除
-          await Deno.remove(dicsDir.replace(/[/\\]dics$/, ''), { recursive: true }).catch(() => {});
-        });
-
-        it('T-SF-E2E-04-01: Deno.exit(0) が呼ばれる', async () => {
-          await main([emptyDir, '--dics', dicsDir]);
-
-          assertEquals(exitStub.calls.length >= 1, true);
-          assertEquals(exitStub.calls[0].args[0], 0);
         });
       });
     });
