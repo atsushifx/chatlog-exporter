@@ -23,10 +23,10 @@
 
 // cspell:words dics
 
-// import libraries
+// -- external --
 import { parse as parseYaml } from '@std/yaml';
+import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
-import { ChatlogError } from '../../_scripts/types/chatlog-error.types.ts';
 
 // ─────────────────────────────────────────────
 // 定数

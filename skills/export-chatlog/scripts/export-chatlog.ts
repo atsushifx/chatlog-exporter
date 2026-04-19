@@ -18,10 +18,12 @@
  *   codex   — ~/.codex/sessions/YYYY/MM/DD/ 以下のJSONL
  */
 
+// -- external --
+import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { isKnownAgent } from '../../_scripts/constants/agents.constants.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
-import { ChatlogError } from '../../_scripts/types/chatlog-error.types.ts';
-import { KNOWN_AGENTS } from './constants/agents.constants.ts';
+
+// -- internal --
 import { DEFAULT_EXPORT_CONFIG } from './constants/defaults.constants.ts';
 import {
   SESSION_SKIP_KEYWORDS,

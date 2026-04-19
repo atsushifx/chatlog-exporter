@@ -6,7 +6,10 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
-import { ChatlogError } from '../../../_scripts/types/chatlog-error.types.ts';
+// -- external --
+import { ChatlogError } from '../../../_scripts/classes/ChatlogError.class.ts';
+
+// -- internal --
 import {
   inPeriod,
   isoToDate,

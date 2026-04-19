@@ -17,8 +17,9 @@
 // 定数
 // ─────────────────────────────────────────────
 
+// -- external --
+import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
-import { ChatlogError } from '../../_scripts/types/chatlog-error.types.ts';
 
 export const CHUNK_SIZE = 10;
 export const CONCURRENCY = 4;

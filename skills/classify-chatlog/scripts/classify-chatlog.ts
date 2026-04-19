@@ -14,10 +14,15 @@
  *     [agent] [YYYY-MM] [--dry-run] --input DIR --dics DIR
  */
 
+// -- external --
+import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
+import { isKnownAgent } from '../../_scripts/constants/agents.constants.ts';
+import { DEFAULT_CHUNK_SIZE, DEFAULT_CONCURRENCY } from '../../_scripts/constants/concurrency.constants.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
+
+// -- internal --
 import { FALLBACK_PROJECT, MIN_CLASSIFIABLE_LENGTH } from './constants/classify.constants.ts';
 import type { ClassifyConfig, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
-
 
 // ─────────────────────────────────────────────
 // 辞書読み込み

@@ -7,8 +7,9 @@
 // https://opensource.org/licenses/MIT
 // normalize_chatlog.ts — Utilities for normalizing chatlog processing
 
+// -- external --
+import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
-import { ChatlogError } from '../../_scripts/types/chatlog-error.types.ts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
