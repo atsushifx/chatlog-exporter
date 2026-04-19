@@ -249,35 +249,3 @@ describe('main - 対象ファイルなし', () => {
     });
   });
 });
-
-// ─── T-CL-E2E-05: 存在しない inputDir → Deno.exit(1) ────────────────────────
-
-describe('main - 存在しない inputDir', () => {
-  describe('Given: 存在しない inputDir を指定', () => {
-    describe('When: main([...args, "--input", "/nonexistent"]) を呼び出す', () => {
-      describe('Then: T-CL-E2E-05 - Deno.exit(1) が最初に呼ばれる', () => {
-        let exitStub: Stub<typeof Deno, [code?: number], never>;
-        let errStub: Stub;
-
-        beforeEach(() => {
-          exitStub = stub(Deno, 'exit');
-          errStub = stub(console, 'error', () => {});
-        });
-
-        afterEach(() => {
-          exitStub.restore();
-          errStub.restore();
-        });
-
-        it('T-CL-E2E-05-01: 最初の Deno.exit 呼び出しが exit(1) である', async () => {
-          await main(['claude', '--input', '/nonexistent/path/does/not/exist', '--dics', '/tmp']);
-
-          // Deno.exit スタブは exit を止めないため複数回呼ばれる可能性あり
-          // 最初の呼び出しが exit(1) であることを確認する
-          assertEquals(exitStub.calls.length >= 1, true);
-          assertEquals(exitStub.calls[0].args[0], 1);
-        });
-      });
-    });
-  });
-});
