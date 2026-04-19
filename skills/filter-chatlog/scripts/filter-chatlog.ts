@@ -24,7 +24,7 @@ export const CONCURRENCY = 4;
 export const DISCARD_THRESHOLD = 0.7;
 export const MAX_BODY_CHARS = 8000;
 
-const SYSTEM_PROMPT = `Output ONLY a JSON array. No markdown, no explanation, no text before or after the array.
+const _SYSTEM_PROMPT = `Output ONLY a JSON array. No markdown, no explanation, no text before or after the array.
 [{"file":"<filename>","decision":"KEEP or DISCARD","confidence":0.0,"reason":"..."},...]
 
 KEEP: design decisions, reusable patterns, new concepts, architecture discussion
@@ -88,7 +88,7 @@ export function parseConversation(body: string): Turn[] {
 // 内容ベース事前フィルタ（obsidian_filter.py 移植）
 // ─────────────────────────────────────────────
 
-const SYSTEM_PREFIXES = [
+const _SYSTEM_PREFIXES = [
   '<system-reminder',
   '<command-name',
   '<command-message',
@@ -98,7 +98,7 @@ const SYSTEM_PREFIXES = [
   '---\n',
 ];
 
-const EXCLUDE_FILENAME_PATTERNS = [
+const _EXCLUDE_FILENAME_PATTERNS = [
   'you-are-a-topic-and-tag-extraction-assistant',
   'say-ok-and-nothing-else',
   'command-message-claude-idd-framework',
@@ -107,12 +107,12 @@ const EXCLUDE_FILENAME_PATTERNS = [
 
 export function isSystemOnlyMessage(text: string): boolean {
   const stripped = text.trim();
-  return SYSTEM_PREFIXES.some((prefix) => stripped.startsWith(prefix));
+  return _SYSTEM_PREFIXES.some((prefix) => stripped.startsWith(prefix));
 }
 
 export function isExcludedByFilename(filename: string): boolean {
   const lower = filename.toLowerCase();
-  return EXCLUDE_FILENAME_PATTERNS.some((pat) => lower.includes(pat));
+  return _EXCLUDE_FILENAME_PATTERNS.some((pat) => lower.includes(pat));
 }
 
 export function isExcludedByContent(
@@ -184,11 +184,11 @@ export async function findMdFiles(
   }
 
   const results: string[] = [];
-  await collectMdFiles(searchDir, results);
+  await _collectMdFiles(searchDir, results);
   return results.sort();
 }
 
-async function collectMdFiles(dir: string, results: string[]): Promise<void> {
+async function _collectMdFiles(dir: string, results: string[]): Promise<void> {
   let entries: Deno.DirEntry[];
   try {
     entries = [];
@@ -202,7 +202,7 @@ async function collectMdFiles(dir: string, results: string[]): Promise<void> {
   for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
     const fullPath = `${dir}/${entry.name}`;
     if (entry.isDirectory) {
-      await collectMdFiles(fullPath, results);
+      await _collectMdFiles(fullPath, results);
     } else if (entry.isFile && entry.name.endsWith('.md')) {
       results.push(fullPath);
     }
@@ -358,7 +358,7 @@ export async function withConcurrency<T>(
 
 export async function runClaude(prompt: string): Promise<string> {
   const cmd = new Deno.Command('claude', {
-    args: ['-p', SYSTEM_PROMPT, '--output-format', 'text'],
+    args: ['-p', _SYSTEM_PROMPT, '--output-format', 'text'],
     stdin: 'piped',
     stdout: 'piped',
     stderr: 'null',

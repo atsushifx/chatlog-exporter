@@ -37,7 +37,7 @@ import type { CodexEntry } from './types/codex-entry.types.ts';
  * @param text 処理対象のテキスト
  * @returns `<user_instructions>` ブロックを除去してトリムしたテキスト
  */
-export function _stripUserInstructions(text: string): string {
+export function stripUserInstructions(text: string): string {
   return text.replace(/<user_instructions>[\s\S]*?<\/user_instructions>/g, '').trim();
 }
 
@@ -119,7 +119,7 @@ export async function parseCodexSession(
     }
     const text = parts.join('\n').trim();
     if (!text) { continue; }
-    const cleaned = role === 'user' ? _stripUserInstructions(text) : text;
+    const cleaned = role === 'user' ? stripUserInstructions(text) : text;
     if (!cleaned) { continue; }
     if (role === 'user' && isSkippable(cleaned)) { continue; }
 

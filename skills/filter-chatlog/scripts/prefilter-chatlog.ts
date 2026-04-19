@@ -93,7 +93,7 @@ const NOISE_USER_EXACT_PATTERNS: { pattern: RegExp; label: string }[] = [
 ];
 
 /** システムタグのみと判断するプレフィックス正規表現 */
-const SYSTEM_TAG_PATTERN =
+const _SYSTEM_TAG_PATTERN =
   /^<(system-reminder|command-name|command-message|local-command-stdout|ide_opened_file|ide_selection)\b/;
 
 /** Assistantの応答が短すぎる場合の閾値（文字数） */
@@ -165,7 +165,7 @@ export function checkUserContent(turns: Turn[]): string | null {
   if (userTurns.length === 0) { return 'Userターンが存在しない'; }
 
   // 全Userターンがシステムタグのみ
-  if (userTurns.every((t) => SYSTEM_TAG_PATTERN.test(t.text))) {
+  if (userTurns.every((t) => _SYSTEM_TAG_PATTERN.test(t.text))) {
     return '全UserターンがシステムTagのみ';
   }
 
@@ -189,7 +189,7 @@ export function checkUserContent(turns: Turn[]): string | null {
     }
 
     // システムタグのみ
-    if (SYSTEM_TAG_PATTERN.test(text)) { return 'UserがシステムTagのみ'; }
+    if (_SYSTEM_TAG_PATTERN.test(text)) { return 'UserがシステムTagのみ'; }
   }
 
   return null;
@@ -257,15 +257,15 @@ export async function findMdFiles(baseDir: string, agent: string, period?: strin
     } catch {
       targetDir = flat;
     }
-    await collectMdFiles(targetDir, results);
+    await _collectMdFiles(targetDir, results);
   } else {
-    await collectMdFiles(agentDir, results);
+    await _collectMdFiles(agentDir, results);
   }
 
   return results.sort();
 }
 
-async function collectMdFiles(dir: string, results: string[]): Promise<void> {
+async function _collectMdFiles(dir: string, results: string[]): Promise<void> {
   let entries: Deno.DirEntry[];
   try {
     entries = [];
@@ -279,7 +279,7 @@ async function collectMdFiles(dir: string, results: string[]): Promise<void> {
   for (const e of entries.sort((a, b) => a.name.localeCompare(b.name))) {
     const fullPath = `${dir}/${e.name}`;
     if (e.isDirectory) {
-      await collectMdFiles(fullPath, results);
+      await _collectMdFiles(fullPath, results);
     } else if (e.isFile && e.name.endsWith('.md')) {
       results.push(fullPath);
     }

@@ -27,7 +27,7 @@ export type { GenerateHashOptions, HashProvider } from '../types/common.types.ts
 // ─────────────────────────────────────────────
 
 /** ランダム文字列の生成に使用する文字セット（英小文字+数字）。 */
-const RANDOM_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+const _RANDOM_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
 // ─────────────────────────────────────────────
 // 内部ユーティリティ
@@ -65,22 +65,22 @@ function _buildRandomString(maxLength: number): string {
     lenOffset = crypto.getRandomValues(new Uint8Array(1))[0];
   } while (lenOffset >= maxUnbiasedLen);
   const len = MIN_RANDOM_LENGTH + (lenOffset % range);
-  const charsetLen = RANDOM_CHARS.length;
+  const charsetLen = _RANDOM_CHARS.length;
   const maxUnbiased = Math.floor(256 / charsetLen) * charsetLen;
-  const out: string[] = [];
+  const _out: string[] = [];
 
-  while (out.length < len) {
-    const remaining = len - out.length;
+  while (_out.length < len) {
+    const remaining = len - _out.length;
     const buf = crypto.getRandomValues(new Uint8Array(remaining));
 
     for (const b of buf) {
       if (b >= maxUnbiased) { continue; }
-      out.push(RANDOM_CHARS[b % charsetLen]);
-      if (out.length === len) { break; }
+      _out.push(_RANDOM_CHARS[b % charsetLen]);
+      if (_out.length === len) { break; }
     }
   }
 
-  return out.join('');
+  return _out.join('');
 }
 
 /**
@@ -107,9 +107,9 @@ async function _sha256Hex(input: string): Promise<string> {
  * @returns シード文字列
  */
 function _buildSeed(filenameBase: string, maxRandomLength: number): string {
-  const timestamp = _buildTimestamp();
-  const random = _buildRandomString(maxRandomLength);
-  return `${filenameBase}-${timestamp}-${random}`;
+  const _timestamp = _buildTimestamp();
+  const _random = _buildRandomString(maxRandomLength);
+  return `${filenameBase}-${_timestamp}-${_random}`;
 }
 
 // ─────────────────────────────────────────────
