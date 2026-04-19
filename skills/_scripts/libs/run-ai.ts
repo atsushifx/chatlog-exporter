@@ -6,8 +6,8 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+import { ChatlogError } from '../classes/ChatlogError.class.ts';
 import { DEFAULT_AI_MODEL, DEFAULT_TIMEOUT_MS } from '../constants/common.constants.ts';
-import { ChatlogError } from '../types/chatlog-error.types.ts';
 
 /** Model IDs and aliases accepted by the Claude Code CLI. */
 const _VALID_MODELS = new Set([
@@ -35,7 +35,10 @@ export async function runAI(
 ): Promise<string> {
   const _options = { model: DEFAULT_AI_MODEL, timeoutMs: DEFAULT_TIMEOUT_MS, ...options };
   if (!_VALID_MODELS.has(_options.model)) {
-    throw new ChatlogError('UnknownModel', `"${_options.model}" is not valid. Valid models: ${[..._VALID_MODELS].join(', ')}`);
+    throw new ChatlogError(
+      'UnknownModel',
+      `"${_options.model}" is not valid. Valid models: ${[..._VALID_MODELS].join(', ')}`,
+    );
   }
   const _controller = new AbortController();
   const _timer = _options.timeoutMs !== 0
@@ -77,6 +80,6 @@ export async function runAI(
     }
     throw e;
   } finally {
-    if (_timer !== undefined) clearTimeout(_timer);
+    if (_timer !== undefined) { clearTimeout(_timer); }
   }
 }
