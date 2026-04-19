@@ -29,6 +29,7 @@
  *   deno run --allow-read --allow-write scripts/prefilter_chatlog.ts --input ./temp/chatlog
  */
 
+import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 
 // ─────────────────────────────────────────────
@@ -316,8 +317,7 @@ export function parseArgs(args: string[]): Args {
     } else if (arg.startsWith('--input=')) {
       inputDir = arg.slice('--input='.length);
     } else if (arg.startsWith('-')) {
-      console.error(`不明なオプション: ${arg}`);
-      Deno.exit(1);
+      throw new ChatlogError('InvalidArgs', `不明なオプション: ${arg}`);
     } else if (/^\d{4}-\d{2}$/.test(arg)) {
       period = arg;
     } else {
@@ -333,61 +333,69 @@ export function parseArgs(args: string[]): Args {
 // ─────────────────────────────────────────────
 
 export async function main(args: string[] = Deno.args): Promise<void> {
-  const { agent, period, inputDir, dryRun, report } = parseArgs(args);
-
   try {
-    const stat = await Deno.stat(inputDir);
-    if (!stat.isDirectory) { throw new Error(); }
-  } catch {
-    logger.error(`エラー: 入力ディレクトリが見つかりません: ${inputDir}`);
-    Deno.exit(1);
-  }
+    const { agent, period, inputDir, dryRun, report } = parseArgs(args);
 
-  const files = await findMdFiles(inputDir, agent, period);
-  logger.info(`対象ファイル数: ${files.length}`);
-  if (dryRun) {
-    logger.info(`${report ? 'report' : 'dry-run'} モード: ファイルは削除しません`);
-  }
-
-  const counts = { noise: 0, keep: 0, error: 0 };
-
-  for (const filePath of files) {
-    const filename = filePath.replace(/\\/g, '/').split('/').pop()!;
-
-    let text: string;
     try {
-      text = await Deno.readTextFile(filePath);
+      const stat = await Deno.stat(inputDir);
+      if (!stat.isDirectory) { throw new Error(); }
     } catch (e) {
-      logger.error(`  error (${filename}): ${e}`);
-      counts.error++;
-      continue;
+      if (e instanceof ChatlogError) { throw e; }
+      throw new ChatlogError('InputNotFound', `入力ディレクトリが見つかりません: ${inputDir}`);
     }
 
-    const { isNoise, reason } = classifyFile(filename, text);
+    const files = await findMdFiles(inputDir, agent, period);
+    logger.info(`対象ファイル数: ${files.length}`);
+    if (dryRun) {
+      logger.info(`${report ? 'report' : 'dry-run'} モード: ファイルは削除しません`);
+    }
 
-    if (isNoise) {
-      counts.noise++;
-      if (report) {
-        logger.log(`NOISE\t${reason}\t${filePath}`);
-      } else if (dryRun) {
-        logger.log(filePath);
-      } else {
-        try {
-          await Deno.remove(filePath);
-          logger.info(`deleted: ${filePath}`);
-        } catch (e) {
-          logger.error(`  削除失敗: ${filename}: ${e}`);
-          counts.error++;
-          counts.noise--;
-        }
+    const counts = { noise: 0, keep: 0, error: 0 };
+
+    for (const filePath of files) {
+      const filename = filePath.replace(/\\/g, '/').split('/').pop()!;
+
+      let text: string;
+      try {
+        text = await Deno.readTextFile(filePath);
+      } catch (e) {
+        logger.error(`  error (${filename}): ${e}`);
+        counts.error++;
+        continue;
       }
-    } else {
-      counts.keep++;
-    }
-  }
 
-  const suffix = dryRun ? ` (${report ? 'report' : 'dry-run'})` : '';
-  logger.info(`\n完了${suffix}: noise=${counts.noise} keep=${counts.keep} error=${counts.error}`);
+      const { isNoise, reason } = classifyFile(filename, text);
+
+      if (isNoise) {
+        counts.noise++;
+        if (report) {
+          logger.log(`NOISE\t${reason}\t${filePath}`);
+        } else if (dryRun) {
+          logger.log(filePath);
+        } else {
+          try {
+            await Deno.remove(filePath);
+            logger.info(`deleted: ${filePath}`);
+          } catch (e) {
+            logger.error(`  削除失敗: ${filename}: ${e}`);
+            counts.error++;
+            counts.noise--;
+          }
+        }
+      } else {
+        counts.keep++;
+      }
+    }
+
+    const suffix = dryRun ? ` (${report ? 'report' : 'dry-run'})` : '';
+    logger.info(`\n完了${suffix}: noise=${counts.noise} keep=${counts.keep} error=${counts.error}`);
+  } catch (e) {
+    if (e instanceof ChatlogError) {
+      logger.error(e.message);
+      Deno.exit(1);
+    }
+    throw e;
+  }
 }
 
 if (import.meta.main) {
