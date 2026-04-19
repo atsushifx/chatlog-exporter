@@ -172,11 +172,11 @@ export async function loadDics(dicsDir: string): Promise<Dics> {
       });
   };
 
-  const category = Object.keys(parseYamlDic(categoryRaw)).join(',');
-  const tags = Object.keys(parseYamlDic(tagsRaw)).join(',');
+  const _category = Object.keys(parseYamlDic(categoryRaw)).join(',');
+  const _tags = Object.keys(parseYamlDic(tagsRaw)).join(',');
 
   const categoryRulesObj = parseYamlDic(categoryRulesRaw);
-  const categoryPrompts = new Map<string, string>(
+  const _categoryPrompts = new Map<string, string>(
     Object.entries(categoryRulesObj)
       .filter(([, v]) => typeof v === 'string')
       .map(([k, v]) => [k, (v as string).trim()]),
@@ -201,11 +201,11 @@ export async function loadDics(dicsDir: string): Promise<Dics> {
   ]);
 
   return {
-    category,
-    tags,
+    category: _category,
+    tags: _tags,
     typeEntries: extractEntries(typesRaw),
     topicEntries: extractEntries(topicsRaw),
-    categoryPrompts,
+    categoryPrompts: _categoryPrompts,
     prompts,
   };
 }
@@ -264,28 +264,28 @@ export function parseFrontmatter(text: string): { meta: Record<string, string>; 
     return { meta: {}, body: lines.join('\n') };
   }
 
-  const meta: Record<string, string> = {};
-  let bodyStart = lines.length;
+  const _meta: Record<string, string> = {};
+  let _bodyStart = lines.length;
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
     if (/^---/.test(line)) {
-      bodyStart = i + 1;
+      _bodyStart = i + 1;
       break;
     }
 
     const idx = line.indexOf(': ');
     if (idx !== -1 && !line.startsWith(' ') && /^\w/.test(line)) {
-      meta[line.slice(0, idx).trim()] = line.slice(idx + 2).trim();
+      _meta[line.slice(0, idx).trim()] = line.slice(idx + 2).trim();
     } else if (line.trim() === '' || line.startsWith(' ') || line.startsWith('\t')) {
       // YAML継続値・空行はスキップ
     } else {
-      bodyStart = i;
+      _bodyStart = i;
       break;
     }
   }
 
-  return { meta, body: lines.slice(bodyStart).join('\n') };
+  return { meta: _meta, body: lines.slice(_bodyStart).join('\n') };
 }
 
 // ─────────────────────────────────────────────
@@ -294,11 +294,11 @@ export function parseFrontmatter(text: string): { meta: Record<string, string>; 
 
 export async function findMdFiles(dir: string): Promise<string[]> {
   const results: string[] = [];
-  await collectMdFiles(dir, results);
+  await _collectMdFiles(dir, results);
   return results.sort();
 }
 
-async function collectMdFiles(dir: string, results: string[]): Promise<void> {
+async function _collectMdFiles(dir: string, results: string[]): Promise<void> {
   let entries: Deno.DirEntry[];
   try {
     entries = [];
@@ -309,7 +309,7 @@ async function collectMdFiles(dir: string, results: string[]): Promise<void> {
   for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
     const fullPath = `${dir}/${entry.name}`;
     if (entry.isDirectory) {
-      await collectMdFiles(fullPath, results);
+      await _collectMdFiles(fullPath, results);
     } else if (entry.isFile && entry.name.endsWith('.md')) {
       results.push(fullPath);
     }
@@ -510,9 +510,9 @@ export async function reviewFrontmatter(
     };
   }
 
-  const cleaned = raw.split('\n').filter((l) => !l.startsWith('```')).join('\n').trim();
+  const _cleaned = raw.split('\n').filter((l) => !l.startsWith('```')).join('\n').trim();
 
-  const validityMatch = cleaned.match(/^validity:\s*(pass|fail)/m);
+  const validityMatch = _cleaned.match(/^validity:\s*(pass|fail)/m);
   const validity = (validityMatch?.[1] ?? 'pass') as 'pass' | 'fail';
 
   if (validity === 'pass') {
@@ -526,18 +526,18 @@ export async function reviewFrontmatter(
     };
   }
 
-  const errorsMatch = cleaned.match(/^errors:\s*\n((?: {2}- .+\n?)*)/m);
+  const errorsMatch = _cleaned.match(/^errors:\s*\n((?: {2}- .+\n?)*)/m);
   const errors = errorsMatch
     ? errorsMatch[1].split('\n').map((l) => l.replace(/^ {2}- /, '').trim()).filter(Boolean)
     : [];
 
-  const typeMatch = cleaned.match(/^ {2}type:\s*(\S+)/m);
+  const typeMatch = _cleaned.match(/^ {2}type:\s*(\S+)/m);
   const correctedType = typeMatch?.[1]?.trim() ?? '';
 
-  const categoryMatch = cleaned.match(/^ {2}category:\s*(\S+)/m);
+  const categoryMatch = _cleaned.match(/^ {2}category:\s*(\S+)/m);
   const correctedCategory = categoryMatch?.[1]?.trim() ?? '';
 
-  const correctedYaml = cleaned
+  const correctedYaml = _cleaned
     .replace(/^[\s\S]*?(^ {2}title:)/m, '$1')
     .split('\n')
     .map((l) => l.replace(/^ {2}/, ''))
