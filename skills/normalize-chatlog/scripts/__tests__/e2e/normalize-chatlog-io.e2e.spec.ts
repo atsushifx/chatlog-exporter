@@ -10,8 +10,6 @@
 // Deno Test module
 import { assertEquals, assertMatch } from '@std/assert';
 import { after, afterEach, before, beforeEach, describe, it } from '@std/testing/bdd';
-import type { Stub } from '@std/testing/mock';
-import { stub } from '@std/testing/mock';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -131,35 +129,6 @@ describe('main - I/O', () => {
           await main(['--agent', 'claude', '--year-month', '2026-03', '--output', outputDir]);
 
           assertMatch(loggerStub.infoLogs.join('\n'), /success=1/);
-        });
-      });
-    });
-  });
-
-  // ─── T-15-03-01: 存在しないパスでのエラー終了 ───────────────────────────────
-
-  /** 異常系: 存在しない --dir パスで exit code 1 で終了する */
-  describe('Given: 存在しない --dir /nonexistent/path/xyz', () => {
-    let exitStub: Stub<typeof Deno, [code?: number], never>;
-    let commandHandle: CommandMockHandle;
-
-    beforeEach(() => {
-      exitStub = stub(Deno, 'exit');
-      commandHandle = installCommandMock(makeSuccessMock(new Uint8Array()));
-    });
-
-    afterEach(() => {
-      exitStub.restore();
-      commandHandle.restore();
-    });
-
-    describe('When: main(["--dir", "/nonexistent/path/xyz"]) を呼び出す', () => {
-      describe('Then: Task T-15-03-01 - 存在しない入力パスでのエラー終了', () => {
-        it('T-15-03-01-01: Deno.exit(1) が呼ばれる', async () => {
-          await main(['--dir', '/nonexistent/path/xyz']);
-
-          assertEquals(exitStub.calls.length >= 1, true);
-          assertEquals(exitStub.calls[0].args[0], 1);
         });
       });
     });

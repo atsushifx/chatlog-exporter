@@ -26,6 +26,7 @@
 // -- external --
 import { parse as parseYaml } from '@std/yaml';
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
+import { runConcurrent } from '../../_scripts/libs/concurrency.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 
 // ─────────────────────────────────────────────
@@ -371,23 +372,6 @@ export async function runClaude(systemPrompt: string, userPrompt: string): Promi
 }
 
 // ─────────────────────────────────────────────
-// 並列実行ヘルパー
-// ─────────────────────────────────────────────
-
-export async function withConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
-  const results: T[] = new Array(tasks.length);
-  let idx = 0;
-  async function worker() {
-    while (idx < tasks.length) {
-      const i = idx++;
-      results[i] = await tasks[i]();
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
-  return results;
-}
-
-// ─────────────────────────────────────────────
 // YAML クリーニングヘルパー
 // ─────────────────────────────────────────────
 
@@ -685,32 +669,34 @@ export async function main(args: string[]): Promise<void> {
 
     // Phase 2: type判定（並列）
     logger.info(`\nPhase 2: type判定開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
-    const typeResults = await withConcurrency(fileMetaList.map((fm) => () => judgeType(fm, dics)), concurrency);
+    const typeResults = await runConcurrent(fileMetaList, (fm) => judgeType(fm, dics), concurrency);
     const typeMap = new Map(typeResults.map((r) => [r.file, r]));
     for (const r of typeResults) { logger.info(`  type [${r.type}]: ${r.file.split(/[/\\]/).pop()}`); }
 
     // Phase 3a: category判定（並列）
     logger.info(`\nPhase 3a: category判定開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
-    const categoryResults = await withConcurrency(
-      fileMetaList.map((fm) => async () => {
+    const categoryResults = await runConcurrent(
+      fileMetaList,
+      async (fm) => {
         const type = typeMap.get(fm.file)?.type ?? 'research';
         const category = await judgeCategory(fm, type, dics);
         logger.info(`  category [${category}]: ${fm.file.split(/[/\\]/).pop()}`);
         return { file: fm.file, type, category };
-      }),
+      },
       concurrency,
     );
     const categoryMap = new Map(categoryResults.map((r) => [r.file, r]));
 
     // Phase 3b: フロントマター生成（並列）
     logger.info(`\nPhase 3b: フロントマター生成開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
-    const fmResults = await withConcurrency(
-      fileMetaList.map((fm) => () => {
+    const fmResults = await runConcurrent(
+      fileMetaList,
+      (fm) => {
         const cr = categoryMap.get(fm.file);
         const type = cr?.type ?? 'research';
         const category = cr?.category ?? 'development';
         return generateFrontmatter(fm, type, category, dics);
-      }),
+      },
       concurrency,
     );
     const fmResultMap = new Map(fmResults.map((r) => [r.file, r]));
@@ -719,8 +705,9 @@ export async function main(args: string[]): Promise<void> {
     // Phase 3.5: レビュー（並列）
     if (review) {
       logger.info(`\nPhase 3.5: フロントマターレビュー開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
-      const reviewResults = await withConcurrency(
-        fmResults.filter((r) => r.yaml).map((r) => () => reviewFrontmatter(r, dics)),
+      const reviewResults = await runConcurrent(
+        fmResults.filter((r) => r.yaml),
+        (r) => reviewFrontmatter(r, dics),
         concurrency,
       );
       for (const r of reviewResults) {

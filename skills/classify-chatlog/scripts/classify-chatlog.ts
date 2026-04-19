@@ -18,6 +18,7 @@
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { isKnownAgent } from '../../_scripts/constants/agents.constants.ts';
 import { DEFAULT_CHUNK_SIZE, DEFAULT_CONCURRENCY } from '../../_scripts/constants/concurrency.constants.ts';
+import { runChunked } from '../../_scripts/libs/concurrency.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 
 // -- internal --
@@ -334,26 +335,6 @@ export function parseJsonArray(raw: string): ClassifyResult[] | null {
 }
 
 // ─────────────────────────────────────────────
-// 並列実行ヘルパー（filter_chatlog.ts から流用）
-// ─────────────────────────────────────────────
-
-export async function withConcurrency<T>(
-  tasks: (() => Promise<T>)[],
-  limit: number,
-): Promise<T[]> {
-  const results: T[] = [];
-  let idx = 0;
-  async function worker() {
-    while (idx < tasks.length) {
-      const i = idx++;
-      results[i] = await tasks[i]();
-    }
-  }
-  await Promise.all(Array.from({ length: limit }, worker));
-  return results;
-}
-
-// ─────────────────────────────────────────────
 // Claude CLI 呼び出し
 // ─────────────────────────────────────────────
 
@@ -574,12 +555,12 @@ export async function main(argv?: string[]): Promise<void> {
     }
 
     // チャンク分割して並列処理
-    const tasks: (() => Promise<void>)[] = [];
-    for (let i = 0; i < targetMetas.length; i += DEFAULT_CHUNK_SIZE) {
-      const chunk = targetMetas.slice(i, i + DEFAULT_CHUNK_SIZE);
-      tasks.push(() => processChunk(chunk, projects, _config.dryRun, stats));
-    }
-    await withConcurrency(tasks, DEFAULT_CONCURRENCY);
+    await runChunked(
+      targetMetas,
+      DEFAULT_CHUNK_SIZE,
+      (chunk) => processChunk(chunk, projects, _config.dryRun, stats),
+      DEFAULT_CONCURRENCY,
+    );
 
     // サマリー
     const drySuffix = _config.dryRun ? ' (dry-run)' : '';

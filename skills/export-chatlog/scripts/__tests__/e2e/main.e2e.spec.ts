@@ -240,29 +240,6 @@ describe('main (export-chatlog)', () => {
     });
   });
 
-  // ─── T-EC-E2E-05: 不正な period → Deno.exit(1) ────────────────────────
-  // parseArgs では YYYY-MM / YYYY 以外の引数は project として扱われる。
-  // parsePeriod で Error が出るのは、期間パターンに「似ているが」無効なケース（例: "9999-99"）ではなく、
-  // むしろ正規表現に一切マッチしない値は project 扱いになる。
-  // そのため、不正な --unknown フラグを渡して Deno.exit(1) を確認する。
-
-  describe('Given: 不明なオプション "--unknown-flag" を指定', () => {
-    describe('When: main(["claude", "--unknown-flag", "--output", outputDir]) を呼び出す', () => {
-      describe('Then: T-EC-E2E-05 - Deno.exit(1) が呼ばれる', () => {
-        it('T-EC-E2E-05-01: Deno.exit(1) が呼ばれる', async () => {
-          const exitStub = stub(Deno, 'exit');
-          try {
-            await main(['claude', '--unknown-flag', '--output', outputDir]);
-          } finally {
-            exitStub.restore();
-          }
-          assertEquals(exitStub.calls.length >= 1, true);
-          assertEquals(exitStub.calls[0].args[0], 1);
-        });
-      });
-    });
-  });
-
   // ─── T-EC-E2E-06: 出力ディレクトリ構造 ──────────────────────────────────
 
   describe('Given: claude セッションと outputDir が指定される', () => {

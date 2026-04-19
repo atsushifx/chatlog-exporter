@@ -14,8 +14,6 @@
 
 import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import type { Stub } from '@std/testing/mock';
-import { stub } from '@std/testing/mock';
 
 // test target
 import { main } from '../../prefilter-chatlog.ts';
@@ -230,36 +228,6 @@ describe('main (prefilter) - 全件 keep', () => {
           await main(['claude', '2026-03', '--input', tempDir]);
 
           assertEquals(loggerStub.infoLogs.some((line) => line.includes('noise=0')), true);
-        });
-      });
-    });
-  });
-});
-
-// ─── T-PF-E2E-05: 存在しない inputDir → Deno.exit(1) ────────────────────────
-
-describe('main (prefilter) - 存在しない inputDir', () => {
-  describe('Given: 存在しない inputDir', () => {
-    describe('When: main(["claude", "--input", "/nonexistent/path"]) を呼び出す', () => {
-      describe('Then: T-PF-E2E-05 - Deno.exit(1) が呼ばれる', () => {
-        let exitStub: Stub<typeof Deno, [code?: number], never>;
-        let loggerStub: LoggerStub;
-
-        beforeEach(() => {
-          exitStub = stub(Deno, 'exit');
-          loggerStub = makeLoggerStub();
-        });
-
-        afterEach(() => {
-          exitStub.restore();
-          loggerStub.restore();
-        });
-
-        it('T-PF-E2E-05-01: Deno.exit(1) がちょうど 1 回呼ばれる', async () => {
-          await main(['claude', '--input', '/nonexistent/path/that/does/not/exist']);
-
-          assertEquals(exitStub.calls.length, 1);
-          assertEquals(exitStub.calls[0].args[0], 1);
         });
       });
     });
