@@ -6,6 +6,7 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+import { ChatlogError } from '../../../_scripts/types/chatlog-error.types.ts';
 import {
   inPeriod,
   isoToDate,
@@ -299,7 +300,7 @@ export async function exportChatGPT(
 ): Promise<ExportResult> {
   const inputDir = config.inputDir ?? config.baseDir;
   if (!inputDir) {
-    throw new Error('ChatGPT エクスポートには --input/--base でディレクトリを指定してください');
+    throw new ChatlogError('MissingArg', 'ChatGPT エクスポートには --input/--base でディレクトリを指定してください');
   }
 
   const range = parsePeriod(config.period);
