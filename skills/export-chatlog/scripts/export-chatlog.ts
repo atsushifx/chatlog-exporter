@@ -71,9 +71,9 @@ export function homeDir(): string {
  * @returns `{ y, m0, d }` ローカル年・月(0始まり)・日。パース失敗時は `null`
  */
 function _isoToLocalParts(iso: string): { y: number; m0: number; d: number } | null {
-  const date = new Date(iso);
-  if (isNaN(date.getTime())) { return null; }
-  return { y: date.getFullYear(), m0: date.getMonth(), d: date.getDate() };
+  const _date = new Date(iso);
+  if (isNaN(_date.getTime())) { return null; }
+  return { y: _date.getFullYear(), m0: _date.getMonth(), d: _date.getDate() };
 }
 
 /**
@@ -331,26 +331,26 @@ export function buildOutputPath(
  * @returns Markdown 形式の文字列
  */
 export function renderMarkdown(meta: SessionMeta, turns: Turn[]): string {
-  const lines: string[] = [];
-  lines.push('---');
-  lines.push(`session_id: ${meta.sessionId}`);
-  lines.push(`date: ${meta.date}`);
-  lines.push(`project: ${meta.project}`);
-  if (meta.slug) { lines.push(`slug: ${meta.slug}`); }
-  lines.push('---');
-  lines.push('');
-  lines.push(`# ${meta.firstUserText.replace(/\n/g, ' ').slice(0, 100)}`);
-  lines.push('');
-  lines.push('## 会話ログ');
-  lines.push('');
+  const _lines: string[] = [];
+  _lines.push('---');
+  _lines.push(`session_id: ${meta.sessionId}`);
+  _lines.push(`date: ${meta.date}`);
+  _lines.push(`project: ${meta.project}`);
+  if (meta.slug) { _lines.push(`slug: ${meta.slug}`); }
+  _lines.push('---');
+  _lines.push('');
+  _lines.push(`# ${meta.firstUserText.replace(/\n/g, ' ').slice(0, 100)}`);
+  _lines.push('');
+  _lines.push('## 会話ログ');
+  _lines.push('');
   for (const turn of turns) {
     const label = turn.role === 'user' ? 'User' : 'Assistant';
-    lines.push(`### ${label}`);
-    lines.push('');
-    lines.push(turn.text.trim().replace(/\n{3,}/g, '\n\n'));
-    lines.push('');
+    _lines.push(`### ${label}`);
+    _lines.push('');
+    _lines.push(turn.text.trim().replace(/\n{3,}/g, '\n\n'));
+    _lines.push('');
   }
-  return lines.join('\n');
+  return _lines.join('\n');
 }
 
 // ─────────────────────────────────────────────
@@ -452,33 +452,33 @@ export async function* walkFiles(dir: string, ext: string): AsyncGenerator<strin
  * @returns 解析済みの `ExportConfig`
  */
 export function parseArgs(args: string[]): ExportConfig {
-  const config: ExportConfig = { ...DEFAULT_EXPORT_CONFIG };
+  const _config: ExportConfig = { ...DEFAULT_EXPORT_CONFIG };
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--output' && i + 1 < args.length) {
-      config.outputDir = args[++i];
+      _config.outputDir = args[++i];
     } else if (arg.startsWith('--output=')) {
-      config.outputDir = arg.slice('--output='.length);
+      _config.outputDir = arg.slice('--output='.length);
     } else if (arg === '--base' && i + 1 < args.length) {
-      config.baseDir = args[++i];
+      _config.baseDir = args[++i];
     } else if (arg.startsWith('--base=')) {
-      config.baseDir = arg.slice('--base='.length);
+      _config.baseDir = arg.slice('--base='.length);
     } else if (arg === '--input' && i + 1 < args.length) {
-      config.inputDir = args[++i];
+      _config.inputDir = args[++i];
     } else if (arg.startsWith('--input=')) {
-      config.inputDir = arg.slice('--input='.length);
+      _config.inputDir = arg.slice('--input='.length);
     } else if (arg.startsWith('-')) {
       console.error(`不明なオプション: ${arg}`);
       Deno.exit(1);
     } else if (KNOWN_AGENTS.includes(arg)) {
-      config.agent = arg;
+      _config.agent = arg;
     } else if (/^\d{4}-\d{2}$/.test(arg) || /^\d{4}$/.test(arg)) {
-      config.period = arg;
+      _config.period = arg;
     } else {
       const normalized = arg.replace(/\\/g, '/');
       if (normalized.includes('/')) {
-        config.inputDir = normalized;
+        _config.inputDir = normalized;
       } else {
         console.error(`不明な引数: ${arg}`);
         Deno.exit(1);
@@ -486,7 +486,7 @@ export function parseArgs(args: string[]): ExportConfig {
     }
   }
 
-  return config;
+  return _config;
 }
 
 // ─────────────────────────────────────────────
