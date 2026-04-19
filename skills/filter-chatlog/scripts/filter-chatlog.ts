@@ -19,6 +19,7 @@
 
 // -- external --
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
+import { runChunked } from '../../_scripts/libs/concurrency.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 
 export const CHUNK_SIZE = 10;
@@ -335,26 +336,6 @@ export function parseJsonArray(raw: string): ClaudeResult[] | null {
 }
 
 // ─────────────────────────────────────────────
-// 並列実行ヘルパー
-// ─────────────────────────────────────────────
-
-export async function withConcurrency<T>(
-  tasks: (() => Promise<T>)[],
-  limit: number,
-): Promise<T[]> {
-  const results: T[] = [];
-  let idx = 0;
-  async function worker() {
-    while (idx < tasks.length) {
-      const i = idx++;
-      results[i] = await tasks[i]();
-    }
-  }
-  await Promise.all(Array.from({ length: limit }, worker));
-  return results;
-}
-
-// ─────────────────────────────────────────────
 // Claude CLI 呼び出し
 // ─────────────────────────────────────────────
 
@@ -539,12 +520,7 @@ export async function main(args?: string[]): Promise<void> {
     // チャンク分割して並列処理
     const stats: Stats = { kept: 0, discarded: 0, skipped: 0, error: 0 };
 
-    const tasks: (() => Promise<void>)[] = [];
-    for (let i = 0; i < targetFiles.length; i += CHUNK_SIZE) {
-      const chunk = targetFiles.slice(i, i + CHUNK_SIZE);
-      tasks.push(() => processChunk(chunk, dryRun, stats));
-    }
-    await withConcurrency(tasks, CONCURRENCY);
+    await runChunked(targetFiles, CHUNK_SIZE, (chunk) => processChunk(chunk, dryRun, stats), CONCURRENCY);
 
     // サマリー
     const drySuffix = dryRun ? ' (dry-run)' : '';
