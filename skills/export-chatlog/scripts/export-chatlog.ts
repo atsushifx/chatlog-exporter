@@ -473,8 +473,7 @@ export function parseArgs(args: string[]): ExportConfig {
     } else if (arg.startsWith('--input=')) {
       _config.inputDir = arg.slice('--input='.length);
     } else if (arg.startsWith('-')) {
-      console.error(`不明なオプション: ${arg}`);
-      Deno.exit(1);
+      throw new ChatlogError('InvalidArgs', `不明なオプション: ${arg}`);
     } else if (isKnownAgent(arg)) {
       _config.agent = arg;
     } else if (/^\d{4}-\d{2}$/.test(arg) || /^\d{4}$/.test(arg)) {
@@ -484,8 +483,7 @@ export function parseArgs(args: string[]): ExportConfig {
       if (normalized.includes('/')) {
         _config.inputDir = normalized;
       } else {
-        console.error(`不明な引数: ${arg}`);
-        Deno.exit(1);
+        throw new ChatlogError('InvalidArgs', `不明な引数: ${arg}`);
       }
     }
   }
@@ -516,43 +514,47 @@ export function parseArgs(args: string[]): ExportConfig {
  * @param argv CLI 引数の配列。省略時は `Deno.args` を使用
  */
 export async function main(argv?: string[]): Promise<void> {
-  const config = parseArgs(argv ?? Deno.args);
-  const { agent, period, outputDir } = config;
-
-  logger.info(`対象 agent: ${agent}`);
-  if (period) { logger.info(`対象期間: ${period}`); }
-
-  let result: Awaited<ReturnType<typeof exportClaude>>;
-
   try {
+    const config = parseArgs(argv ?? Deno.args);
+    const { agent, period, outputDir } = config;
+
+    logger.info(`対象 agent: ${agent}`);
+    if (period) { logger.info(`対象期間: ${period}`); }
+
+    let result: Awaited<ReturnType<typeof exportClaude>>;
+
     if (agent === 'claude') {
       result = await exportClaude(config);
     } else if (agent === 'codex') {
       result = await exportCodex(config);
     } else if (agent === 'chatgpt') {
       if (!config.inputDir && !config.baseDir) {
-        logger.error('chatgpt エージェントには入力ディレクトリを指定してください（位置引数または --input）');
-        Deno.exit(1);
+        throw new ChatlogError(
+          'InvalidArgs',
+          'chatgpt エージェントには入力ディレクトリを指定してください（位置引数または --input）',
+        );
       }
       result = await exportChatGPT(config);
     } else {
-      logger.error(`未対応のエージェント: ${agent}`);
+      throw new ChatlogError('InvalidArgs', `未対応のエージェント: ${agent}`);
+    }
+
+    for (const outPath of result.outputPaths) {
+      logger.log(outPath);
+    }
+
+    const total = result.exportedCount + result.skippedCount + result.errorCount;
+    logger.info(
+      `\n完了: ${total} 件処理（出力: ${result.exportedCount} / スキップ: ${result.skippedCount} / エラー: ${result.errorCount}）`,
+    );
+    logger.info(`出力先: ${outputDir}/${agent}/`);
+  } catch (e) {
+    if (e instanceof ChatlogError) {
+      logger.error(e.message);
       Deno.exit(1);
     }
-  } catch (e) {
-    logger.error(`エラー: ${e}`);
-    Deno.exit(1);
+    throw e;
   }
-
-  for (const outPath of result.outputPaths) {
-    logger.log(outPath);
-  }
-
-  const total = result.exportedCount + result.skippedCount + result.errorCount;
-  logger.info(
-    `\n完了: ${total} 件処理（出力: ${result.exportedCount} / スキップ: ${result.skippedCount} / エラー: ${result.errorCount}）`,
-  );
-  logger.info(`出力先: ${outputDir}/${agent}/`);
 }
 
 if (import.meta.main) { await main(); }
