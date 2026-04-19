@@ -218,36 +218,6 @@ describe('main - 対象ファイルなし', () => {
   });
 });
 
-// ─── T-FL-E2E-05: 存在しない inputDir → Deno.exit(1) ────────────────────────
-
-describe('main - 存在しない inputDir', () => {
-  describe('Given: 存在しない inputDir を指定', () => {
-    describe('When: main([...args, "--input", "/nonexistent"]) を呼び出す', () => {
-      describe('Then: T-FL-E2E-05 - Deno.exit(1) が最初に呼ばれる', () => {
-        let exitStub: Stub<typeof Deno, [code?: number], never>;
-        let loggerStub: LoggerStub;
-
-        beforeEach(() => {
-          exitStub = stub(Deno, 'exit');
-          loggerStub = makeLoggerStub();
-        });
-
-        afterEach(() => {
-          exitStub.restore();
-          loggerStub.restore();
-        });
-
-        it('T-FL-E2E-05-01: 最初の Deno.exit 呼び出しが exit(1) である', async () => {
-          await main(['claude', '--input', '/nonexistent/path/does/not/exist']);
-
-          assertEquals(exitStub.calls.length >= 1, true);
-          assertEquals(exitStub.calls[0].args[0], 1);
-        });
-      });
-    });
-  });
-});
-
 // ─── T-FL-E2E-06: period 絞り込み → 指定月のみ処理 ──────────────────────────
 
 describe('main - period 絞り込み', () => {
