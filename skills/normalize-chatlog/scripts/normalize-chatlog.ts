@@ -8,8 +8,6 @@
 // normalize_chatlog.ts — Utilities for normalizing chatlog processing
 
 import { logger } from '../../_scripts/libs/logger.ts';
-import { runAI } from '../../_scripts/libs/run-ai.ts';
-import type { RunAIOptions } from '../../_scripts/libs/run-ai.ts';
 import { ChatlogError } from '../../_scripts/types/chatlog-error.types.ts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -371,7 +369,7 @@ export async function segmentChatlog(filePath: string, content: string): Promise
 
   let raw: string;
   try {
-    raw = await runAI(systemPrompt, userPrompt, options);
+    raw = await runAI('claude-sonnet-4-6', systemPrompt, userPrompt);
   } catch (e) {
     if (e instanceof ChatlogError && e.kind === 'TimedOut') {
       logger.warn(`segmentChatlog: timed out — ${filePath}`);
