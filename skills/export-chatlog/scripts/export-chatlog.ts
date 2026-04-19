@@ -20,6 +20,8 @@
 
 import { isKnownAgent } from '../../_scripts/constants/agents.constants.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
+import { ChatlogError } from '../../_scripts/types/chatlog-error.types.ts';
+import { KNOWN_AGENTS } from './constants/agents.constants.ts';
 import { DEFAULT_EXPORT_CONFIG } from './constants/defaults.constants.ts';
 import {
   SESSION_SKIP_KEYWORDS,
@@ -247,7 +249,7 @@ export function parsePeriod(period: string | undefined): PeriodRange {
     const end = new Date(year + 1, 0, 1).getTime();
     return { startMs: start, endMs: end };
   }
-  throw new Error(`期間の形式が不正です（例: 2026-03 または 2026）: ${period}`);
+  throw new ChatlogError('InvalidPeriod', `期間の形式が不正です（例: 2026-03 または 2026）: ${period}`);
 }
 
 /**

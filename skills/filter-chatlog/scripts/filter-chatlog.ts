@@ -18,6 +18,7 @@
 // ─────────────────────────────────────────────
 
 import { logger } from '../../_scripts/libs/logger.ts';
+import { ChatlogError } from '../../_scripts/types/chatlog-error.types.ts';
 
 export const CHUNK_SIZE = 10;
 export const CONCURRENCY = 4;
@@ -372,7 +373,7 @@ export async function runClaude(prompt: string): Promise<string> {
 
   const output = await process.output();
   if (!output.success) {
-    throw new Error(`claude CLI がエラーで終了しました (code=${output.code})`);
+    throw new ChatlogError('CliError', `claude CLI がエラーで終了しました (code=${output.code})`);
   }
 
   return new TextDecoder().decode(output.stdout);

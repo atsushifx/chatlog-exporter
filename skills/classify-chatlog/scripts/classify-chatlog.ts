@@ -18,6 +18,7 @@ import { logger } from '../../_scripts/libs/logger.ts';
 import { FALLBACK_PROJECT, MIN_CLASSIFIABLE_LENGTH } from './constants/classify.constants.ts';
 import type { ClassifyConfig, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
 
+
 // ─────────────────────────────────────────────
 // 辞書読み込み
 // ─────────────────────────────────────────────
@@ -367,7 +368,7 @@ export async function runClaude(systemPrompt: string, userPrompt: string): Promi
 
   const output = await process.output();
   if (!output.success) {
-    throw new Error(`claude CLI がエラーで終了しました (code=${output.code})`);
+    throw new ChatlogError('CliError', `claude CLI がエラーで終了しました (code=${output.code})`);
   }
 
   return new TextDecoder().decode(output.stdout);

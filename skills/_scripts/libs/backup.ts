@@ -12,6 +12,7 @@
  * リネームする。outputPath が存在しない場合は何もしない。
  */
 
+import { ChatlogError } from '../types/chatlog-error.types.ts';
 import type { ListDirProvider } from '../types/common.types.ts';
 
 // ─────────────────────────────────────────────
@@ -75,7 +76,7 @@ export async function backupOldPath(
     .map((m) => Number(m![1]));
 
   const next = usedSlots.length === 0 ? 1 : Math.max(...usedSlots) + 1;
-  if (next > 99) { throw new Error(`too many backups for: ${outputPath}`); }
+  if (next > 99) { throw new ChatlogError('TooManyBackups', `too many backups for: ${outputPath}`); }
 
   const idx = String(next).padStart(2, '0');
   await Deno.rename(outputPath, `${base}.old-${idx}.md`);

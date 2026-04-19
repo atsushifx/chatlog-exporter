@@ -8,6 +8,7 @@
 // normalize_chatlog.ts — Utilities for normalizing chatlog processing
 
 import { logger } from '../../_scripts/libs/logger.ts';
+import { ChatlogError } from '../../_scripts/types/chatlog-error.types.ts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -368,8 +369,11 @@ export async function segmentChatlog(filePath: string, content: string): Promise
 
   let raw: string;
   try {
-    raw = await runAI('sonnet', systemPrompt, userPrompt);
-  } catch {
+    raw = await runAI('claude-sonnet-4-6', systemPrompt, userPrompt);
+  } catch (e) {
+    if (e instanceof ChatlogError && e.kind === 'TimedOut') {
+      logger.warn(`segmentChatlog: timed out — ${filePath}`);
+    }
     return null;
   }
 
@@ -474,8 +478,7 @@ async function _backupOldPath(
     .map((m) => Number(m![1]));
 
   const next = usedSlots.length === 0 ? 1 : Math.max(...usedSlots) + 1;
-  if (next > 99) { throw new Error(`too many backups for: ${outputPath}`); }
-
+  if (next > 99) { throw new ChatlogError('TooManyBackups', `too many backups for: ${outputPath}`); }
   const idx = String(next).padStart(2, '0');
   await Deno.rename(outputPath, `${base}.old-${idx}.md`);
 }
@@ -507,7 +510,7 @@ export async function writeOutput(
   }
 
   if (outputPath.includes('temp/chatlog/')) {
-    throw new Error(`R-010: writing to input directory is forbidden: ${outputPath}`);
+    throw new ChatlogError('ForbiddenOutput', `writing to input directory is forbidden: ${outputPath}`);
   }
 
   await _backupOldPath(outputPath, listDir);

@@ -26,6 +26,7 @@
 // import libraries
 import { parse as parseYaml } from '@std/yaml';
 import { logger } from '../../_scripts/libs/logger.ts';
+import { ChatlogError } from '../../_scripts/types/chatlog-error.types.ts';
 
 // ─────────────────────────────────────────────
 // 定数
@@ -367,7 +368,7 @@ export async function runClaude(systemPrompt: string, userPrompt: string): Promi
   await writer.write(new TextEncoder().encode(userPrompt));
   await writer.close();
   const output = await process.output();
-  if (!output.success) { throw new Error(`claude CLI エラー (code=${output.code})`); }
+  if (!output.success) { throw new ChatlogError('CliError', `claude CLI エラー (code=${output.code})`); }
   return new TextDecoder().decode(output.stdout).trim();
 }
 
