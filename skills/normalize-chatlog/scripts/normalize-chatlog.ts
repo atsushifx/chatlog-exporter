@@ -670,8 +670,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
           // Positional path argument: already normalized, assign to dir
           result.dir = normalized;
         } else {
-          console.error(`Error: unknown option: ${arg}`);
-          Deno.exit(1);
+          throw new ChatlogError('InvalidArgs', `unknown option: ${arg}`);
         }
       }
     }
@@ -730,52 +729,58 @@ const _DEFAULT_OUTPUT_DIR = 'temp/normalize_logs';
  * @param hashFn - Optional hash generator for output file names (injectable for testing)
  */
 export async function main(argv?: string[], hashFn?: HashProvider): Promise<void> {
-  const args = parseArgs(argv ?? Deno.args);
-  const resolved = resolveInputDir(args);
-  if (!resolved.ok) {
-    logger.error(`Error: ${resolved.error}`);
-    Deno.exit(1);
-  }
-  if (!validateInputDir(resolved.dir)) {
-    logger.error(`Error: directory not found: ${resolved.dir}`);
-    Deno.exit(1);
-  }
-  const inputDir = resolved.dir;
-  const outputBase = args.output ?? _DEFAULT_OUTPUT_DIR;
-
-  const mdFiles = findMdFiles(inputDir);
-  const stats: Stats = { success: 0, skip: 0, fail: 0 };
-
-  const tasks = mdFiles.map((filePath) => async () => {
-    const content = await Deno.readTextFile(filePath);
-    const { meta: sourceMeta } = parseFrontmatter(content);
-
-    const segments = await segmentChatlog(filePath, content);
-    if (segments === null) {
-      stats.fail++;
-      return;
+  try {
+    const args = parseArgs(argv ?? Deno.args);
+    const resolved = resolveInputDir(args);
+    if (!resolved.ok) {
+      throw new ChatlogError('InputNotFound', resolved.error);
     }
-
-    const outputDir = resolveOutputDir(inputDir, outputBase, sourceMeta['project']);
-    await Deno.mkdir(outputDir, { recursive: true });
-
-    for (let i = 0; i < segments.length; i++) {
-      const segment = segments[i];
-      const outputFileName = await generateOutputFileName(filePath, i, hashFn);
-      const segmentContent = generateSegmentFile(segment);
-      const fullContent = attachFrontmatter(segmentContent, sourceMeta, {
-        title: segment.title,
-        log_id: outputFileName.replace(/\.md$/, ''),
-        summary: segment.summary,
-      });
-      const outputPath = `${outputDir}/${outputFileName}`;
-      await writeOutput(outputPath, fullContent, args.dryRun, stats);
+    if (!validateInputDir(resolved.dir)) {
+      throw new ChatlogError('InputNotFound', `directory not found: ${resolved.dir}`);
     }
-  });
+    const inputDir = resolved.dir;
+    const outputBase = args.output ?? _DEFAULT_OUTPUT_DIR;
 
-  await withConcurrency(tasks, args.concurrency);
+    const mdFiles = findMdFiles(inputDir);
+    const stats: Stats = { success: 0, skip: 0, fail: 0 };
 
-  reportResults(stats);
+    const tasks = mdFiles.map((filePath) => async () => {
+      const content = await Deno.readTextFile(filePath);
+      const { meta: sourceMeta } = parseFrontmatter(content);
+
+      const segments = await segmentChatlog(filePath, content);
+      if (segments === null) {
+        stats.fail++;
+        return;
+      }
+
+      const outputDir = resolveOutputDir(inputDir, outputBase, sourceMeta['project']);
+      await Deno.mkdir(outputDir, { recursive: true });
+
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        const outputFileName = await generateOutputFileName(filePath, i, hashFn);
+        const segmentContent = generateSegmentFile(segment);
+        const fullContent = attachFrontmatter(segmentContent, sourceMeta, {
+          title: segment.title,
+          log_id: outputFileName.replace(/\.md$/, ''),
+          summary: segment.summary,
+        });
+        const outputPath = `${outputDir}/${outputFileName}`;
+        await writeOutput(outputPath, fullContent, args.dryRun, stats);
+      }
+    });
+
+    await withConcurrency(tasks, args.concurrency);
+
+    reportResults(stats);
+  } catch (e) {
+    if (e instanceof ChatlogError) {
+      logger.error(e.message);
+      Deno.exit(1);
+    }
+    throw e;
+  }
 }
 
 if (import.meta.main) {
