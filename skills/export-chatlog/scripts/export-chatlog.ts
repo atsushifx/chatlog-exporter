@@ -18,6 +18,7 @@
  *   codex   — ~/.codex/sessions/YYYY/MM/DD/ 以下のJSONL
  */
 
+import { isKnownAgent } from '../../_scripts/constants/agents.constants.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 import { ChatlogError } from '../../_scripts/types/chatlog-error.types.ts';
 import { KNOWN_AGENTS } from './constants/agents.constants.ts';
@@ -472,7 +473,7 @@ export function parseArgs(args: string[]): ExportConfig {
     } else if (arg.startsWith('-')) {
       console.error(`不明なオプション: ${arg}`);
       Deno.exit(1);
-    } else if (KNOWN_AGENTS.includes(arg)) {
+    } else if (isKnownAgent(arg)) {
       _config.agent = arg;
     } else if (/^\d{4}-\d{2}$/.test(arg) || /^\d{4}$/.test(arg)) {
       _config.period = arg;

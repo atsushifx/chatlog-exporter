@@ -10,11 +10,9 @@ import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // test target
-import {
-  FALLBACK_PROJECT,
-  processChunk,
-} from '../../classify-chatlog.ts';
-import type { FileMeta, Stats } from '../../classify-chatlog.ts';
+import { processChunk } from '../../classify-chatlog.ts';
+import { FALLBACK_PROJECT } from '../../constants/classify.constants.ts';
+import type { FileMeta, Stats } from '../../types/classify.types.ts';
 
 // helpers
 import {

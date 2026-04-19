@@ -14,29 +14,10 @@
  *     [agent] [YYYY-MM] [--dry-run] --input DIR --dics DIR
  */
 
-// ─────────────────────────────────────────────
-// 定数・型 (libs から import & re-export)
-// ─────────────────────────────────────────────
-
-export {
-  CHUNK_SIZE,
-  CONCURRENCY,
-  FALLBACK_PROJECT,
-  KNOWN_AGENTS,
-  MIN_CLASSIFIABLE_LENGTH,
-} from './constants/classify.constants.ts';
-export type { Args, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
-
 import { logger } from '../../_scripts/libs/logger.ts';
-import { ChatlogError } from '../../_scripts/types/chatlog-error.types.ts';
-import {
-  CHUNK_SIZE,
-  CONCURRENCY,
-  FALLBACK_PROJECT,
-  KNOWN_AGENTS,
-  MIN_CLASSIFIABLE_LENGTH,
-} from './constants/classify.constants.ts';
-import type { Args, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
+import { FALLBACK_PROJECT, MIN_CLASSIFIABLE_LENGTH } from './constants/classify.constants.ts';
+import type { ClassifyConfig, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
+
 
 // ─────────────────────────────────────────────
 // 辞書読み込み
@@ -490,7 +471,7 @@ export async function processChunk(
 // 引数解析
 // ─────────────────────────────────────────────
 
-export function parseArgs(args: string[]): Args {
+export function parseArgs(args: string[]): ClassifyConfig {
   let agent: string | undefined;
   let period: string | undefined;
   let dryRun = false;
@@ -514,7 +495,7 @@ export function parseArgs(args: string[]): Args {
       Deno.exit(1);
     } else if (/^\d{4}-\d{2}$/.test(arg)) {
       period = arg;
-    } else if (KNOWN_AGENTS.includes(arg)) {
+    } else if (isKnownAgent(arg)) {
       agent = arg;
     } else {
       console.error(`不明な引数: ${arg}`);
@@ -530,10 +511,10 @@ export function parseArgs(args: string[]): Args {
 // ─────────────────────────────────────────────
 
 export async function main(argv?: string[]): Promise<void> {
-  const { agent, period, dryRun, inputDir, dicsDir } = parseArgs(argv ?? Deno.args);
+  const _config = parseArgs(argv ?? Deno.args);
 
   // 入力ディレクトリ確認
-  const agentDir = `${inputDir}/${agent}`;
+  const agentDir = `${_config.inputDir}/${_config.agent}`;
   try {
     const stat = await Deno.stat(agentDir);
     if (!stat.isDirectory) {
@@ -546,18 +527,18 @@ export async function main(argv?: string[]): Promise<void> {
   }
 
   // プロジェクト辞書読み込み
-  const projects = await loadProjects(dicsDir);
+  const projects = await loadProjects(_config.dicsDir);
   if (projects.length === 0) {
     logger.warn('警告: projects.dic にプロジェクトが定義されていません。すべて misc に分類されます。');
   }
 
-  logger.info(`対象 agent: ${agent}`);
-  if (period) { logger.info(`対象期間: ${period}`); }
-  if (dryRun) { logger.info('dry-run モード: ファイルは移動しません'); }
+  logger.info(`対象 agent: ${_config.agent}`);
+  if (_config.period) { logger.info(`対象期間: ${_config.period}`); }
+  if (_config.dryRun) { logger.info('dry-run モード: ファイルは移動しません'); }
   logger.info(`プロジェクト候補: ${projects.join(', ')}`);
 
   // ファイル列挙
-  const allFiles = await findMdFilesFlat(inputDir, agent, period);
+  const allFiles = await findMdFilesFlat(_config.inputDir, _config.agent, _config.period);
   if (allFiles.length === 0) {
     logger.info('対象ファイルなし');
     logger.info('完了: moved=0 skipped=0 error=0');
@@ -591,14 +572,14 @@ export async function main(argv?: string[]): Promise<void> {
 
   // チャンク分割して並列処理
   const tasks: (() => Promise<void>)[] = [];
-  for (let i = 0; i < targetMetas.length; i += CHUNK_SIZE) {
-    const chunk = targetMetas.slice(i, i + CHUNK_SIZE);
-    tasks.push(() => processChunk(chunk, projects, dryRun, stats));
+  for (let i = 0; i < targetMetas.length; i += DEFAULT_CHUNK_SIZE) {
+    const chunk = targetMetas.slice(i, i + DEFAULT_CHUNK_SIZE);
+    tasks.push(() => processChunk(chunk, projects, _config.dryRun, stats));
   }
-  await withConcurrency(tasks, CONCURRENCY);
+  await withConcurrency(tasks, DEFAULT_CONCURRENCY);
 
   // サマリー
-  const drySuffix = dryRun ? ' (dry-run)' : '';
+  const drySuffix = _config.dryRun ? ' (dry-run)' : '';
   logger.info(
     `\n完了${drySuffix}: moved=${stats.moved} skipped=${stats.skipped} error=${stats.error}`,
   );
