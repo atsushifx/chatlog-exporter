@@ -12,7 +12,7 @@
  * リネームする。outputPath が存在しない場合は何もしない。
  */
 
-import { ChatlogError } from '../types/chatlog-error.types.ts';
+import { ChatlogError } from '../classes/ChatlogError.class.ts';
 import type { ListDirProvider } from '../types/common.types.ts';
 
 // ─────────────────────────────────────────────
