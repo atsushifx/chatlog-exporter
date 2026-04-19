@@ -30,7 +30,9 @@
  */
 
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
+import { findMdFiles as findMdFilesLib } from '../../_scripts/libs/find-md-files.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
+import { normalizePath } from '../../_scripts/libs/utils.ts';
 
 // ─────────────────────────────────────────────
 // ノイズ判定パターン定義
@@ -239,52 +241,30 @@ export function classifyFile(filename: string, text: string): { isNoise: boolean
 // ファイル列挙
 // ─────────────────────────────────────────────
 
-export async function findMdFiles(baseDir: string, agent: string, period?: string): Promise<string[]> {
-  const results: string[] = [];
+async function _resolveSearchDir(baseDir: string, agent: string, period?: string): Promise<string> {
+  const _agentDir = `${baseDir}/${agent}`;
 
-  const agentDir = `${baseDir}/${agent}`;
-
-  if (period) {
-    const yyyy = period.slice(0, 4);
-    // YYYY/YYYY-MM 構造（codex等）
-    const withYear = `${agentDir}/${yyyy}/${period}`;
-    // YYYY-MM 直下構造（claude等）
-    const flat = `${agentDir}/${period}`;
-
-    let targetDir: string;
-    try {
-      const stat = await Deno.stat(withYear);
-      targetDir = stat.isDirectory ? withYear : flat;
-    } catch {
-      targetDir = flat;
-    }
-    await _collectMdFiles(targetDir, results);
-  } else {
-    await _collectMdFiles(agentDir, results);
+  if (!period) {
+    return _agentDir;
   }
 
-  return results.sort();
+  const _yyyy = period.slice(0, 4);
+  // YYYY/YYYY-MM 構造（codex等）
+  const _withYear = `${_agentDir}/${_yyyy}/${period}`;
+  // YYYY-MM 直下構造（claude等）
+  const _flat = `${_agentDir}/${period}`;
+
+  try {
+    const stat = await Deno.stat(_withYear);
+    return stat.isDirectory ? _withYear : _flat;
+  } catch {
+    return _flat;
+  }
 }
 
-async function _collectMdFiles(dir: string, results: string[]): Promise<void> {
-  let entries: Deno.DirEntry[];
-  try {
-    entries = [];
-    for await (const e of Deno.readDir(dir)) {
-      entries.push(e);
-    }
-  } catch {
-    return;
-  }
-
-  for (const e of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-    const fullPath = `${dir}/${e.name}`;
-    if (e.isDirectory) {
-      await _collectMdFiles(fullPath, results);
-    } else if (e.isFile && e.name.endsWith('.md')) {
-      results.push(fullPath);
-    }
-  }
+export async function findMdFiles(baseDir: string, agent: string, period?: string): Promise<string[]> {
+  const _searchDir = await _resolveSearchDir(baseDir, agent, period);
+  return findMdFilesLib(_searchDir);
 }
 
 // ─────────────────────────────────────────────
@@ -353,7 +333,7 @@ export async function main(args: string[] = Deno.args): Promise<void> {
     const counts = { noise: 0, keep: 0, error: 0 };
 
     for (const filePath of files) {
-      const filename = filePath.replace(/\\/g, '/').split('/').pop()!;
+      const filename = normalizePath(filePath).split('/').pop()!;
 
       let text: string;
       try {

@@ -18,10 +18,6 @@ import { DEFAULT_HASH_LENGTH, DEFAULT_MAX_RANDOM_LENGTH, MIN_RANDOM_LENGTH } fro
 // -- types --
 import type { GenerateHashOptions } from '../types/common.types.ts';
 
-// -- re-exports --
-export { DEFAULT_HASH_LENGTH, DEFAULT_MAX_RANDOM_LENGTH, MIN_RANDOM_LENGTH } from '../constants/common.constants.ts';
-export type { GenerateHashOptions, HashProvider } from '../types/common.types.ts';
-
 // ─────────────────────────────────────────────
 // 定数
 // ─────────────────────────────────────────────

@@ -15,13 +15,13 @@ import {
   DEFAULT_HASH_LENGTH,
   DEFAULT_MAX_RANDOM_LENGTH,
   MIN_RANDOM_LENGTH,
-} from '../../../libs/hash.ts';
+} from '../../../constants/common.constants.ts';
 
 // test target
-
 import { generateHash } from '../../../libs/hash.ts';
+
 // -- types --
-import type { GenerateHashOptions } from '../../../libs/hash.ts';
+import type { GenerateHashOptions } from '../../../types/common.types.ts';
 
 // ─────────────────────────────────────────────
 // generateHash

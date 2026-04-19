@@ -6,6 +6,7 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+import { normalizePath } from '../../../_scripts/libs/utils.ts';
 import {
   homeDir,
   inPeriod,
@@ -96,7 +97,7 @@ export async function parseCodexSession(
 
   const sessionId = metaEntry.payload.id ?? 'unknown';
   const cwd = metaEntry.payload.cwd ?? '';
-  const project = cwd ? cwd.replace(/\\/g, '/').split('/').pop()! : 'unknown';
+  const project = cwd ? normalizePath(cwd).split('/').pop()! : 'unknown';
   const sessionTimestamp = metaEntry.timestamp;
 
   // 期間チェック（session_meta の timestamp で判定）

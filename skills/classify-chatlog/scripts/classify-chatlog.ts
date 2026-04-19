@@ -20,6 +20,7 @@ import { isKnownAgent } from '../../_scripts/constants/agents.constants.ts';
 import { DEFAULT_CHUNK_SIZE, DEFAULT_CONCURRENCY } from '../../_scripts/constants/concurrency.constants.ts';
 import { runChunked } from '../../_scripts/libs/concurrency.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
+import { normalizePath } from '../../_scripts/libs/utils.ts';
 
 // -- internal --
 import { FALLBACK_PROJECT, MIN_CLASSIFIABLE_LENGTH } from './constants/classify.constants.ts';
@@ -139,7 +140,7 @@ export async function loadFileMeta(filePath: string): Promise<FileMeta | null> {
     return null;
   }
 
-  const filename = filePath.replace(/\\/g, '/').split('/').pop()!;
+  const filename = normalizePath(filePath).split('/').pop()!;
   const fm = parseFrontmatter(text);
 
   return {
@@ -371,7 +372,7 @@ export async function classifyFile(
   stats: Stats,
 ): Promise<void> {
   const srcPath = fileMeta.filePath;
-  const srcDir = srcPath.replace(/\\/g, '/').split('/').slice(0, -1).join('/');
+  const srcDir = normalizePath(srcPath).split('/').slice(0, -1).join('/');
   const dstDir = `${srcDir}/${project}`;
   const dstPath = `${dstDir}/${fileMeta.filename}`;
 

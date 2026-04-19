@@ -20,6 +20,7 @@
 // -- external --
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { runChunked } from '../../_scripts/libs/concurrency.ts';
+import { findMdFiles as findMdFilesLib } from '../../_scripts/libs/find-md-files.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 
 export const CHUNK_SIZE = 10;
@@ -168,48 +169,32 @@ export function extractBodyText(body: string, maxChars = MAX_BODY_CHARS): string
 // ファイル列挙
 // ─────────────────────────────────────────────
 
+async function _resolveSearchDir(
+  baseDir: string,
+  period?: string,
+  project?: string,
+): Promise<string> {
+  if (!period) {
+    return baseDir;
+  }
+  // YYYY-MM 形式の場合、YYYY/YYYY-MM 構造にも対応
+  const yearDir = `${baseDir}/${period.slice(0, 4)}/${period}`;
+  const flatDir = `${baseDir}/${period}`;
+  try {
+    await Deno.stat(yearDir);
+    return project ? `${yearDir}/${project}` : yearDir;
+  } catch {
+    return project ? `${flatDir}/${project}` : flatDir;
+  }
+}
+
 export async function findMdFiles(
   baseDir: string,
   period?: string,
   project?: string,
 ): Promise<string[]> {
-  let searchDir = baseDir;
-  if (period) {
-    // YYYY-MM 形式の場合、YYYY/YYYY-MM 構造にも対応
-    const yearDir = `${baseDir}/${period.slice(0, 4)}/${period}`;
-    const flatDir = `${baseDir}/${period}`;
-    try {
-      await Deno.stat(yearDir);
-      searchDir = project ? `${yearDir}/${project}` : yearDir;
-    } catch {
-      searchDir = project ? `${flatDir}/${project}` : flatDir;
-    }
-  }
-
-  const results: string[] = [];
-  await _collectMdFiles(searchDir, results);
-  return results.sort();
-}
-
-async function _collectMdFiles(dir: string, results: string[]): Promise<void> {
-  let entries: Deno.DirEntry[];
-  try {
-    entries = [];
-    for await (const entry of Deno.readDir(dir)) {
-      entries.push(entry);
-    }
-  } catch {
-    return;
-  }
-
-  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-    const fullPath = `${dir}/${entry.name}`;
-    if (entry.isDirectory) {
-      await _collectMdFiles(fullPath, results);
-    } else if (entry.isFile && entry.name.endsWith('.md')) {
-      results.push(fullPath);
-    }
-  }
+  const _searchDir = await _resolveSearchDir(baseDir, period, project);
+  return findMdFilesLib(_searchDir);
 }
 
 // ─────────────────────────────────────────────

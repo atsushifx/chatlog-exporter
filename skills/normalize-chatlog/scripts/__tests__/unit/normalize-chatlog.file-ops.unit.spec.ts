@@ -1,6 +1,7 @@
 // src: scripts/__tests__/unit/normalize-chatlog.file-ops.unit.spec.ts
 // @(#): ファイル操作関数のユニットテスト
-//       対象: collectMdFiles, findMdFiles, writeOutput, segmentChatlog
+//       対象: writeOutput, segmentChatlog
+//       (collectMdFiles/findMdFiles は _scripts/libs/find-md-files.ts に移管済み)
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //
@@ -20,167 +21,10 @@ import type { CommandMockHandle } from '../../../../_scripts/__tests__/helpers/d
 
 // test target
 import {
-  collectMdFiles,
-  findMdFiles,
   segmentChatlog,
   writeOutput,
 } from '../../normalize-chatlog.ts';
 import type { Stats } from '../../normalize-chatlog.ts';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** フェイクの Deno.DirEntry を作る */
-function makeDirEntry(
-  name: string,
-  options: { isFile: boolean; isDirectory: boolean; isSymlink: boolean },
-): Deno.DirEntry {
-  return { name, ...options } as Deno.DirEntry;
-}
-
-/** 指定エントリを返す fakeReadDir を作る */
-function makeFakeReadDir(
-  entries: { name: string; isFile: boolean; isDirectory: boolean; isSymlink: boolean }[],
-): (path: string | URL) => Iterable<Deno.DirEntry> {
-  return (_path: string | URL): Iterable<Deno.DirEntry> => {
-    return entries.map((e) => makeDirEntry(e.name, e)) as Iterable<Deno.DirEntry>;
-  };
-}
-
-/** 例外をスローする fakeReadDir を作る（存在しないディレクトリのシミュレーション） */
-function makeThrowingReadDir(): (path: string | URL) => Iterable<Deno.DirEntry> {
-  return (_path: string | URL): Iterable<Deno.DirEntry> => {
-    throw new Deno.errors.NotFound('directory not found');
-  };
-}
-
-// ─── collectMdFiles tests ─────────────────────────────────────────────────────
-
-/**
- * collectMdFiles のユニットテスト。
- * fakeReadDir を使ってファイルシステムへの依存を排除した純粋なユニットテスト。
- */
-describe('collectMdFiles', () => {
-  /** 正常系: .md ファイルのみが results に追加される */
-  describe('[正常] Normal Cases', () => {
-    it('T-CMF-01-01: .md ファイルのみが results に追加される', () => {
-      // arrange
-      const fakeReadDir = makeFakeReadDir([
-        { name: 'chat1.md', isFile: true, isDirectory: false, isSymlink: false },
-        { name: 'notes.txt', isFile: true, isDirectory: false, isSymlink: false },
-        { name: 'readme.md', isFile: true, isDirectory: false, isSymlink: false },
-        { name: 'image.png', isFile: true, isDirectory: false, isSymlink: false },
-      ]);
-      const results: string[] = [];
-
-      // act
-      collectMdFiles('testdir', results, fakeReadDir);
-
-      // assert
-      assertEquals(results, ['testdir/chat1.md', 'testdir/readme.md']);
-    });
-
-    it('T-CMF-02-01: サブディレクトリの .md ファイルも収集される', () => {
-      // arrange
-      const subDirEntries = [
-        { name: 'sub.md', isFile: true, isDirectory: false, isSymlink: false },
-      ];
-      const rootEntries = [
-        { name: 'root.md', isFile: true, isDirectory: false, isSymlink: false },
-        { name: 'subdir', isFile: false, isDirectory: true, isSymlink: false },
-      ];
-      const fakeReadDir = (path: string | URL): Iterable<Deno.DirEntry> => {
-        const pathStr = String(path);
-        const entries = pathStr.endsWith('subdir') ? subDirEntries : rootEntries;
-        return entries.map((e) => makeDirEntry(e.name, e)) as Iterable<Deno.DirEntry>;
-      };
-      const results: string[] = [];
-
-      // act
-      collectMdFiles('testdir', results, fakeReadDir);
-
-      // assert
-      assertEquals(results, ['testdir/root.md', 'testdir/subdir/sub.md']);
-    });
-  });
-
-  /** 異常系: 存在しないディレクトリは例外をスローせず何も追加しない */
-  describe('[異常] Error Cases', () => {
-    it('T-CMF-03-01: NotFound 例外をスローせず results に何も追加しない', () => {
-      // arrange
-      const throwingReadDir = makeThrowingReadDir();
-      const results: string[] = [];
-
-      // act (例外がスローされないことを確認)
-      collectMdFiles('nonexistent/dir', results, throwingReadDir);
-
-      // assert
-      assertEquals(results, []);
-    });
-  });
-
-  /** エッジケース: .md ファイルが1件もないとき */
-  describe('[エッジケース] Edge Cases', () => {
-    it('T-CMF-04-01: .md ファイルがないとき results が空配列のまま', () => {
-      // arrange
-      const fakeReadDir = makeFakeReadDir([
-        { name: 'notes.txt', isFile: true, isDirectory: false, isSymlink: false },
-        { name: 'image.png', isFile: true, isDirectory: false, isSymlink: false },
-      ]);
-      const results: string[] = [];
-
-      // act
-      collectMdFiles('testdir', results, fakeReadDir);
-
-      // assert
-      assertEquals(results, []);
-    });
-  });
-});
-
-// ─── findMdFiles tests ────────────────────────────────────────────────────────
-
-/**
- * findMdFiles のユニットテスト。
- * fakeReadDir を使ってファイルシステムへの依存を排除した純粋なユニットテスト。
- */
-describe('findMdFiles', () => {
-  /** 正常系: .md ファイルが複数あるとき、ソートされた配列を返す */
-  describe('[正常] Normal Cases', () => {
-    it('T-FMF-01-01: ソートされた .md ファイルパスの配列を返す', () => {
-      // arrange
-      const fakeReadDir = makeFakeReadDir([
-        { name: 'chat-b.md', isFile: true, isDirectory: false, isSymlink: false },
-        { name: 'chat-a.md', isFile: true, isDirectory: false, isSymlink: false },
-        { name: 'notes.txt', isFile: true, isDirectory: false, isSymlink: false },
-        { name: 'chat-c.md', isFile: true, isDirectory: false, isSymlink: false },
-      ]);
-
-      // act
-      const result = findMdFiles('testdir', fakeReadDir);
-
-      // assert
-      assertEquals(result, [
-        'testdir/chat-a.md',
-        'testdir/chat-b.md',
-        'testdir/chat-c.md',
-      ]);
-    });
-  });
-
-  /** エッジケース: ディレクトリが空のとき、空配列を返す */
-  describe('[エッジケース] Edge Cases', () => {
-    it('T-FMF-02-01: ディレクトリが空のとき空配列を返す', () => {
-      // arrange
-      const fakeReadDir = makeFakeReadDir([]);
-
-      // act
-      const result = findMdFiles('emptydir', fakeReadDir);
-
-      // assert
-      assertEquals(result, []);
-    });
-  });
-});
 
 // ─── writeOutput tests ───────────────────────────────────────────────────────
 

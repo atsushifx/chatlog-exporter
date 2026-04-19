@@ -10,7 +10,9 @@
 // -- external --
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { runConcurrent } from '../../_scripts/libs/concurrency.ts';
+import { findMdFiles } from '../../_scripts/libs/find-md-files.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
+import { normalizePath } from '../../_scripts/libs/utils.ts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -391,49 +393,6 @@ export async function segmentChatlog(filePath: string, content: string): Promise
 // ─── File Operations ──────────────────────────────────────────────────────────
 
 /**
- * Recursively collects all `.md` file paths under `dir`, appending to `results`.
- * Silently returns if `dir` does not exist.
- * Symbolic links are not collected; only regular files are included.
- *
- * @param dir     - Directory path to scan
- * @param results - Accumulator array; `.md` file paths are pushed here
- */
-export function collectMdFiles(
-  dir: string,
-  results: string[],
-  readDir: (path: string | URL) => Iterable<Deno.DirEntry> = Deno.readDirSync,
-): void {
-  try {
-    for (const entry of readDir(dir)) {
-      const fullPath = `${dir}/${entry.name}`;
-      if (entry.isDirectory) {
-        collectMdFiles(fullPath, results, readDir);
-      } else if (entry.isFile && entry.name.endsWith('.md')) {
-        results.push(fullPath);
-      }
-    }
-  } catch {
-    // Non-existent or unreadable directory: return silently
-  }
-}
-
-/**
- * Returns a sorted list of all `.md` file paths found recursively under `dir`.
- * Symbolic links are not collected; only regular files are included.
- *
- * @param dir - Directory path to scan
- * @returns Sorted array of `.md` file paths
- */
-export function findMdFiles(
-  dir: string,
-  readDir: (path: string | URL) => Iterable<Deno.DirEntry> = Deno.readDirSync,
-): string[] {
-  const results: string[] = [];
-  collectMdFiles(dir, results, readDir);
-  return results.sort();
-}
-
-/**
  * Backs up an existing output file by renaming it to the first available
  * backup slot `<basename>.old-NN.md` (01–99).
  *
@@ -612,16 +571,6 @@ export function resolveOutputDir(inputDir: string, outputBase: string, project: 
 // ─── Argument Parsing ─────────────────────────────────────────────────────────
 
 /**
- * Normalizes path separators by replacing all backslashes with forward slashes.
- *
- * @param p - The path string to normalize
- * @returns The normalized path string with `/` as separator
- */
-function _normalizePath(p: string): string {
-  return p.replaceAll('\\', '/');
-}
-
-/**
  * Parses CLI arguments into a structured options object.
  *
  * Supported flags:
@@ -648,7 +597,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     const arg = argv[i];
     switch (arg) {
       case '--dir':
-        result.dir = _normalizePath(argv[++i]);
+        result.dir = normalizePath(argv[++i]);
         break;
       case '--agent':
         result.agent = argv[++i];
@@ -666,7 +615,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
         result.output = argv[++i];
         break;
       default: {
-        const normalized = _normalizePath(arg);
+        const normalized = normalizePath(arg);
         if (!normalized.startsWith('--') && normalized.includes('/')) {
           // Positional path argument: already normalized, assign to dir
           result.dir = normalized;
@@ -707,7 +656,7 @@ export async function main(argv?: string[], hashFn?: HashProvider): Promise<void
     const inputDir = resolved.dir;
     const outputBase = args.output ?? _DEFAULT_OUTPUT_DIR;
 
-    const mdFiles = findMdFiles(inputDir);
+    const mdFiles = await findMdFiles(inputDir);
     const stats: Stats = { success: 0, skip: 0, fail: 0 };
 
     await runConcurrent(mdFiles, async (filePath) => {

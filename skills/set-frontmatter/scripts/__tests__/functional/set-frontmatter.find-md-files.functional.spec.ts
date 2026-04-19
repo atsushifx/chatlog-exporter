@@ -10,7 +10,7 @@ import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // test target
-import { findMdFiles } from '../../set-frontmatter.ts';
+import { findMdFiles } from '../../../../_scripts/libs/find-md-files.ts';
 
 // ─── テスト共通セットアップ ───────────────────────────────────────────────────
 

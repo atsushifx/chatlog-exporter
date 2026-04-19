@@ -27,6 +27,7 @@
 import { parse as parseYaml } from '@std/yaml';
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { runConcurrent } from '../../_scripts/libs/concurrency.ts';
+import { findMdFiles } from '../../_scripts/libs/find-md-files.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 
 // ─────────────────────────────────────────────
@@ -286,34 +287,6 @@ export function parseFrontmatter(text: string): { meta: Record<string, string>; 
   }
 
   return { meta: _meta, body: lines.slice(_bodyStart).join('\n') };
-}
-
-// ─────────────────────────────────────────────
-// ファイル列挙
-// ─────────────────────────────────────────────
-
-export async function findMdFiles(dir: string): Promise<string[]> {
-  const results: string[] = [];
-  await _collectMdFiles(dir, results);
-  return results.sort();
-}
-
-async function _collectMdFiles(dir: string, results: string[]): Promise<void> {
-  let entries: Deno.DirEntry[];
-  try {
-    entries = [];
-    for await (const entry of Deno.readDir(dir)) { entries.push(entry); }
-  } catch {
-    return;
-  }
-  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-    const fullPath = `${dir}/${entry.name}`;
-    if (entry.isDirectory) {
-      await _collectMdFiles(fullPath, results);
-    } else if (entry.isFile && entry.name.endsWith('.md')) {
-      results.push(fullPath);
-    }
-  }
 }
 
 // ─────────────────────────────────────────────

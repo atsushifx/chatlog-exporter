@@ -22,6 +22,7 @@
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { isKnownAgent } from '../../_scripts/constants/agents.constants.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
+import { normalizePath } from '../../_scripts/libs/utils.ts';
 
 // -- internal --
 import { DEFAULT_EXPORT_CONFIG } from './constants/defaults.constants.ts';
@@ -385,7 +386,7 @@ export async function writeSession(
   const outPath = buildOutputPath(outputBase, agent, session.meta, slug);
   const content = renderMarkdown(session.meta, session.turns);
 
-  const dir = outPath.replace(/\\/g, '/').split('/').slice(0, -1).join('/');
+  const dir = normalizePath(outPath).split('/').slice(0, -1).join('/');
   await Deno.mkdir(dir, { recursive: true });
   await Deno.writeTextFile(outPath, content);
   return outPath;
@@ -479,7 +480,7 @@ export function parseArgs(args: string[]): ExportConfig {
     } else if (/^\d{4}-\d{2}$/.test(arg) || /^\d{4}$/.test(arg)) {
       _config.period = arg;
     } else {
-      const normalized = arg.replace(/\\/g, '/');
+      const normalized = normalizePath(arg);
       if (normalized.includes('/')) {
         _config.inputDir = normalized;
       } else {

@@ -6,6 +6,7 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+import { normalizePath } from '../../../_scripts/libs/utils.ts';
 import {
   homeDir,
   inPeriod,
@@ -149,7 +150,7 @@ export async function parseClaudeSession(
   if (!firstEntry) { return null; }
 
   const cwd = firstEntry.cwd ?? '';
-  const project = cwd ? cwd.replace(/\\/g, '/').split('/').pop()! : 'unknown';
+  const project = cwd ? normalizePath(cwd).split('/').pop()! : 'unknown';
 
   // 会話ターン抽出
   const turns: Turn[] = [];
