@@ -30,3 +30,10 @@ export interface GenerateHashOptions {
  * テスト時のインジェクタブルな依存として利用する。
  */
 export type HashProvider = () => string;
+
+// ─────────────────────────────────────────────
+// 並列処理系
+// ─────────────────────────────────────────────
+
+/** 非同期タスク関数の型。`withConcurrency` の入力として使用する。 */
+export type Task<T> = () => Promise<T>;
