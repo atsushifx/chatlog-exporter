@@ -28,6 +28,7 @@ export {
 export type { Args, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
 
 import { logger } from '../../_scripts/libs/logger.ts';
+import { ChatlogError } from '../../_scripts/types/chatlog-error.types.ts';
 import {
   CHUNK_SIZE,
   CONCURRENCY,
@@ -386,7 +387,7 @@ export async function runClaude(systemPrompt: string, userPrompt: string): Promi
 
   const output = await process.output();
   if (!output.success) {
-    throw new Error(`claude CLI がエラーで終了しました (code=${output.code})`);
+    throw new ChatlogError('CliError', `claude CLI がエラーで終了しました (code=${output.code})`);
   }
 
   return new TextDecoder().decode(output.stdout);
