@@ -6,39 +6,61 @@
 //
 // This software is released under the MIT License.
 
-// Deno Test module
-import { assertEquals } from '@std/assert';
-import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import type { Stub } from '@std/testing/mock';
-import { stub } from '@std/testing/mock';
+import { assertEquals, assertThrows } from '@std/assert';
+import { describe, it } from '@std/testing/bdd';
 
 // test target
-import {
-  parseArgs,
-} from '../../normalize-chatlog.ts';
+import { ChatlogError } from '../../../../_scripts/classes/ChatlogError.class.ts';
+import { parseArgs } from '../../normalize-chatlog.ts';
 
-// ─── parseArgs tests ──────────────────────────────────────────────────────────
+type ParsedArgs = ReturnType<typeof parseArgs>;
 
-/**
- * parseArgs のユニットテスト。
- * CLI 引数配列を解析して { dir, agent, yearMonth, dryRun, concurrency, output } を返す関数の
- * 正常系・デフォルト値・エラー終了・パス正規化を検証する。
- */
 describe('parseArgs', () => {
-  /** 正常系: --dir オプションを正しくパースする */
-  describe('Given: --dir オプションを含む引数配列', () => {
-    it('T-08-01-01: args.dir が "/some/path" になる', () => {
-      const result = parseArgs(['--dir', '/some/path']);
+  // ─── T-08-01: デフォルト値 ────────────────────────────────────────────────────
 
-      assertEquals(result.dir, '/some/path');
+  describe('Given: オプションなしの空配列', () => {
+    describe('When: parseArgs([]) を呼び出す', () => {
+      describe('Then: T-08-02 - デフォルト値が適用される', () => {
+        const _defaultCases: { id: string; field: keyof ParsedArgs; expected: unknown }[] = [
+          { id: 'T-08-02-01', field: 'concurrency', expected: 4 },
+          { id: 'T-08-02-02', field: 'dryRun', expected: false },
+        ];
+        for (const { id, field, expected } of _defaultCases) {
+          it(`${id}: ${field} が ${JSON.stringify(expected)} になる`, () => {
+            assertEquals(parseArgs([])[field], expected);
+          });
+        }
+      });
     });
   });
 
-  /** 正常系: 複数オプションが混在しても全フィールドを正しく解析する */
-  describe('Given: --agent・--year-month・--dry-run・--concurrency・--output を含む引数配列', () => {
-    let result: ReturnType<typeof parseArgs>;
-    beforeEach(() => {
-      result = parseArgs([
+  // ─── T-08-01: 単一・複数オプション ───────────────────────────────────────────
+
+  describe('Given: 各種オプション', () => {
+    describe('When: parseArgs(args) を呼び出す', () => {
+      describe('Then: 対応フィールドに値が設定される', () => {
+        const _cases: { id: string; args: string[]; field: keyof ParsedArgs; expected: unknown }[] = [
+          { id: 'T-08-01-01', args: ['--dir', '/some/path'], field: 'dir', expected: '/some/path' },
+          { id: 'T-08-01-02a', args: ['--agent', 'claude'], field: 'agent', expected: 'claude' },
+          { id: 'T-08-01-02b', args: ['--year-month', '2026-03'], field: 'yearMonth', expected: '2026-03' },
+          { id: 'T-08-01-02c', args: ['--dry-run'], field: 'dryRun', expected: true },
+          { id: 'T-08-01-02d', args: ['--concurrency', '8'], field: 'concurrency', expected: 8 },
+          { id: 'T-08-01-02e', args: ['--output', './out'], field: 'output', expected: './out' },
+        ];
+        for (const { id, args, field, expected } of _cases) {
+          it(`${id}: ${field} が ${JSON.stringify(expected)} になる`, () => {
+            assertEquals(parseArgs(args)[field], expected);
+          });
+        }
+      });
+    });
+  });
+
+  // ─── T-08-01: 複数オプション組み合わせ ───────────────────────────────────────
+
+  describe('Given: 全オプションを組み合わせた引数', () => {
+    it('T-08-01-02: 全フィールドが正しく解析される', () => {
+      const result = parseArgs([
         '--agent',
         'claude',
         '--year-month',
@@ -49,81 +71,50 @@ describe('parseArgs', () => {
         '--output',
         './out',
       ]);
-    });
-
-    it('T-08-01-02a: args.agent が "claude" になる', () => {
       assertEquals(result.agent, 'claude');
-    });
-
-    it('T-08-01-02b: args.yearMonth が "2026-03" になる', () => {
       assertEquals(result.yearMonth, '2026-03');
-    });
-
-    it('T-08-01-02c: args.dryRun が true になる', () => {
       assertEquals(result.dryRun, true);
-    });
-
-    it('T-08-01-02d: args.concurrency が 8 になる', () => {
       assertEquals(result.concurrency, 8);
-    });
-
-    it('T-08-01-02e: args.output が "./out" になる', () => {
       assertEquals(result.output, './out');
     });
   });
 
-  /** 正常系: 省略時はデフォルト値 (concurrency=4, dryRun=false) が適用される */
-  describe('Given: --concurrency・--dry-run を含まない引数配列', () => {
-    let result: ReturnType<typeof parseArgs>;
-    beforeEach(() => {
-      result = parseArgs([]);
-    });
+  // ─── T-08-04: パス正規化と自動 --dir 判定 ────────────────────────────────────
 
-    it('T-08-02-01: args.concurrency が 4 になる', () => {
-      assertEquals(result.concurrency, 4);
-    });
-
-    it('T-08-02-02: args.dryRun が false になる', () => {
-      assertEquals(result.dryRun, false);
-    });
-  });
-
-  /** 異常系: 未知のオプションは Deno.exit(1) を呼び出してエラー終了する */
-  describe('Given: 未知のオプションを含む引数配列', () => {
-    let exitStub: Stub<typeof Deno, [code?: number], never>;
-    beforeEach(() => {
-      exitStub = stub(Deno, 'exit');
-    });
-    afterEach(() => {
-      exitStub.restore();
-    });
-
-    it('T-08-03-01: Deno.exit(1) が呼ばれる', () => {
-      parseArgs(['--unknown']);
-
-      assertEquals(exitStub.calls.length, 1);
-      assertEquals(exitStub.calls[0].args[0], 1);
+  describe('Given: パス引数', () => {
+    describe('When: parseArgs(args) を呼び出す', () => {
+      describe('Then: T-08-04 - dir フィールドにスラッシュ正規化されたパスが設定される', () => {
+        const _pathCases: { id: string; args: string[]; expected: string }[] = [
+          { id: 'T-08-04-01', args: ['--dir', 'temp\\chatlog\\claude'], expected: 'temp/chatlog/claude' },
+          {
+            id: 'T-08-04-02',
+            args: ['temp/chatlog/claude/2026/2026-03'],
+            expected: 'temp/chatlog/claude/2026/2026-03',
+          },
+          {
+            id: 'T-08-04-03',
+            args: ['temp\\chatlog\\claude\\2026\\2026-03'],
+            expected: 'temp/chatlog/claude/2026/2026-03',
+          },
+        ];
+        for (const { id, args, expected } of _pathCases) {
+          it(`${id}: dir が "${expected}" になる`, () => {
+            assertEquals(parseArgs(args).dir, expected);
+          });
+        }
+      });
     });
   });
 
-  /** 正常系: パス正規化と自動 --dir 判定 */
-  describe('Given: パス区切り文字の正規化または自動 --dir 判定が必要な引数配列', () => {
-    it('T-08-04-01: --dir 値のバックスラッシュがスラッシュに正規化される', () => {
-      const result = parseArgs(['--dir', 'temp\\chatlog\\claude']);
+  // ─── 異常系: ChatlogError がスローされる ──────────────────────────────────────
 
-      assertEquals(result.dir, 'temp/chatlog/claude');
-    });
-
-    it('T-08-04-02: / を含む位置引数が args.dir に設定される', () => {
-      const result = parseArgs(['temp/chatlog/claude/2026/2026-03']);
-
-      assertEquals(result.dir, 'temp/chatlog/claude/2026/2026-03');
-    });
-
-    it('T-08-04-03: \\ を含む位置引数がスラッシュ正規化されて args.dir に設定される', () => {
-      const result = parseArgs(['temp\\chatlog\\claude\\2026\\2026-03']);
-
-      assertEquals(result.dir, 'temp/chatlog/claude/2026/2026-03');
+  describe('Given: 未知のオプション', () => {
+    it('T-08-03-01: ChatlogError(InvalidArgs) がスローされる', () => {
+      assertThrows(
+        () => parseArgs(['--unknown']),
+        ChatlogError,
+        'Invalid Args',
+      );
     });
   });
 });
