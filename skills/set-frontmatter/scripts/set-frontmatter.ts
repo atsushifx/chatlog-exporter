@@ -118,7 +118,7 @@ export async function loadDics(dicsDir: string): Promise<Dics> {
     try {
       return await Deno.readTextFile(path);
     } catch {
-      logger.warn(`警告: 辞書ファイルが見つかりません: ${path}`);
+      logger.warn(`辞書ファイルが見つかりません: ${path}`);
       return '';
     }
   };
@@ -189,7 +189,7 @@ export async function loadDics(dicsDir: string): Promise<Dics> {
     const system = typeof obj['system'] === 'string' ? (obj['system'] as string).trim() : '';
     const user = typeof obj['user'] === 'string' ? (obj['user'] as string).trim() : '';
     if (!system || !user) {
-      logger.warn(`警告: プロンプトテンプレート "${name}" に system/user キーがありません`);
+      logger.warn(`プロンプトテンプレート "${name}" に system/user キーがありません`);
     }
     return { system, user };
   };
@@ -222,12 +222,10 @@ export async function loadDics(dicsDir: string): Promise<Dics> {
 export function renderPrompt(template: string, vars: Record<string, string>): string {
   return template.replace(/\$\{([^}]+)\}/g, (_match, name: string) => {
     if (!/^[a-z_]+$/.test(name)) {
-      console.error(`エラー: 不正な変数名 "${name}" — 英小文字と "_" のみ使用可能`);
-      Deno.exit(1);
+      throw new ChatlogError('InvalidArgs', `不正な変数名 "${name}" — 英小文字と "_" のみ使用可能`);
     }
     if (!(name in vars)) {
-      console.error(`エラー: 未定義の変数 "${name}"`);
-      Deno.exit(1);
+      throw new ChatlogError('InvalidArgs', `未定義の変数 "${name}"`);
     }
     return vars[name];
   });
@@ -629,13 +627,14 @@ export function parseArgs(args: string[]): Args {
     } else if (!arg.startsWith('-')) {
       targetDir = arg;
     } else {
-      console.error(`不明なオプション: ${arg}`);
-      Deno.exit(1);
+      throw new ChatlogError('InvalidArgs', `不明なオプション: ${arg}`);
     }
   }
   if (!targetDir) {
-    console.error('Usage: set_frontmatter.ts <target_dir> [--dry-run] [--no-review] [--concurrency N] [--dics DIR]');
-    Deno.exit(1);
+    throw new ChatlogError(
+      'InvalidArgs',
+      'Usage: set_frontmatter.ts <target_dir> [--dry-run] [--no-review] [--concurrency N] [--dics DIR]',
+    );
   }
   return { targetDir, dicsDir, dryRun, review, concurrency };
 }
@@ -645,119 +644,127 @@ export function parseArgs(args: string[]): Args {
 // ─────────────────────────────────────────────
 
 export async function main(args: string[]): Promise<void> {
-  const { targetDir, dicsDir, dryRun, review, concurrency } = parseArgs(args);
-
   try {
-    const stat = await Deno.stat(targetDir);
-    if (!stat.isDirectory) { throw new Error(); }
-  } catch {
-    logger.error(`エラー: ディレクトリが見つかりません: ${targetDir}`);
-    Deno.exit(1);
-  }
+    const { targetDir, dicsDir, dryRun, review, concurrency } = parseArgs(args);
 
-  const dics = await loadDics(dicsDir);
-  logger.info(
-    `辞書読み込み完了: category=${dics.category.split(',').length}件 `
-      + `topics=${dics.topicEntries.length}件 tags=${dics.tags.split(',').length}件 `
-      + `types=${dics.typeEntries.length}件`,
-  );
+    try {
+      const stat = await Deno.stat(targetDir);
+      if (!stat.isDirectory) { throw new Error(); }
+    } catch (e) {
+      if (e instanceof ChatlogError) { throw e; }
+      throw new ChatlogError('InputNotFound', `ディレクトリが見つかりません: ${targetDir}`);
+    }
 
-  const allFiles = await findMdFiles(targetDir);
-  logger.info(`対象ファイル数: ${allFiles.length}`);
-  if (dryRun) { logger.info('dry-run モード: ファイルは更新しません'); }
-  if (!review) { logger.info('--no-review モード: Phase 3.5 をスキップします'); }
-  if (allFiles.length === 0) {
-    logger.info('対象ファイルなし');
-    Deno.exit(0);
-  }
+    const dics = await loadDics(dicsDir);
+    logger.info(
+      `辞書読み込み完了: category=${dics.category.split(',').length}件 `
+        + `topics=${dics.topicEntries.length}件 tags=${dics.tags.split(',').length}件 `
+        + `types=${dics.typeEntries.length}件`,
+    );
 
-  // Phase 1: メタ読み込み
-  const fileMetaList: FileMeta[] = [];
-  const stats: Stats = { total: allFiles.length, success: 0, fail: 0, skip: 0 };
-  for (const filePath of allFiles) {
-    const fm = await loadFileMeta(filePath);
-    if (!fm) {
-      logger.info(`  skip: ${filePath.split(/[/\\]/).pop()}`);
-      stats.skip++;
-    } else { fileMetaList.push(fm); }
-  }
-  logger.info(`メタ読み込み: ${fileMetaList.length}件（スキップ: ${stats.skip}件）`);
+    const allFiles = await findMdFiles(targetDir);
+    logger.info(`対象ファイル数: ${allFiles.length}`);
+    if (dryRun) { logger.info('dry-run モード: ファイルは更新しません'); }
+    if (!review) { logger.info('--no-review モード: Phase 3.5 をスキップします'); }
+    if (allFiles.length === 0) {
+      logger.info('対象ファイルなし');
+      return;
+    }
 
-  // Phase 2: type判定（並列）
-  logger.info(`\nPhase 2: type判定開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
-  const typeResults = await withConcurrency(fileMetaList.map((fm) => () => judgeType(fm, dics)), concurrency);
-  const typeMap = new Map(typeResults.map((r) => [r.file, r]));
-  for (const r of typeResults) { logger.info(`  type [${r.type}]: ${r.file.split(/[/\\]/).pop()}`); }
+    // Phase 1: メタ読み込み
+    const fileMetaList: FileMeta[] = [];
+    const stats: Stats = { total: allFiles.length, success: 0, fail: 0, skip: 0 };
+    for (const filePath of allFiles) {
+      const fm = await loadFileMeta(filePath);
+      if (!fm) {
+        logger.info(`  skip: ${filePath.split(/[/\\]/).pop()}`);
+        stats.skip++;
+      } else { fileMetaList.push(fm); }
+    }
+    logger.info(`メタ読み込み: ${fileMetaList.length}件（スキップ: ${stats.skip}件）`);
 
-  // Phase 3a: category判定（並列）
-  logger.info(`\nPhase 3a: category判定開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
-  const categoryResults = await withConcurrency(
-    fileMetaList.map((fm) => async () => {
-      const type = typeMap.get(fm.file)?.type ?? 'research';
-      const category = await judgeCategory(fm, type, dics);
-      logger.info(`  category [${category}]: ${fm.file.split(/[/\\]/).pop()}`);
-      return { file: fm.file, type, category };
-    }),
-    concurrency,
-  );
-  const categoryMap = new Map(categoryResults.map((r) => [r.file, r]));
+    // Phase 2: type判定（並列）
+    logger.info(`\nPhase 2: type判定開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
+    const typeResults = await withConcurrency(fileMetaList.map((fm) => () => judgeType(fm, dics)), concurrency);
+    const typeMap = new Map(typeResults.map((r) => [r.file, r]));
+    for (const r of typeResults) { logger.info(`  type [${r.type}]: ${r.file.split(/[/\\]/).pop()}`); }
 
-  // Phase 3b: フロントマター生成（並列）
-  logger.info(`\nPhase 3b: フロントマター生成開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
-  const fmResults = await withConcurrency(
-    fileMetaList.map((fm) => () => {
-      const cr = categoryMap.get(fm.file);
-      const type = cr?.type ?? 'research';
-      const category = cr?.category ?? 'development';
-      return generateFrontmatter(fm, type, category, dics);
-    }),
-    concurrency,
-  );
-  const fmResultMap = new Map(fmResults.map((r) => [r.file, r]));
-  for (const r of fmResults) { logger.info(`  generated: ${r.file.split(/[/\\]/).pop()}`); }
-
-  // Phase 3.5: レビュー（並列）
-  if (review) {
-    logger.info(`\nPhase 3.5: フロントマターレビュー開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
-    const reviewResults = await withConcurrency(
-      fmResults.filter((r) => r.yaml).map((r) => () => reviewFrontmatter(r, dics)),
+    // Phase 3a: category判定（並列）
+    logger.info(`\nPhase 3a: category判定開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
+    const categoryResults = await withConcurrency(
+      fileMetaList.map((fm) => async () => {
+        const type = typeMap.get(fm.file)?.type ?? 'research';
+        const category = await judgeCategory(fm, type, dics);
+        logger.info(`  category [${category}]: ${fm.file.split(/[/\\]/).pop()}`);
+        return { file: fm.file, type, category };
+      }),
       concurrency,
     );
-    for (const r of reviewResults) {
-      if (r.validity === 'fail') {
-        logger.warn(`  review FAIL: ${r.file.split(/[/\\]/).pop()} — ${r.errors.join('; ')}`);
-        const fm = fmResultMap.get(r.file);
-        if (fm) {
-          fmResultMap.set(r.file, {
-            ...fm,
-            type: r.correctedType || fm.type,
-            category: r.correctedCategory || fm.category,
-            yaml: r.correctedYaml || fm.yaml,
-          });
+    const categoryMap = new Map(categoryResults.map((r) => [r.file, r]));
+
+    // Phase 3b: フロントマター生成（並列）
+    logger.info(`\nPhase 3b: フロントマター生成開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
+    const fmResults = await withConcurrency(
+      fileMetaList.map((fm) => () => {
+        const cr = categoryMap.get(fm.file);
+        const type = cr?.type ?? 'research';
+        const category = cr?.category ?? 'development';
+        return generateFrontmatter(fm, type, category, dics);
+      }),
+      concurrency,
+    );
+    const fmResultMap = new Map(fmResults.map((r) => [r.file, r]));
+    for (const r of fmResults) { logger.info(`  generated: ${r.file.split(/[/\\]/).pop()}`); }
+
+    // Phase 3.5: レビュー（並列）
+    if (review) {
+      logger.info(`\nPhase 3.5: フロントマターレビュー開始 (${fileMetaList.length}件 × 並列度${concurrency})`);
+      const reviewResults = await withConcurrency(
+        fmResults.filter((r) => r.yaml).map((r) => () => reviewFrontmatter(r, dics)),
+        concurrency,
+      );
+      for (const r of reviewResults) {
+        if (r.validity === 'fail') {
+          logger.warn(`  review FAIL: ${r.file.split(/[/\\]/).pop()} — ${r.errors.join('; ')}`);
+          const fm = fmResultMap.get(r.file);
+          if (fm) {
+            fmResultMap.set(r.file, {
+              ...fm,
+              type: r.correctedType || fm.type,
+              category: r.correctedCategory || fm.category,
+              yaml: r.correctedYaml || fm.yaml,
+            });
+          }
+        } else {
+          logger.info(`  review OK: ${r.file.split(/[/\\]/).pop()}`);
         }
-      } else {
-        logger.info(`  review OK: ${r.file.split(/[/\\]/).pop()}`);
       }
+    } else {
+      logger.info(`\nPhase 3.5: スキップ (--no-review)`);
     }
-  } else {
-    logger.info(`\nPhase 3.5: スキップ (--no-review)`);
-  }
 
-  // Phase 4: 書き込み
-  logger.info(`\nPhase 4: Markdownへ書き込み`);
-  for (const fm of fileMetaList) {
-    const result = fmResultMap.get(fm.file);
-    if (!result) {
-      stats.fail++;
-      continue;
+    // Phase 4: 書き込み
+    logger.info(`\nPhase 4: Markdownへ書き込み`);
+    for (const fm of fileMetaList) {
+      const result = fmResultMap.get(fm.file);
+      if (!result) {
+        stats.fail++;
+        continue;
+      }
+      await writeFrontmatter(fm, result, dryRun, stats);
     }
-    await writeFrontmatter(fm, result, dryRun, stats);
-  }
 
-  const drySuffix = dryRun ? ' (dry-run)' : '';
-  logger.info(
-    `\n完了${drySuffix}: total=${stats.total} success=${stats.success} fail=${stats.fail} skip=${stats.skip}`,
-  );
+    const drySuffix = dryRun ? ' (dry-run)' : '';
+    logger.info(
+      `\n完了${drySuffix}: total=${stats.total} success=${stats.success} fail=${stats.fail} skip=${stats.skip}`,
+    );
+  } catch (e) {
+    if (e instanceof ChatlogError) {
+      logger.error(e.message);
+      Deno.exit(1);
+    }
+    throw e;
+  }
 }
 
 if (import.meta.main) {
