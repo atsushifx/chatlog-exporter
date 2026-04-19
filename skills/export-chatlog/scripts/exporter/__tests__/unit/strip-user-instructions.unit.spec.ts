@@ -9,7 +9,7 @@
 import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
-import { _stripUserInstructions } from '../../codex-exporter.ts';
+import { stripUserInstructions } from '../../codex-exporter.ts';
 
 // ─── _stripUserInstructions tests ────────────────────────────────────────────
 
@@ -31,7 +31,7 @@ describe('_stripUserInstructions', () => {
     describe('When: _stripUserInstructions(text) を呼び出す', () => {
       it('Then: [正常] - 空文字列を返す', () => {
         const text = '<user_instructions>\nPlease provide all answers in Japanese\n</user_instructions>';
-        const result = _stripUserInstructions(text);
+        const result = stripUserInstructions(text);
         assertEquals(result, '');
       });
     });
@@ -44,7 +44,7 @@ describe('_stripUserInstructions', () => {
       it('Then: [正常] - user_instructions 部分を除いた本文のみ返す', () => {
         const text =
           '<user_instructions>\nPlease provide all answers in Japanese\n</user_instructions>\n\nコードレビューをお願いします';
-        const result = _stripUserInstructions(text);
+        const result = stripUserInstructions(text);
         assertEquals(result, 'コードレビューをお願いします');
       });
     });
@@ -56,7 +56,7 @@ describe('_stripUserInstructions', () => {
     describe('When: _stripUserInstructions(text) を呼び出す', () => {
       it('Then: [正常] - テキストが変更されず元の値を返す', () => {
         const text = 'コードレビューをお願いします';
-        const result = _stripUserInstructions(text);
+        const result = stripUserInstructions(text);
         assertEquals(result, text);
       });
     });
@@ -78,7 +78,7 @@ describe('_stripUserInstructions', () => {
           'Always use TypeScript',
           '</user_instructions>',
         ].join('\n');
-        const result = _stripUserInstructions(text);
+        const result = stripUserInstructions(text);
         assertEquals(result, 'コードレビューをお願いします');
       });
     });
@@ -90,7 +90,7 @@ describe('_stripUserInstructions', () => {
     describe('When: _stripUserInstructions(text) を呼び出す', () => {
       it('Then: [正常] - 空文字列を返す', () => {
         const text = '<user_instructions>  Please provide all answers in Japanese  </user_instructions>';
-        const result = _stripUserInstructions(text);
+        const result = stripUserInstructions(text);
         assertEquals(result, '');
       });
     });
@@ -103,7 +103,7 @@ describe('_stripUserInstructions', () => {
       it('Then: [正常] - user_instructions 部分を除いた本文のみ返す', () => {
         const text =
           '<user_instructions>  Please provide all answers in Japanese  </user_instructions>\n\nコードレビューをお願いします';
-        const result = _stripUserInstructions(text);
+        const result = stripUserInstructions(text);
         assertEquals(result, 'コードレビューをお願いします');
       });
     });
