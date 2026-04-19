@@ -15,12 +15,12 @@ import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
 // test target
+import { withConcurrency } from '../../../../_scripts/libs/concurrency.ts';
 import {
   attachFrontmatter,
   generateOutputFileName,
   generateSegmentFile,
   START_BODY_HEADING,
-  withConcurrency,
 } from '../../normalize-chatlog.ts';
 
 // ─── withConcurrency tests ─────────────────────────────────────────────────────
