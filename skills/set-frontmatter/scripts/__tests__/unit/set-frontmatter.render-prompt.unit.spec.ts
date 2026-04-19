@@ -6,12 +6,11 @@
 //
 // This software is released under the MIT License.
 
-import { assertEquals } from '@std/assert';
-import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import type { Stub } from '@std/testing/mock';
-import { stub } from '@std/testing/mock';
+import { assertEquals, assertThrows } from '@std/assert';
+import { describe, it } from '@std/testing/bdd';
 
 // test target
+import { ChatlogError } from '../../../../_scripts/classes/ChatlogError.class.ts';
 import { renderPrompt } from '../../set-frontmatter.ts';
 
 // ─── 基本的な変数置換 ─────────────────────────────────────────────────────────
@@ -71,47 +70,33 @@ describe('renderPrompt', () => {
     });
   });
 
-  // ─── 不正な変数名（大文字含む）で exit(1) ────────────────────────────────
+  // ─── 不正な変数名（大文字含む）で ChatlogError がスローされる ────────────────────────────────
 
   describe('Given: テンプレート "${BadName}" と変数 { BadName: "val" }', () => {
     describe('When: renderPrompt を呼び出す', () => {
-      describe('Then: T-SF-RP-05 - 大文字含む変数名 → Deno.exit(1)', () => {
-        let exitStub: Stub<typeof Deno, [code?: number], never>;
-        beforeEach(() => {
-          exitStub = stub(Deno, 'exit');
-        });
-        afterEach(() => {
-          exitStub.restore();
-        });
-
-        it('T-SF-RP-05-01: Deno.exit(1) がちょうど1回呼ばれる', () => {
-          renderPrompt('${BadName}', { BadName: 'val' });
-
-          assertEquals(exitStub.calls.length, 1);
-          assertEquals(exitStub.calls[0].args[0], 1);
+      describe('Then: T-SF-RP-05 - 大文字含む変数名 → ChatlogError(InvalidArgs)', () => {
+        it('T-SF-RP-05-01: ChatlogError(InvalidArgs) がスローされる', () => {
+          assertThrows(
+            () => renderPrompt('${BadName}', { BadName: 'val' }),
+            ChatlogError,
+            'Invalid Args',
+          );
         });
       });
     });
   });
 
-  // ─── 未定義変数で exit(1) ────────────────────────────────────────────────
+  // ─── 未定義変数で ChatlogError がスローされる ────────────────────────────────────────────────
 
   describe('Given: テンプレート "${missing}" と空の変数マップ {}', () => {
     describe('When: renderPrompt を呼び出す', () => {
-      describe('Then: T-SF-RP-06 - 未定義変数 → Deno.exit(1)', () => {
-        let exitStub: Stub<typeof Deno, [code?: number], never>;
-        beforeEach(() => {
-          exitStub = stub(Deno, 'exit');
-        });
-        afterEach(() => {
-          exitStub.restore();
-        });
-
-        it('T-SF-RP-06-01: Deno.exit(1) がちょうど1回呼ばれる', () => {
-          renderPrompt('${missing}', {});
-
-          assertEquals(exitStub.calls.length, 1);
-          assertEquals(exitStub.calls[0].args[0], 1);
+      describe('Then: T-SF-RP-06 - 未定義変数 → ChatlogError(InvalidArgs)', () => {
+        it('T-SF-RP-06-01: ChatlogError(InvalidArgs) がスローされる', () => {
+          assertThrows(
+            () => renderPrompt('${missing}', {}),
+            ChatlogError,
+            'Invalid Args',
+          );
         });
       });
     });
