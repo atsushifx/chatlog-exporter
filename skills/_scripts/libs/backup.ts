@@ -13,7 +13,7 @@
  */
 
 import { ChatlogError } from '../classes/ChatlogError.class.ts';
-import type { ListDirProvider } from '../types/common.types.ts';
+import type { ListDirProvider } from '../types/providers.types.ts';
 
 // ─────────────────────────────────────────────
 // 内部ユーティリティ
