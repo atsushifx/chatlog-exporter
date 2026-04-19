@@ -9,6 +9,7 @@
 
 // -- external --
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
+import { runConcurrent } from '../../_scripts/libs/concurrency.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -679,41 +680,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
   return result;
 }
 
-// ─── Concurrency ──────────────────────────────────────────────────────────────
-
-/**
- * Executes an array of async tasks with a bounded concurrency limit,
- * returning results in input index order regardless of completion order.
- *
- * @param tasks - Array of zero-argument functions that return Promises
- * @param concurrency - Maximum number of tasks to run concurrently
- * @returns Promise resolving to results in input index order
- */
-export async function withConcurrency<T>(
-  tasks: (() => Promise<T>)[],
-  concurrency: number,
-): Promise<T[]> {
-  const results: T[] = new Array(tasks.length);
-  let _nextIndex = 0;
-
-  async function runNext(): Promise<void> {
-    const index = _nextIndex++;
-    if (index >= tasks.length) {
-      return;
-    }
-    results[index] = await tasks[index]();
-    await runNext();
-  }
-
-  const workers = Array.from(
-    { length: Math.min(concurrency, tasks.length) },
-    () => runNext(),
-  );
-  await Promise.all(workers);
-
-  return results;
-}
-
 // ─── Main Orchestration ───────────────────────────────────────────────────────
 
 /** Default output directory for normalized segment files. */
@@ -744,7 +710,7 @@ export async function main(argv?: string[], hashFn?: HashProvider): Promise<void
     const mdFiles = findMdFiles(inputDir);
     const stats: Stats = { success: 0, skip: 0, fail: 0 };
 
-    const tasks = mdFiles.map((filePath) => async () => {
+    await runConcurrent(mdFiles, async (filePath) => {
       const content = await Deno.readTextFile(filePath);
       const { meta: sourceMeta } = parseFrontmatter(content);
 
@@ -769,9 +735,7 @@ export async function main(argv?: string[], hashFn?: HashProvider): Promise<void
         const outputPath = `${outputDir}/${outputFileName}`;
         await writeOutput(outputPath, fullContent, args.dryRun, stats);
       }
-    });
-
-    await withConcurrency(tasks, args.concurrency);
+    }, args.concurrency);
 
     reportResults(stats);
   } catch (e) {
