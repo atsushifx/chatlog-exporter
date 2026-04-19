@@ -12,9 +12,9 @@ import { describe, it } from '@std/testing/bdd';
 import {
   buildClassifyPrompt,
   buildSystemPrompt,
-  FALLBACK_PROJECT,
 } from '../../classify-chatlog.ts';
-import type { FileMeta } from '../../classify-chatlog.ts';
+import { FALLBACK_PROJECT } from '../../constants/classify.constants.ts';
+import type { FileMeta } from '../../types/classify.types.ts';
 
 // ─── テスト用 FileMeta ヘルパー ───────────────────────────────────────────────
 

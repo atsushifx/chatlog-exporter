@@ -61,11 +61,11 @@ export interface Stats {
 }
 
 // ─────────────────────────────────────────────
-// CLI 引数型
+// 分類設定型
 // ─────────────────────────────────────────────
 
-/** `parseArgs` が返す CLI 引数の解析結果。 */
-export interface Args {
+/** `parseArgs` が返す分類処理の設定。 */
+export interface ClassifyConfig {
   /** 対象 AI エージェント名（例: `claude`, `chatgpt`）。 */
   agent: string;
   /** 対象年月（`YYYY-MM` 形式）。省略時は全期間。 */
