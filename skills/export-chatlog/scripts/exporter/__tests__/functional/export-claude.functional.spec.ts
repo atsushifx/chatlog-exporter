@@ -10,6 +10,7 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
+import { normalizePath } from '../../../../../_scripts/libs/utils.ts';
 import type { ExportConfig } from '../../../types/export-config.types.ts';
 import { exportClaude } from '../../claude-exporter.ts';
 
@@ -98,7 +99,7 @@ describe('exportClaude (functional)', () => {
     describe('When: exportClaude(config) を呼び出す', () => {
       it('T-EC-CL-F-02: パスが claude/2026/2026-03/ 形式でファイルが存在する', async () => {
         const result = await exportClaude(config());
-        const normalizedPath = result.outputPaths[0].replace(/\\/g, '/').replace(/^\/([A-Z]:)/, '$1');
+        const normalizedPath = normalizePath(result.outputPaths[0]).replace(/^\/([A-Z]:)/, '$1');
         assertStringIncludes(normalizedPath, '/claude/');
         assertStringIncludes(normalizedPath, '/2026/');
         assertStringIncludes(normalizedPath, '/2026-03/');
