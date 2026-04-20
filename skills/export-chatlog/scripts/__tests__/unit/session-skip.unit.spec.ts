@@ -10,7 +10,7 @@
 import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
-import { isSkippableSession } from '../../export-chatlog.ts';
+import { isSkippableSession } from '../../libs/skip-rules.ts';
 
 // ─── isSkippableSession ───────────────────────────────────────────────────────
 
