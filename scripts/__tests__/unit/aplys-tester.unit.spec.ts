@@ -15,6 +15,7 @@ import {
   buildArgsFromConfig,
   buildBaseGlob,
   buildDenoArgs,
+  buildEnvFromConfig,
   MODULE_GLOB_TABLE,
   parseArgs,
   TesterConfig,
@@ -39,7 +40,7 @@ describe('parseArgs', () => {
 
         it('T-AT-PA-01-02: moduleName が undefined である', () => {
           const result = parseArgs(['unit']);
-          assertEquals(result.options.moduleName, undefined);
+          assertEquals(result.moduleName, undefined);
         });
       });
     });
@@ -81,7 +82,7 @@ describe('parseArgs', () => {
 
         it('T-AT-PA-04-02: moduleName が "classify" である', () => {
           const result = parseArgs(['unit', 'classify']);
-          assertEquals(result.options.moduleName, 'classify');
+          assertEquals(result.moduleName, 'classify');
         });
       });
     });
@@ -92,7 +93,7 @@ describe('parseArgs', () => {
       describe('Then: T-AT-PA-05 - moduleName="all" を返す', () => {
         it('T-AT-PA-05-01: moduleName が "all" である', () => {
           const result = parseArgs(['unit', 'all']);
-          assertEquals(result.options.moduleName, 'all');
+          assertEquals(result.moduleName, 'all');
         });
       });
     });
@@ -104,7 +105,7 @@ describe('parseArgs', () => {
         for (const mod of VALID_MODULES) {
           it(`T-AT-PA-06: moduleName="${mod}" が正しく返る`, () => {
             const result = parseArgs(['unit', mod]);
-            assertEquals(result.options.moduleName, mod);
+            assertEquals(result.moduleName, mod);
           });
         }
       });
@@ -138,6 +139,57 @@ describe('parseArgs', () => {
       describe('Then: T-AT-PA-09 - プロセスが終了する', () => {
         it('T-AT-PA-09-01: Error がスローされる', () => {
           assertThrows(() => parseArgs(['unit', 'unknown-mod']), Error, '不明なモジュール名 "unknown-mod"');
+        });
+      });
+    });
+  });
+
+  // ─── グループ04: --use-ai オプション ───────────────────────────────────────
+
+  describe('Given: --use-ai フラグを渡す', () => {
+    describe('When: parseArgs(["unit", "--use-ai"]) を呼び出す', () => {
+      describe('Then: T-AT-PA-UA-01 - useAi=true を返す', () => {
+        it('T-AT-PA-UA-01-01: useAi が true である', () => {
+          const result = parseArgs(['unit', '--use-ai']);
+          assertEquals(result.useAi, true);
+        });
+      });
+    });
+  });
+
+  describe('Given: --use-ai フラグなしで呼び出す', () => {
+    describe('When: parseArgs(["unit"]) を呼び出す', () => {
+      describe('Then: T-AT-PA-UA-02 - useAi=false を返す', () => {
+        it('T-AT-PA-UA-02-01: useAi が false である', () => {
+          const result = parseArgs(['unit']);
+          assertEquals(result.useAi, false);
+        });
+      });
+    });
+  });
+
+  describe('Given: --use-ai フラグが先頭・途中・末尾に位置する', () => {
+    describe('When: 各位置で parseArgs を呼び出す', () => {
+      describe('Then: T-AT-PA-UA-03 - positional 引数に影響せず useAi=true を返す', () => {
+        it('T-AT-PA-UA-03-01: --use-ai が先頭でも testType が "unit" である', () => {
+          const result = parseArgs(['--use-ai', 'unit']);
+          assertEquals(result.testType, 'unit');
+          assertEquals(result.useAi, true);
+        });
+        it('T-AT-PA-UA-03-02: --use-ai が先頭でも moduleName が "classify" である', () => {
+          const result = parseArgs(['--use-ai', 'unit', 'classify']);
+          assertEquals(result.moduleName, 'classify');
+          assertEquals(result.useAi, true);
+        });
+        it('T-AT-PA-UA-03-03: --use-ai が途中でも testType が "unit" である', () => {
+          const result = parseArgs(['unit', '--use-ai', 'classify']);
+          assertEquals(result.testType, 'unit');
+          assertEquals(result.useAi, true);
+        });
+        it('T-AT-PA-UA-03-04: --use-ai が末尾でも moduleName が "classify" である', () => {
+          const result = parseArgs(['unit', 'classify', '--use-ai']);
+          assertEquals(result.moduleName, 'classify');
+          assertEquals(result.useAi, true);
         });
       });
     });
@@ -317,6 +369,45 @@ describe('buildDenoArgs', () => {
       });
     });
   });
+
+  describe('Given: unit タイプ、useAi=true', () => {
+    describe('When: buildDenoArgs(["unit"], "**/__tests__", true) を呼び出す', () => {
+      describe('Then: T-AT-DA-UA-01 - --allow-env を含む', () => {
+        it('T-AT-DA-UA-01-01: --allow-env を含む', () => {
+          const result = buildDenoArgs(['unit'], '**/__tests__', true);
+          assertEquals(result.includes('--allow-env'), true);
+        });
+      });
+    });
+  });
+});
+
+// ─────────────────────────────────────────────
+// buildEnvFromConfig
+// ─────────────────────────────────────────────
+
+describe('buildEnvFromConfig', () => {
+  describe('Given: TesterConfig with useAi=true', () => {
+    describe('When: buildEnvFromConfig({ testType: "unit", useAi: true }) を呼び出す', () => {
+      describe('Then: T-AT-EV-01 - { RUN_AI: "1" } を返す', () => {
+        it('T-AT-EV-01-01: 戻り値が { RUN_AI: "1" } である', () => {
+          const result = buildEnvFromConfig({ testType: 'unit', useAi: true });
+          assertEquals(result, { RUN_AI: '1' });
+        });
+      });
+    });
+  });
+
+  describe('Given: TesterConfig without useAi', () => {
+    describe('When: buildEnvFromConfig({ testType: "unit" }) を呼び出す', () => {
+      describe('Then: T-AT-EV-02 - {} を返す', () => {
+        it('T-AT-EV-02-01: 戻り値が {} である', () => {
+          const result = buildEnvFromConfig({ testType: 'unit' });
+          assertEquals(result, {});
+        });
+      });
+    });
+  });
 });
 
 // ─────────────────────────────────────────────
@@ -330,7 +421,7 @@ describe('buildArgsFromConfig', () => {
     describe('When: buildArgsFromConfig(config) を呼び出す', () => {
       describe('Then: T-AT-AC-01 - buildDenoArgs(["unit"], "**/__tests__") と同じ結果を返す', () => {
         it('T-AT-AC-01-01: 結果が buildDenoArgs(["unit"], "**/__tests__") と一致する', () => {
-          const config: TesterConfig = { testType: 'unit', options: { moduleName: undefined } };
+          const config: TesterConfig = { testType: 'unit' };
           const result = buildArgsFromConfig(config);
           const expected = buildDenoArgs(['unit'], '**/__tests__');
           assertEquals(result, expected);
@@ -345,7 +436,7 @@ describe('buildArgsFromConfig', () => {
     describe('When: buildArgsFromConfig(config) を呼び出す', () => {
       describe('Then: T-AT-AC-02 - 全 VALID_TYPES のパスを含む', () => {
         it('T-AT-AC-02-01: VALID_TYPES 数分のパスを含む', () => {
-          const config: TesterConfig = { testType: 'all', options: { moduleName: undefined } };
+          const config: TesterConfig = { testType: 'all' };
           const result = buildArgsFromConfig(config);
           const paths = result.filter((a: string) => a.includes('__tests__/'));
           assertEquals(paths.length, VALID_TYPES.length);
@@ -360,7 +451,7 @@ describe('buildArgsFromConfig', () => {
     describe('When: buildArgsFromConfig(config) を呼び出す', () => {
       describe('Then: T-AT-AC-03 - buildDenoArgs(["unit"], "**/classify-chatlog/**/__tests__") と同じ結果を返す', () => {
         it('T-AT-AC-03-01: 結果が buildDenoArgs(["unit"], "**/classify-chatlog/**/__tests__") と一致する', () => {
-          const config: TesterConfig = { testType: 'unit', options: { moduleName: 'classify' } };
+          const config: TesterConfig = { testType: 'unit', moduleName: 'classify' };
           const result = buildArgsFromConfig(config);
           const expected = buildDenoArgs(['unit'], '**/classify-chatlog/**/__tests__');
           assertEquals(result, expected);
