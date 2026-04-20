@@ -34,7 +34,7 @@ const _RANDOM_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
  *
  * @returns `yyyyMMddHHmmss` 形式の14桁文字列
  */
-function _buildTimestamp(): string {
+const _buildTimestamp = (): string => {
   const now = new Date();
   const yyyy = now.getFullYear().toString();
   const MM = now.getMonth().toString().padStart(2, '0');
@@ -43,7 +43,7 @@ function _buildTimestamp(): string {
   const mm = now.getMinutes().toString().padStart(2, '0');
   const ss = now.getSeconds().toString().padStart(2, '0');
   return `${yyyy}${MM}${dd}${HH}${mm}${ss}`;
-}
+};
 
 /**
  * `[a-z0-9]` からランダムな長さの文字列を生成する。
@@ -53,7 +53,7 @@ function _buildTimestamp(): string {
  * @param maxLength 生成する文字列の最大長（`MIN_RANDOM_LENGTH` 以上であること）
  * @returns ランダムな長さの英小文字・数字からなる文字列
  */
-function _buildRandomString(maxLength: number): string {
+const _buildRandomString = (maxLength: number): string => {
   const range = maxLength - MIN_RANDOM_LENGTH + 1;
   const maxUnbiasedLen = Math.floor(256 / range) * range;
   let lenOffset: number;
@@ -77,7 +77,7 @@ function _buildRandomString(maxLength: number): string {
   }
 
   return _out.join('');
-}
+};
 
 /**
  * SHA-256 ハッシュを計算し、16進数文字列として返す。
@@ -85,13 +85,13 @@ function _buildRandomString(maxLength: number): string {
  * @param input ハッシュ計算の入力文字列
  * @returns SHA-256 ハッシュの64文字16進数文字列
  */
-async function _sha256Hex(input: string): Promise<string> {
+const _sha256Hex = async (input: string): Promise<string> => {
   const data = new TextEncoder().encode(input);
   const hashBuf = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(hashBuf))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
-}
+};
 
 /**
  * シード文字列を生成する。
@@ -102,11 +102,11 @@ async function _sha256Hex(input: string): Promise<string> {
  * @param maxRandomLength ランダム文字列の最大長
  * @returns シード文字列
  */
-function _buildSeed(filenameBase: string, maxRandomLength: number): string {
+const _buildSeed = (filenameBase: string, maxRandomLength: number): string => {
   const _timestamp = _buildTimestamp();
   const _random = _buildRandomString(maxRandomLength);
   return `${filenameBase}-${_timestamp}-${_random}`;
-}
+};
 
 // ─────────────────────────────────────────────
 // 公開 API
@@ -126,13 +126,13 @@ function _buildSeed(filenameBase: string, maxRandomLength: number): string {
  * @param options.maxRandomLength ランダム文字列の最大長（デフォルト: `DEFAULT_MAX_RANDOM_LENGTH` = 16）
  * @returns 先頭 `length` 文字の16進数ハッシュ文字列
  */
-export async function generateHash(
+export const generateHash = async (
   filenameBase: string,
   options: GenerateHashOptions = {},
-): Promise<string> {
+): Promise<string> => {
   const length = options.length ?? DEFAULT_HASH_LENGTH;
   const maxRandomLength = options.maxRandomLength ?? DEFAULT_MAX_RANDOM_LENGTH;
   const seed = _buildSeed(filenameBase, maxRandomLength);
   const hex = await _sha256Hex(seed);
   return hex.slice(0, length);
-}
+};
