@@ -6,9 +6,12 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+// -- external --
 import { isoToDate } from '../../../_scripts/libs/date-utils.ts';
+import { findDirectories, findEntries } from '../../../_scripts/libs/find-entries.ts';
 import { homeDir, normalizePath } from '../../../_scripts/libs/utils.ts';
-import { walkFiles } from '../../../_scripts/libs/walk-files.ts';
+
+// -- internal --
 import { inPeriod, parsePeriod } from '../libs/period-filter.ts';
 import { writeSession } from '../libs/session-writer.ts';
 import { isSkippable, isSkippableSession } from '../libs/skip-rules.ts';
@@ -17,14 +20,11 @@ import type { ExportResult } from '../types/export-result.types.ts';
 import type { PeriodRange } from '../types/filter.types.ts';
 import type { ExportedSession, SessionMeta, Turn } from '../types/session.types.ts';
 import type { ClaudeEntry } from './types/claude-entry.types.ts';
-
-// ─────────────────────────────────────────────
-// Provider 型（テスト用依存性注入）
-// ─────────────────────────────────────────────
-
-type FindSessionsProvider = (period: PeriodRange, projectDir?: string) => Promise<string[]>;
-type ParseSessionProvider = (filePath: string, range: PeriodRange) => Promise<ExportedSession | null>;
-type WriteSessionProvider = (outputDir: string, agent: string, session: ExportedSession) => Promise<string>;
+import type {
+  FindSessionsProvider,
+  ParseSessionProvider,
+  WriteSessionProvider,
+} from './types/session-provider.types.ts';
 
 // ─────────────────────────────────────────────
 // テキスト抽出
@@ -205,27 +205,8 @@ export const findClaudeSessions = async (
   projectDir?: string,
 ): Promise<string[]> => {
   const projectsDir = projectDir ?? `${homeDir()}/.claude/projects`;
-  const results: string[] = [];
-
-  let projectDirs: Deno.DirEntry[];
-  try {
-    projectDirs = [];
-    for await (const e of Deno.readDir(projectsDir)) {
-      if (e.isDirectory) { projectDirs.push(e); }
-    }
-  } catch {
-    return results;
-  }
-
-  for (const pd of projectDirs) {
-    const pdPath = `${projectsDir}/${pd.name}`;
-    for await (const entry of walkFiles(pdPath, '.jsonl')) {
-      if (entry.includes('/subagents/') || entry.includes('\\subagents\\')) { continue; }
-      results.push(entry);
-    }
-  }
-
-  return results.sort();
+  const _dirs = await findDirectories(projectsDir);
+  return findEntries(_dirs, '.jsonl', { exclude: ['subagents'] });
 };
 
 // ─────────────────────────────────────────────
