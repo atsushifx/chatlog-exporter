@@ -14,6 +14,7 @@ import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
 // -- test target --
+import { normalizePath } from '../../../../_scripts/libs/utils.ts';
 import { findClaudeSessions } from '../../exporter/claude-exporter.ts';
 import { parsePeriod } from '../../libs/period-filter.ts';
 
@@ -155,7 +156,7 @@ describe('findClaudeSessions', () => {
     let customProjectsDir: string;
 
     beforeEach(async () => {
-      customProjectsDir = await Deno.makeTempDir();
+      customProjectsDir = normalizePath(await Deno.makeTempDir());
       await Deno.mkdir(`${customProjectsDir}/proj-x`, { recursive: true });
       await Deno.writeTextFile(`${customProjectsDir}/proj-x/session.jsonl`, '{}');
     });
