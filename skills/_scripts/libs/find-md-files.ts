@@ -34,14 +34,14 @@ const _defaultGlob: GlobProvider = async (pattern: string): Promise<string[]> =>
 };
 
 /** `dir` 直下の `.md` ファイルパス一覧を返す。 */
-async function _findMdFlats(dir: string, glob: GlobProvider): Promise<string[]> {
+const _findMdFlats = async (dir: string, glob: GlobProvider): Promise<string[]> => {
   return await glob(`${dir}/*.md`);
-}
+};
 
 /** `dir` 直下のサブディレクトリパス一覧を返す。 */
-async function _findDirFlat(dir: string, glob: GlobProvider): Promise<string[]> {
+const _findDirFlat = async (dir: string, glob: GlobProvider): Promise<string[]> => {
   return await glob(`${dir}/*/`);
-}
+};
 
 /**
  * ディレクトリ `dir` 配下の .md ファイルパスを再帰的に収集し、辞書順ソートして返す。
@@ -51,10 +51,10 @@ async function _findDirFlat(dir: string, glob: GlobProvider): Promise<string[]> 
  * @param options - オプション（`glob` でテスト用モックを注入可能）
  * @returns 辞書順ソート済みの .md ファイルパス配列
  */
-export async function findMdFiles(
+export const findMdFiles = async (
   dir: string,
   options?: FindMdFilesOptions,
-): Promise<string[]> {
+): Promise<string[]> => {
   const _glob = options?.glob ?? _defaultGlob;
   const _all: string[] = [];
   const _queue = [dir];
@@ -65,4 +65,4 @@ export async function findMdFiles(
     _queue.push(...dirs);
   }
   return _all.sort();
-}
+};
