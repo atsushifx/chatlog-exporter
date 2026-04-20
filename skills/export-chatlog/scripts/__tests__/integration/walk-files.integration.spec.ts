@@ -9,7 +9,7 @@
 import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
-import { walkFiles } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+import { walkFiles } from '../../../../_scripts/libs/walk-files.ts';
 
 // ─── walkFiles ────────────────────────────────────────────────────────────────
 
