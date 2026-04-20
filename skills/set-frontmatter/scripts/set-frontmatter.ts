@@ -29,6 +29,8 @@ import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { runConcurrent } from '../../_scripts/libs/concurrency.ts';
 import { findMdFiles } from '../../_scripts/libs/find-md-files.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
+import { cleanYaml } from '../../_scripts/libs/markdown-utils.ts';
+import { normalizeLine } from '../../_scripts/libs/utils.ts';
 
 // ─────────────────────────────────────────────
 // 定数
@@ -115,7 +117,7 @@ export interface Dics {
 // 辞書読み込み
 // ─────────────────────────────────────────────
 
-export async function loadDics(dicsDir: string): Promise<Dics> {
+export const loadDics = async (dicsDir: string): Promise<Dics> => {
   const readFile = async (path: string): Promise<string> => {
     try {
       return await Deno.readTextFile(path);
@@ -211,7 +213,7 @@ export async function loadDics(dicsDir: string): Promise<Dics> {
     categoryPrompts: _categoryPrompts,
     prompts,
   };
-}
+};
 
 // ─────────────────────────────────────────────
 // テンプレート変数置換
@@ -221,7 +223,7 @@ export async function loadDics(dicsDir: string): Promise<Dics> {
  * テンプレート内の ${varname} を vars で置換する。
  * varname が [a-z_]+ 以外の場合はエラー終了（インジェクション防止）。
  */
-export function renderPrompt(template: string, vars: Record<string, string>): string {
+export const renderPrompt = (template: string, vars: Record<string, string>): string => {
   return template.replace(/\$\{([^}]+)\}/g, (_match, name: string) => {
     if (!/^[a-z_]+$/.test(name)) {
       throw new ChatlogError('InvalidArgs', `不正な変数名 "${name}" — 英小文字と "_" のみ使用可能`);
@@ -231,14 +233,14 @@ export function renderPrompt(template: string, vars: Record<string, string>): st
     }
     return vars[name];
   });
-}
+};
 
 // ─────────────────────────────────────────────
 // 辞書エントリをプロンプト文字列に整形するヘルパー
 // ─────────────────────────────────────────────
 
 /** エントリを「- key: def\n  when: ...\n  not: ...」形式に展開 */
-export function formatEntryWithRules(e: DicEntry): string {
+export const formatEntryWithRules = (e: DicEntry): string => {
   const lines: string[] = [`- ${e.key}: ${e.def}`];
   if (e.rules.when.length > 0) {
     lines.push(`  when: ${e.rules.when.join(' / ')}`);
@@ -247,19 +249,19 @@ export function formatEntryWithRules(e: DicEntry): string {
     lines.push(`  not:  ${e.rules.not.join(' / ')}`);
   }
   return lines.join('\n');
-}
+};
 
 /** エントリを「- key: def」形式に展開（rules なし・簡略版） */
-export function formatEntryShort(e: DicEntry): string {
+export const formatEntryShort = (e: DicEntry): string => {
   return `- ${e.key}: ${e.def}`;
-}
+};
 
 // ─────────────────────────────────────────────
 // Frontmatter パーサー
 // ─────────────────────────────────────────────
 
-export function parseFrontmatter(text: string): { meta: Record<string, string>; body: string } {
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
+export const parseFrontmatter = (text: string): { meta: Record<string, string>; body: string } => {
+  const lines = normalizeLine(text).split('\n');
 
   if (lines[0] !== '---') {
     return { meta: {}, body: lines.join('\n') };
@@ -287,13 +289,13 @@ export function parseFrontmatter(text: string): { meta: Record<string, string>; 
   }
 
   return { meta: _meta, body: lines.slice(_bodyStart).join('\n') };
-}
+};
 
 // ─────────────────────────────────────────────
 // ファイルメタ読み込み
 // ─────────────────────────────────────────────
 
-export async function loadFileMeta(filePath: string): Promise<FileMeta | null> {
+export const loadFileMeta = async (filePath: string): Promise<FileMeta | null> => {
   let text: string;
   try {
     text = await Deno.readTextFile(filePath);
@@ -322,13 +324,13 @@ export async function loadFileMeta(filePath: string): Promise<FileMeta | null> {
     body: fullBody.slice(0, MAX_BODY_CHARS),
     fullBody,
   };
-}
+};
 
 // ─────────────────────────────────────────────
 // Claude CLI 呼び出し
 // ─────────────────────────────────────────────
 
-export async function runClaude(systemPrompt: string, userPrompt: string): Promise<string> {
+export const runClaude = async (systemPrompt: string, userPrompt: string): Promise<string> => {
   const cmd = new Deno.Command('claude', {
     args: ['-p', systemPrompt, '--output-format', 'text'],
     stdin: 'piped',
@@ -342,27 +344,13 @@ export async function runClaude(systemPrompt: string, userPrompt: string): Promi
   const output = await process.output();
   if (!output.success) { throw new ChatlogError('CliError', `claude CLI エラー (code=${output.code})`); }
   return new TextDecoder().decode(output.stdout).trim();
-}
-
-// ─────────────────────────────────────────────
-// YAML クリーニングヘルパー
-// ─────────────────────────────────────────────
-
-/** コードフェンス除去・先頭の非YAMLテキストを除去して最初の有効フィールドから返す */
-export function cleanYaml(raw: string, firstField: string): string {
-  return raw
-    .split('\n')
-    .filter((l) => !l.startsWith('```'))
-    .join('\n')
-    .replace(new RegExp(`^[\\s\\S]*?(^${firstField}:)`, 'm'), '$1')
-    .trim();
-}
+};
 
 // ─────────────────────────────────────────────
 // Phase 2: type判定（並列）
 // ─────────────────────────────────────────────
 
-export async function judgeType(fm: FileMeta, dics: Dics): Promise<TypeResult> {
+export const judgeType = async (fm: FileMeta, dics: Dics): Promise<TypeResult> => {
   const tmpl = dics.prompts.get('type') ?? { system: '', user: '' };
   const typeList = dics.typeEntries.map(formatEntryWithRules).join('\n');
   const system = renderPrompt(tmpl.system, {});
@@ -376,13 +364,13 @@ export async function judgeType(fm: FileMeta, dics: Dics): Promise<TypeResult> {
   const normalized = raw.replace(/\s/g, '').toLowerCase();
   const validKeys = new Set(dics.typeEntries.map((e) => e.key));
   return { file: fm.file, type: validKeys.has(normalized) ? normalized : 'research' };
-}
+};
 
 // ─────────────────────────────────────────────
 // Phase 3a: category判定（並列）
 // ─────────────────────────────────────────────
 
-export async function judgeCategory(fm: FileMeta, type: LogType, dics: Dics): Promise<string> {
+export const judgeCategory = async (fm: FileMeta, type: LogType, dics: Dics): Promise<string> => {
   const tmpl = dics.prompts.get('category') ?? { system: '', user: '' };
   const focusGuide = dics.categoryPrompts.get(type) ?? '';
   const system = renderPrompt(tmpl.system, {});
@@ -400,18 +388,18 @@ export async function judgeCategory(fm: FileMeta, type: LogType, dics: Dics): Pr
   const normalized = raw.replace(/\s/g, '').toLowerCase();
   const valid = new Set(dics.category.split(','));
   return valid.has(normalized) ? normalized : 'development';
-}
+};
 
 // ─────────────────────────────────────────────
 // Phase 3b: フロントマター生成（並列）
 // ─────────────────────────────────────────────
 
-export async function generateFrontmatter(
+export const generateFrontmatter = async (
   fm: FileMeta,
   type: LogType,
   category: string,
   dics: Dics,
-): Promise<FrontmatterResult> {
+): Promise<FrontmatterResult> => {
   const tmpl = dics.prompts.get('meta') ?? { system: '', user: '' };
   const topicList = dics.topicEntries.map(formatEntryWithRules).join('\n');
   const system = renderPrompt(tmpl.system, {});
@@ -429,16 +417,16 @@ export async function generateFrontmatter(
     return { file: fm.file, type, category, yaml: '' };
   }
   return { file: fm.file, type, category, yaml: cleanYaml(raw, 'title') };
-}
+};
 
 // ─────────────────────────────────────────────
 // Phase 3.5: フロントマターレビュー（並列）
 // ─────────────────────────────────────────────
 
-export async function reviewFrontmatter(
+export const reviewFrontmatter = async (
   result: FrontmatterResult,
   dics: Dics,
-): Promise<ReviewResult> {
+): Promise<ReviewResult> => {
   const tmpl = dics.prompts.get('review') ?? { system: '', user: '' };
   const typeList = dics.typeEntries.map(formatEntryWithRules).join('\n');
   const topicList = dics.topicEntries.map(formatEntryShort).join('\n');
@@ -501,18 +489,18 @@ export async function reviewFrontmatter(
     .trim();
 
   return { file: result.file, validity, errors, correctedType, correctedCategory, correctedYaml };
-}
+};
 
 // ─────────────────────────────────────────────
 // Phase 4: Markdownへ書き込み
 // ─────────────────────────────────────────────
 
-export async function writeFrontmatter(
+export const writeFrontmatter = async (
   fm: FileMeta,
   result: FrontmatterResult,
   dryRun: boolean,
   stats: Stats,
-): Promise<void> {
+): Promise<void> => {
   if (!result.yaml) {
     logger.error(`  FAIL (yaml空): ${fm.file.split(/[/\\]/).pop()}`);
     stats.fail++;
@@ -551,7 +539,7 @@ export async function writeFrontmatter(
     logger.error(`  FAIL (書き込みエラー): ${fm.file.split(/[/\\]/).pop()}: ${e}`);
     stats.fail++;
   }
-}
+};
 
 // ─────────────────────────────────────────────
 // 引数解析
@@ -565,7 +553,7 @@ export interface Args {
   concurrency: number;
 }
 
-export function parseArgs(args: string[]): Args {
+export const parseArgs = (args: string[]): Args => {
   let targetDir = '', dicsDir = './assets/dics', dryRun = false, review = true, concurrency = DEFAULT_CONCURRENCY;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -594,13 +582,13 @@ export function parseArgs(args: string[]): Args {
     );
   }
   return { targetDir, dicsDir, dryRun, review, concurrency };
-}
+};
 
 // ─────────────────────────────────────────────
 // メイン
 // ─────────────────────────────────────────────
 
-export async function main(args: string[]): Promise<void> {
+export const main = async (args: string[]): Promise<void> => {
   try {
     const { targetDir, dicsDir, dryRun, review, concurrency } = parseArgs(args);
 
@@ -725,7 +713,7 @@ export async function main(args: string[]): Promise<void> {
     }
     throw e;
   }
-}
+};
 
 if (import.meta.main) {
   await main(Deno.args);
