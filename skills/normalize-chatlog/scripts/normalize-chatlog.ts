@@ -9,10 +9,12 @@
 
 // -- external --
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
+import { backupOldPath, defaultListDir } from '../../_scripts/libs/backup.ts';
 import { runConcurrent } from '../../_scripts/libs/concurrency.ts';
 import { findMdFiles } from '../../_scripts/libs/find-md-files.ts';
+import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
-import { normalizePath } from '../../_scripts/libs/utils.ts';
+import { normalizeLine, normalizePath } from '../../_scripts/libs/utils.ts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,37 +68,13 @@ const _VALID_MODELS = new Set([
   'haiku',
 ]);
 
-// ─── YAML Utilities ───────────────────────────────────────────────────────────
-
-/**
- * Cleans a raw YAML string by removing code fence lines and non-YAML preamble.
- *
- * @param raw - The raw string, possibly wrapped in ```yaml...``` fences
- * @param firstField - The first expected YAML field name (e.g. "title")
- * @returns The cleaned, trimmed YAML string
- */
-export function cleanYaml(raw: string, firstField: string): string {
-  if (raw === '') { return ''; }
-
-  const lines = raw.split('\n');
-
-  // Remove code fence delimiter lines (``` markers)
-  const stripped = lines.filter((line) => !line.startsWith('```'));
-
-  // Drop any preamble before the first expected YAML field
-  const firstIndex = stripped.findIndex((line) => line.startsWith(`${firstField}:`));
-  const yamlLines = firstIndex >= 0 ? stripped.slice(firstIndex) : stripped;
-
-  return yamlLines.join('\n').trim();
-}
-
 /**
  * Parses a YAML frontmatter block from a Markdown text string.
  *
  * @param text - The full Markdown text, optionally starting with a `---` frontmatter block
  * @returns An object with `meta` (key-value pairs from frontmatter) and `fullBody` (text after frontmatter)
  */
-export function parseFrontmatter(text: string): { meta: Record<string, string>; fullBody: string } {
+export const parseFrontmatter = (text: string): { meta: Record<string, string>; fullBody: string } => {
   const DELIMITER = '---';
 
   // Must start with `---\n` (or `---` at start); otherwise no frontmatter
@@ -126,7 +104,7 @@ export function parseFrontmatter(text: string): { meta: Record<string, string>; 
   }
 
   return { meta, fullBody };
-}
+};
 
 // ─── ID Generation ────────────────────────────────────────────────────────────
 
@@ -140,12 +118,12 @@ export function parseFrontmatter(text: string): { meta: Record<string, string>; 
  * @param filePath - Path to the source chatlog file
  * @returns Base name without extension and without trailing `-XXXXXXX` hash segment
  */
-export function extractBaseName(filePath: string): string {
+export const extractBaseName = (filePath: string): string => {
   const fileName = filePath.split('/').pop() ?? filePath;
   const withoutExt = fileName.endsWith('.md') ? fileName.slice(0, -3) : fileName;
   // Remove trailing -<7hex> hash if present
   return withoutExt.replace(/-[0-9a-f]{7}$/, '');
-}
+};
 
 /** Function type for generating a 7-character hex hash string. */
 export type HashProvider = () => string;
@@ -154,7 +132,7 @@ export type HashProvider = () => string;
  * Generates a 7-char hex hash from baseName and segment index using SHA-256.
  * Input: SHA-256 of `<baseName>-<XX>-<timestamp12>-<random8>`
  */
-async function _computeHash7(baseName: string, xx: string): Promise<string> {
+const _computeHash7 = async (baseName: string, xx: string): Promise<string> => {
   const now = new Date();
   const timestamp12 = [
     String(now.getFullYear()),
@@ -174,7 +152,7 @@ async function _computeHash7(baseName: string, xx: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', encoded);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 7);
-}
+};
 
 /**
  * Generates an output file name for a segment.
@@ -189,66 +167,16 @@ async function _computeHash7(baseName: string, xx: string): Promise<string> {
  * @param hashFn   - Optional hash generator (injectable for testing)
  * @returns Promise resolving to the output file name (including `.md` extension)
  */
-export async function generateOutputFileName(
+export const generateOutputFileName = async (
   filePath: string,
   index: number,
   hashFn?: HashProvider,
-): Promise<string> {
+): Promise<string> => {
   const baseName = extractBaseName(filePath);
   const xx = String(index + 1).padStart(2, '0');
   const hash7 = hashFn ? hashFn() : await _computeHash7(baseName, xx);
   return `${baseName}-${xx}-${hash7}.md`;
-}
-
-// ─── JSON Parsing ─────────────────────────────────────────────────────────────
-
-/**
- * Attempts to parse a JSON array from a raw string using a 3-pass fallback strategy.
- *
- * Pass 1 — Direct parse: if `raw.trimStart()` starts with `[`, try `JSON.parse(raw)`.
- * Pass 2 — Non-greedy match: use `/\[.*?\]/s` to extract the shortest `[...]` substring.
- * Pass 3 — Greedy match: use `/\[.*\]/s` to extract the longest `[...]` substring.
- *
- * Each `JSON.parse` call is wrapped in try/catch. Returns `null` if all passes fail.
- *
- * @param raw - Raw string that may contain a JSON array
- * @returns Parsed array or `null`
- */
-export function parseJsonArray(raw: string): unknown[] | null {
-  // Pass 1 — Direct parse
-  if (raw.trimStart().startsWith('[')) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) { return parsed; }
-    } catch {
-      // fall through to next pass
-    }
-  }
-
-  // Pass 2 — Non-greedy match
-  const nonGreedyMatch = raw.match(/\[.*?\]/s);
-  if (nonGreedyMatch) {
-    try {
-      const parsed = JSON.parse(nonGreedyMatch[0]);
-      if (Array.isArray(parsed)) { return parsed; }
-    } catch {
-      // fall through to next pass
-    }
-  }
-
-  // Pass 3 — Greedy match
-  const greedyMatch = raw.match(/\[.*\]/s);
-  if (greedyMatch) {
-    try {
-      const parsed = JSON.parse(greedyMatch[0]);
-      if (Array.isArray(parsed)) { return parsed; }
-    } catch {
-      // fall through
-    }
-  }
-
-  return null;
-}
+};
 
 // ─── Segment File Generation ──────────────────────────────────────────────────
 
@@ -270,9 +198,9 @@ export function parseJsonArray(raw: string): unknown[] | null {
  * @param segment - The segment to render
  * @returns Markdown string containing the Summary and Excerpt sections
  */
-export function generateSegmentFile(segment: Segment): string {
+export const generateSegmentFile = (segment: Segment): string => {
   return `## Summary\n\n${segment.summary}\n\n${START_BODY_HEADING}\n\n${segment.body}`;
-}
+};
 
 /**
  * Attaches a YAML frontmatter block to the given Markdown content.
@@ -286,11 +214,11 @@ export function generateSegmentFile(segment: Segment): string {
  * @param segmentMeta - AI-generated fields (`title`, `log_id`, `summary`)
  * @returns Markdown string with frontmatter prepended
  */
-export function attachFrontmatter(
+export const attachFrontmatter = (
   content: string,
   sourceMeta: Record<string, string>,
   segmentMeta: { title: string; log_id: string; summary: string },
-): string {
+): string => {
   const fields: string[] = [];
   for (const [key, value] of Object.entries(sourceMeta)) {
     fields.push(`${key}: ${value}`);
@@ -299,7 +227,7 @@ export function attachFrontmatter(
   fields.push(`log_id: ${segmentMeta.log_id}`);
   fields.push(`summary: ${segmentMeta.summary}`);
   return `---\n${fields.join('\n')}\n---\n\n${content}`;
-}
+};
 
 // ─── AI Execution ─────────────────────────────────────────────────────────────
 
@@ -314,7 +242,7 @@ export function attachFrontmatter(
  * @throws Error if Claude CLI exits with a non-zero code
  * @throws Propagates spawn errors (e.g., command not found) naturally
  */
-export async function runAI(model: string, systemPrompt: string, userPrompt: string): Promise<string> {
+export const runAI = async (model: string, systemPrompt: string, userPrompt: string): Promise<string> => {
   if (!_VALID_MODELS.has(model)) {
     throw new Error(`Unknown model: "${model}". Valid models: ${[..._VALID_MODELS].join(', ')}`);
   }
@@ -346,7 +274,7 @@ export async function runAI(model: string, systemPrompt: string, userPrompt: str
     throw new Error(`claude exited with code ${output.code}`);
   }
   return new TextDecoder().decode(output.stdout).trim();
-}
+};
 
 /**
  * Splits a chatlog into topic-based segments by calling the Claude AI.
@@ -360,7 +288,7 @@ export async function runAI(model: string, systemPrompt: string, userPrompt: str
  * @returns Promise resolving to an array of {@link Segment} objects, or `null`
  *          if the AI call fails or the response cannot be parsed as a JSON array
  */
-export async function segmentChatlog(filePath: string, content: string): Promise<Segment[] | null> {
+export const segmentChatlog = async (filePath: string, content: string): Promise<Segment[] | null> => {
   const systemPrompt = 'You are a chatlog analyst. Split the given chatlog into topic-based segments. '
     + 'Return ONLY a JSON array where each element has exactly three string fields: '
     + '"title" (short topic title), "summary" (one-sentence summary), and "body" (relevant text). '
@@ -388,61 +316,9 @@ export async function segmentChatlog(filePath: string, content: string): Promise
 
   const segments = parsed as Segment[];
   return segments.slice(0, _MAX_SEGMENTS);
-}
+};
 
 // ─── File Operations ──────────────────────────────────────────────────────────
-
-/**
- * Backs up an existing output file by renaming it to the first available
- * backup slot `<basename>.old-NN.md` (01–99).
- *
- * Behavior:
- * - `outputPath` does not exist → returns immediately without any action.
- * - `outputPath` exists → renames it to the first available `.old-NN.md` slot.
- *
- * For example:
- * - `entry.md` (no backups) → renames to `entry.old-01.md`
- * - `entry.md` (`entry.old-01.md` exists) → renames to `entry.old-02.md`
- *
- * @param outputPath - Destination file path (must end with `.md`)
- * @returns A promise resolving to void
- * @throws {Error} When all 99 backup slots are already occupied
- */
-async function _defaultListDir(dir: string): Promise<string[]> {
-  const names: string[] = [];
-  for await (const entry of Deno.readDir(dir)) {
-    names.push(entry.name);
-  }
-  return names;
-}
-
-async function _backupOldPath(
-  outputPath: string,
-  listDir: (dir: string) => Promise<string[]> = _defaultListDir,
-): Promise<void> {
-  try {
-    await Deno.stat(outputPath);
-  } catch {
-    // File does not exist → nothing to back up
-    return;
-  }
-
-  const base = outputPath.endsWith('.md') ? outputPath.slice(0, -3) : outputPath;
-  const dir = base.includes('/') ? base.slice(0, base.lastIndexOf('/')) : '.';
-  const baseName = base.includes('/') ? base.slice(base.lastIndexOf('/') + 1) : base;
-  const backupPattern = new RegExp(`^${baseName}\\.old-(\\d{2})\\.md$`);
-
-  const files = await listDir(dir);
-  const usedSlots = files
-    .map((name) => backupPattern.exec(name))
-    .filter((m) => m !== null)
-    .map((m) => Number(m![1]));
-
-  const next = usedSlots.length === 0 ? 1 : Math.max(...usedSlots) + 1;
-  if (next > 99) { throw new ChatlogError('TooManyBackups', `too many backups for: ${outputPath}`); }
-  const idx = String(next).padStart(2, '0');
-  await Deno.rename(outputPath, `${base}.old-${idx}.md`);
-}
 
 /**
  * Writes `content` to `outputPath` using a tmp-then-rename atomic pattern.
@@ -458,13 +334,13 @@ async function _backupOldPath(
  * @param dryRun     - When true, no disk writes are performed
  * @param stats      - Mutable counters updated in place
  */
-export async function writeOutput(
+export const writeOutput = async (
   outputPath: string,
   content: string,
   dryRun: boolean,
   stats: Stats,
-  listDir: (dir: string) => Promise<string[]> = _defaultListDir,
-): Promise<void> {
+  listDir: (dir: string) => Promise<string[]> = defaultListDir,
+): Promise<void> => {
   if (dryRun) {
     logger.info(`[dry-run] would write: ${outputPath}`);
     return;
@@ -474,13 +350,13 @@ export async function writeOutput(
     throw new ChatlogError('ForbiddenOutput', `writing to input directory is forbidden: ${outputPath}`);
   }
 
-  await _backupOldPath(outputPath, listDir);
+  await backupOldPath(outputPath, listDir);
 
   const tmpPath = outputPath + '.tmp';
-  await Deno.writeTextFile(tmpPath, content);
+  await Deno.writeTextFile(tmpPath, normalizeLine(content));
   await Deno.rename(tmpPath, outputPath);
   stats.success++;
-}
+};
 
 /**
  * Outputs a summary report of batch processing results to stdout.
@@ -491,12 +367,12 @@ export async function writeOutput(
  *
  * @param stats - Counters collected across a batch run
  */
-export function reportResults(stats: Stats): void {
+export const reportResults = (stats: Stats): void => {
   logger.info(`Results: success=${stats.success}, skip=${stats.skip}, fail=${stats.fail}`);
   if (stats.fail > 0) {
     logger.warn(`WARNING: ${stats.fail} file(s) failed`);
   }
-}
+};
 
 // ─── Directory Resolution ─────────────────────────────────────────────────────
 
@@ -512,9 +388,9 @@ export function reportResults(stats: Stats): void {
  * @param args - Object with optional `dir`, `agent`, and `yearMonth` fields
  * @returns ResolveResult: `{ ok: true, dir }` on success, `{ ok: false, error }` on failure
  */
-export function resolveInputDir(
+export const resolveInputDir = (
   args: { dir?: string; agent?: string; yearMonth?: string },
-): ResolveResult {
+): ResolveResult => {
   if (args.dir !== undefined) {
     return { ok: true, dir: args.dir };
   }
@@ -523,7 +399,7 @@ export function resolveInputDir(
     return { ok: true, dir: `temp/chatlog/${args.agent}/${year}/${args.yearMonth}` };
   }
   return { ok: false, error: '--dir or (--agent and --year-month) must be specified' };
-}
+};
 
 /**
  * Validates that `dir` exists on the filesystem by calling `statFn`.
@@ -532,10 +408,10 @@ export function resolveInputDir(
  * @param statFn - Injectable stat function; defaults to `Deno.statSync`
  * @returns `true` if `statFn(dir)` succeeds without throwing, `false` otherwise
  */
-export function validateInputDir(
+export const validateInputDir = (
   dir: string,
   statFn?: (path: string) => unknown,
-): boolean {
+): boolean => {
   const fn = statFn || Deno.statSync;
   try {
     fn(dir);
@@ -543,7 +419,7 @@ export function validateInputDir(
   } catch {
     return false;
   }
-}
+};
 
 /**
  * Resolves the output directory from an input directory path.
@@ -558,7 +434,7 @@ export function validateInputDir(
  * @param project    - Optional project name
  * @returns The resolved output directory path
  */
-export function resolveOutputDir(inputDir: string, outputBase: string, project: string | undefined): string {
+export const resolveOutputDir = (inputDir: string, outputBase: string, project: string | undefined): string => {
   const effectiveProject = project || 'misc';
   const chatlogMatch = inputDir.match(/temp\/chatlog\/([^/]+)\/(\d{4})\/(\d{4}-\d{2})(?:\/|$)/);
   if (chatlogMatch) {
@@ -566,7 +442,7 @@ export function resolveOutputDir(inputDir: string, outputBase: string, project: 
     return `${outputBase}/${agent}/${year}/${yearMonth}/${effectiveProject}`;
   }
   return `${outputBase}/${effectiveProject}`;
-}
+};
 
 // ─── Argument Parsing ─────────────────────────────────────────────────────────
 
@@ -590,7 +466,7 @@ export function resolveOutputDir(inputDir: string, outputBase: string, project: 
  * @param argv - Array of CLI argument strings
  * @returns Parsed options as a {@link ParsedArgs} object
  */
-export function parseArgs(argv: string[]): ParsedArgs {
+export const parseArgs = (argv: string[]): ParsedArgs => {
   const result: ParsedArgs = { concurrency: _DEFAULT_CONCURRENCY, dryRun: false };
 
   for (let i = 0; i < argv.length; i++) {
@@ -627,7 +503,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   }
 
   return result;
-}
+};
 
 // ─── Main Orchestration ───────────────────────────────────────────────────────
 
@@ -643,7 +519,7 @@ const _DEFAULT_OUTPUT_DIR = 'temp/normalize_logs';
  * @param argv   - CLI argument array; defaults to `Deno.args` when omitted
  * @param hashFn - Optional hash generator for output file names (injectable for testing)
  */
-export async function main(argv?: string[], hashFn?: HashProvider): Promise<void> {
+export const main = async (argv?: string[], hashFn?: HashProvider): Promise<void> => {
   try {
     const args = parseArgs(argv ?? Deno.args);
     const resolved = resolveInputDir(args);
@@ -694,7 +570,7 @@ export async function main(argv?: string[], hashFn?: HashProvider): Promise<void
     }
     throw e;
   }
-}
+};
 
 if (import.meta.main) {
   await main();
