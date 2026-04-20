@@ -67,9 +67,8 @@ export const VALID_MODULES: readonly ValidModule[] = [
 
 export type TesterConfig = {
   testType: ValidType | 'all';
-  options: {
-    moduleName: ValidModule | 'all' | undefined;
-  };
+  moduleName?: ValidModule | 'all';
+  useAi?: boolean;
 };
 
 // ── Glob構築 ────────────────────────────────────────────────────────────────
@@ -80,10 +79,10 @@ export function buildBaseGlob(moduleName: ValidModule | 'all' | undefined): stri
 
 // ── コマンド構築 ────────────────────────────────────────────────────────────
 
-export function buildDenoArgs(targetTypes: ValidType[], baseGlob: string): string[] {
+export function buildDenoArgs(targetTypes: ValidType[], baseGlob: string, useAi = false): string[] {
   const paths = targetTypes.map((type) => `${baseGlob}/${type}/**/`);
   const needsRun = targetTypes.some((t) => TYPES_REQUIRING_RUN.has(t));
-  const needsEnv = targetTypes.some((t) => TYPES_REQUIRING_ENV.has(t));
+  const needsEnv = useAi || targetTypes.some((t) => TYPES_REQUIRING_ENV.has(t));
   return [
     'test',
     '--allow-read',
@@ -98,8 +97,14 @@ export function buildDenoArgs(targetTypes: ValidType[], baseGlob: string): strin
 
 export function buildArgsFromConfig(config: TesterConfig): string[] {
   const _targetTypes = config.testType === 'all' ? [...VALID_TYPES] : [config.testType as ValidType];
-  const _baseGlob = buildBaseGlob(config.options.moduleName);
-  return buildDenoArgs(_targetTypes, _baseGlob);
+  const _baseGlob = buildBaseGlob(config.moduleName);
+  return buildDenoArgs(_targetTypes, _baseGlob, config.useAi);
+}
+
+// ── 環境変数構築 ─────────────────────────────────────────────────────────────
+
+export function buildEnvFromConfig(config: TesterConfig): Record<string, string> {
+  return config.useAi ? { RUN_AI: '1' } : {};
 }
 
 // ── 引数解析 ────────────────────────────────────────────────────────────────
@@ -118,12 +123,15 @@ function printUsage(): void {
 }
 
 export function parseArgs(args: string[]): TesterConfig {
-  if (args.length === 0) {
+  const useAi = args.includes('--use-ai');
+  const _positional = args.filter((a) => a !== '--use-ai');
+
+  if (_positional.length === 0) {
     throw new Error('テストタイプを指定してください。');
   }
 
-  const testType = args[0];
-  const rawModule = args[1] as string | undefined;
+  const testType = _positional[0];
+  const rawModule = _positional[1] as string | undefined;
 
   if (testType !== 'all' && !(VALID_TYPES as readonly string[]).includes(testType)) {
     throw new Error(`不明なテストタイプ "${testType}"`);
@@ -134,7 +142,7 @@ export function parseArgs(args: string[]): TesterConfig {
   }
 
   const moduleName = rawModule as ValidModule | 'all' | undefined;
-  return { testType: testType as ValidType | 'all', options: { moduleName } };
+  return { testType: testType as ValidType | 'all', moduleName, useAi };
 }
 
 // ── エントリーポイント ───────────────────────────────────────────────────────
@@ -150,9 +158,11 @@ export async function main(argv?: string[]): Promise<void> {
   }
 
   const _denoTestArgs = buildArgsFromConfig(_config);
+  const _env = buildEnvFromConfig(_config);
 
   const _command = new Deno.Command(Deno.execPath(), {
     args: _denoTestArgs,
+    env: _env,
     stdin: 'inherit',
     stdout: 'inherit',
     stderr: 'inherit',
