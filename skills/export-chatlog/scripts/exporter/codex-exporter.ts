@@ -6,9 +6,12 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+// -- external --
 import { isoToDate } from '../../../_scripts/libs/date-utils.ts';
+import { findEntries } from '../../../_scripts/libs/find-entries.ts';
 import { homeDir, normalizePath } from '../../../_scripts/libs/utils.ts';
-import { walkFiles } from '../../../_scripts/libs/walk-files.ts';
+
+// -- internal --
 import { inPeriod, parsePeriod } from '../libs/period-filter.ts';
 import { writeSession } from '../libs/session-writer.ts';
 import { isSkippable, isSkippableSession } from '../libs/skip-rules.ts';
@@ -17,6 +20,11 @@ import type { ExportResult } from '../types/export-result.types.ts';
 import type { PeriodRange } from '../types/filter.types.ts';
 import type { ExportedSession, SessionMeta, Turn } from '../types/session.types.ts';
 import type { CodexEntry } from './types/codex-entry.types.ts';
+import type {
+  FindSessionsProvider,
+  ParseSessionProvider,
+  WriteSessionProvider,
+} from './types/session-provider.types.ts';
 
 // ─────────────────────────────────────────────
 // テキスト前処理
@@ -36,14 +44,6 @@ import type { CodexEntry } from './types/codex-entry.types.ts';
 export const stripUserInstructions = (text: string): string => {
   return text.replace(/<user_instructions>[\s\S]*?<\/user_instructions>/g, '').trim();
 };
-
-// ─────────────────────────────────────────────
-// Provider 型（テスト用依存性注入）
-// ─────────────────────────────────────────────
-
-type FindSessionsProvider = (period: PeriodRange) => Promise<string[]>;
-type ParseSessionProvider = (filePath: string, range: PeriodRange) => Promise<ExportedSession | null>;
-type WriteSessionProvider = (outputDir: string, agent: string, session: ExportedSession) => Promise<string>;
 
 // ─────────────────────────────────────────────
 // セッションパーサー
@@ -165,13 +165,7 @@ export const findCodexSessions = async (
   _period: PeriodRange,
 ): Promise<string[]> => {
   const sessionsDir = `${homeDir()}/.codex/sessions`;
-  const results: string[] = [];
-
-  for await (const f of walkFiles(sessionsDir, '.jsonl')) {
-    results.push(f);
-  }
-
-  return results.sort();
+  return await findEntries([sessionsDir], '.jsonl');
 };
 
 // ─────────────────────────────────────────────
