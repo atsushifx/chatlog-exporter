@@ -148,6 +148,15 @@ sandbox-ailogs:
     when:
       - AIログ処理・フロントマター生成・分類スクリプト開発のログ
 
+chatlog-exporter:
+  def: A tool for exporting, classifying, and editing AI agent session logs for Obsidian import
+  category: development
+  desc: AIエージェント（Claude, ChatGPT等）のセッション履歴をエクスポート・分類・編集し、Obsidianへのインポート用に整備するツール群
+  rules:
+    when:
+      - export-chatlog・classify-chatlog・filter-chatlog・normalize-chatlog・set-frontmatterスキルに関するログ
+      - chatlog-exporterのスクリプト・型定義・テストに関するログ
+
 # ── ロールプレイ・創作 ───────────────────────────────────
 
 roleplay:
