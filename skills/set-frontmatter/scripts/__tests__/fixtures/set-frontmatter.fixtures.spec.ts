@@ -55,32 +55,9 @@ interface FixtureOutput {
   fallback?: FixtureFallback;
 }
 
-// ─── claude CLI の存在確認 ────────────────────────────────────────────────────
+// ─── claude CLI テストの opt-in 制御 ──────────────────────────────────────────
 
-/**
- * claude CLI が実際にプロンプト実行できるか確認する。
- * `-p` オプションで短いテキストを処理して応答が返ることを確認する。
- */
-async function _isClaudeAvailable(): Promise<boolean> {
-  try {
-    const cmd = new Deno.Command('claude', {
-      args: ['-p', 'Reply with just the word "ok"', '--output-format', 'text'],
-      stdin: 'piped',
-      stdout: 'piped',
-      stderr: 'null',
-    });
-    const process = cmd.spawn();
-    const writer = process.stdin.getWriter();
-    await writer.write(new TextEncoder().encode('ok'));
-    await writer.close();
-    const result = await process.output();
-    return result.success && result.stdout.length > 0;
-  } catch {
-    return false;
-  }
-}
-
-const _claudeAvailable = await _isClaudeAvailable();
+const _shouldRunClaude = Deno.env.get('RUN_CLAUDE_TESTS') === '1';
 
 // ─── ヘルパー ─────────────────────────────────────────────────────────────────
 
@@ -228,151 +205,153 @@ for (const _relPath of _fixtureDirs) {
       // ─── type 判定 ────────────────────────────────────────────────────────
 
       describe('When: judgeType(fileMeta, dics) を呼び出す', () => {
-        it(`SF-SF-${_relPath}-type: type が known_types に含まれる`, async () => {
-          if (_isFallbackCase) {
-            const _activeDics = _dics ?? _makeDicsForFallback();
-            const _result = await judgeType(_fileMeta, _activeDics);
+        it(
+          `SF-SF-${_relPath}-type: type が known_types に含まれる`,
+          { ignore: !_isFallbackCase && !_shouldRunClaude },
+          async () => {
+            if (_isFallbackCase) {
+              const _activeDics = _dics ?? _makeDicsForFallback();
+              const _result = await judgeType(_fileMeta, _activeDics);
 
-            if (_expectedOutput.fallback?.expected_type) {
-              assertEquals(
-                _result.type,
-                _expectedOutput.fallback.expected_type,
-                `type "${_result.type}" が期待値 "${_expectedOutput.fallback.expected_type}" と一致しない`,
-              );
-            } else {
-              assertEquals(
-                _expectedOutput.known_types.includes(_result.type),
-                true,
-                `type "${_result.type}" が known_types ${JSON.stringify(_expectedOutput.known_types)} に含まれていない`,
-              );
+              if (_expectedOutput.fallback?.expected_type) {
+                assertEquals(
+                  _result.type,
+                  _expectedOutput.fallback.expected_type,
+                  `type "${_result.type}" が期待値 "${_expectedOutput.fallback.expected_type}" と一致しない`,
+                );
+              } else {
+                assertEquals(
+                  _expectedOutput.known_types.includes(_result.type),
+                  true,
+                  `type "${_result.type}" が known_types ${
+                    JSON.stringify(_expectedOutput.known_types)
+                  } に含まれていない`,
+                );
+              }
+              return;
             }
-            return;
-          }
 
-          if (!_claudeAvailable) {
-            // claude CLI が利用できないためスキップ
-            return;
-          }
-          if (!_dics) {
-            // 辞書ファイルが読み込めないためスキップ
-            return;
-          }
+            if (!_dics) {
+              // 辞書ファイルが読み込めないためスキップ
+              return;
+            }
 
-          const _result = await judgeType(_fileMeta, _dics);
+            const _result = await judgeType(_fileMeta, _dics);
 
-          assertEquals(
-            _expectedOutput.known_types.includes(_result.type),
-            true,
-            `type "${_result.type}" が known_types ${JSON.stringify(_expectedOutput.known_types)} に含まれていない`,
-          );
-        });
+            assertEquals(
+              _expectedOutput.known_types.includes(_result.type),
+              true,
+              `type "${_result.type}" が known_types ${JSON.stringify(_expectedOutput.known_types)} に含まれていない`,
+            );
+          },
+        );
       });
 
       // ─── category 判定 ────────────────────────────────────────────────────
 
       describe('When: judgeCategory(fileMeta, type, dics) を呼び出す', () => {
-        it(`SF-SF-${_relPath}-category: category が known_categories に含まれる`, async () => {
-          if (_isFallbackCase) {
-            const _activeDics = _dics ?? _makeDicsForFallback();
-            const _typeResult = await judgeType(_fileMeta, _activeDics);
-            const _category = await judgeCategory(_fileMeta, _typeResult.type, _activeDics);
+        it(
+          `SF-SF-${_relPath}-category: category が known_categories に含まれる`,
+          { ignore: !_isFallbackCase && !_shouldRunClaude },
+          async () => {
+            if (_isFallbackCase) {
+              const _activeDics = _dics ?? _makeDicsForFallback();
+              const _typeResult = await judgeType(_fileMeta, _activeDics);
+              const _category = await judgeCategory(_fileMeta, _typeResult.type, _activeDics);
 
-            if (_expectedOutput.fallback?.expected_category) {
-              assertEquals(
-                _category,
-                _expectedOutput.fallback.expected_category,
-                `category "${_category}" が期待値 "${_expectedOutput.fallback.expected_category}" と一致しない`,
-              );
-            } else {
-              assertEquals(
-                _expectedOutput.known_categories.includes(_category),
-                true,
-                `category "${_category}" が known_categories ${
-                  JSON.stringify(_expectedOutput.known_categories)
-                } に含まれていない`,
-              );
+              if (_expectedOutput.fallback?.expected_category) {
+                assertEquals(
+                  _category,
+                  _expectedOutput.fallback.expected_category,
+                  `category "${_category}" が期待値 "${_expectedOutput.fallback.expected_category}" と一致しない`,
+                );
+              } else {
+                assertEquals(
+                  _expectedOutput.known_categories.includes(_category),
+                  true,
+                  `category "${_category}" が known_categories ${
+                    JSON.stringify(_expectedOutput.known_categories)
+                  } に含まれていない`,
+                );
+              }
+              return;
             }
-            return;
-          }
 
-          if (!_claudeAvailable) {
-            // claude CLI が利用できないためスキップ
-            return;
-          }
-          if (!_dics) {
-            // 辞書ファイルが読み込めないためスキップ
-            return;
-          }
+            if (!_dics) {
+              // 辞書ファイルが読み込めないためスキップ
+              return;
+            }
 
-          // まず type を判定してから category を判定する
-          const _typeResult = await judgeType(_fileMeta, _dics);
-          const _category = await judgeCategory(_fileMeta, _typeResult.type, _dics);
+            // まず type を判定してから category を判定する
+            const _typeResult = await judgeType(_fileMeta, _dics);
+            const _category = await judgeCategory(_fileMeta, _typeResult.type, _dics);
 
-          assertEquals(
-            _expectedOutput.known_categories.includes(_category),
-            true,
-            `category "${_category}" が known_categories ${
-              JSON.stringify(_expectedOutput.known_categories)
-            } に含まれていない`,
-          );
-        });
+            assertEquals(
+              _expectedOutput.known_categories.includes(_category),
+              true,
+              `category "${_category}" が known_categories ${
+                JSON.stringify(_expectedOutput.known_categories)
+              } に含まれていない`,
+            );
+          },
+        );
       });
 
       // ─── フロントマター生成（required_fields の確認） ─────────────────────
 
       describe('When: generateFrontmatter(fileMeta, type, category, dics) を呼び出す', () => {
-        it(`SF-SF-${_relPath}-fields: required_fields が全て yaml に含まれる`, async () => {
-          if (_isFallbackCase) {
-            const _activeDics = _dics ?? _makeDicsForFallback();
-            const _typeResult = await judgeType(_fileMeta, _activeDics);
-            const _category = await judgeCategory(_fileMeta, _typeResult.type, _activeDics);
-            const _fmResult = await generateFrontmatter(_fileMeta, _typeResult.type, _category, _activeDics);
+        it(
+          `SF-SF-${_relPath}-fields: required_fields が全て yaml に含まれる`,
+          { ignore: !_isFallbackCase && !_shouldRunClaude },
+          async () => {
+            if (_isFallbackCase) {
+              const _activeDics = _dics ?? _makeDicsForFallback();
+              const _typeResult = await judgeType(_fileMeta, _activeDics);
+              const _category = await judgeCategory(_fileMeta, _typeResult.type, _activeDics);
+              const _fmResult = await generateFrontmatter(_fileMeta, _typeResult.type, _category, _activeDics);
 
-            if (_expectedOutput.fallback?.expected_yaml_empty === true) {
-              assertEquals(
-                _fmResult.yaml,
-                '',
-                `yaml が空でないことが期待されているが、実際には: ${_fmResult.yaml.slice(0, 200)}`,
-              );
-            } else {
-              for (const _field of _expectedOutput.required_fields) {
+              if (_expectedOutput.fallback?.expected_yaml_empty === true) {
                 assertEquals(
-                  _fmResult.yaml.includes(`${_field}:`),
-                  true,
-                  `required_field "${_field}" が yaml に含まれていない: ${_fmResult.yaml.slice(0, 200)}`,
+                  _fmResult.yaml,
+                  '',
+                  `yaml が空でないことが期待されているが、実際には: ${_fmResult.yaml.slice(0, 200)}`,
                 );
+              } else {
+                for (const _field of _expectedOutput.required_fields) {
+                  assertEquals(
+                    _fmResult.yaml.includes(`${_field}:`),
+                    true,
+                    `required_field "${_field}" が yaml に含まれていない: ${_fmResult.yaml.slice(0, 200)}`,
+                  );
+                }
               }
+              return;
             }
-            return;
-          }
 
-          if (!_claudeAvailable) {
-            // claude CLI が利用できないためスキップ
-            return;
-          }
-          if (!_dics) {
-            // 辞書ファイルが読み込めないためスキップ
-            return;
-          }
+            if (!_dics) {
+              // 辞書ファイルが読み込めないためスキップ
+              return;
+            }
 
-          const _typeResult = await judgeType(_fileMeta, _dics);
-          const _category = await judgeCategory(_fileMeta, _typeResult.type, _dics);
-          const _fmResult = await generateFrontmatter(_fileMeta, _typeResult.type, _category, _dics);
+            const _typeResult = await judgeType(_fileMeta, _dics);
+            const _category = await judgeCategory(_fileMeta, _typeResult.type, _dics);
+            const _fmResult = await generateFrontmatter(_fileMeta, _typeResult.type, _category, _dics);
 
-          // yaml が生成されたことを確認（空でないこと）
-          if (!_fmResult.yaml) {
-            // generateFrontmatter が空の yaml を返したためスキップ
-            return;
-          }
+            // yaml が生成されたことを確認（空でないこと）
+            if (!_fmResult.yaml) {
+              // generateFrontmatter が空の yaml を返したためスキップ
+              return;
+            }
 
-          for (const _field of _expectedOutput.required_fields) {
-            assertEquals(
-              _fmResult.yaml.includes(`${_field}:`),
-              true,
-              `required_field "${_field}" が yaml に含まれていない: ${_fmResult.yaml.slice(0, 200)}`,
-            );
-          }
-        });
+            for (const _field of _expectedOutput.required_fields) {
+              assertEquals(
+                _fmResult.yaml.includes(`${_field}:`),
+                true,
+                `required_field "${_field}" が yaml に含まれていない: ${_fmResult.yaml.slice(0, 200)}`,
+              );
+            }
+          },
+        );
       });
     });
   });
