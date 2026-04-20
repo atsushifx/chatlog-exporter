@@ -13,6 +13,10 @@ import { parse as parseYaml } from '@std/yaml';
 
 // test target
 import { processChunk } from '../../classify-chatlog.ts';
+
+// constants
+import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/common.constants.ts';
+// types
 import type { FileMeta, Stats } from '../../types/classify.types.ts';
 
 // helpers
@@ -33,19 +37,9 @@ interface FixtureOutput {
   confidence_min: number;
 }
 
-// ─── claude CLI の存在確認 ────────────────────────────────────────────────────
+// ─── claude CLI テストの opt-in 制御 ──────────────────────────────────────────
 
-async function _isClaudeAvailable(): Promise<boolean> {
-  try {
-    const cmd = new Deno.Command('claude', { args: ['--version'], stdout: 'null', stderr: 'null' });
-    const result = await cmd.output();
-    return result.success;
-  } catch {
-    return false;
-  }
-}
-
-const _claudeAvailable = await _isClaudeAvailable();
+const _shouldRunAI = Deno.env.get('RUN_AI') === '1';
 
 // ─── ヘルパー ─────────────────────────────────────────────────────────────────
 
@@ -115,62 +109,60 @@ for (const _relPath of _fixtureDirs) {
         await Deno.remove(_tempDir, { recursive: true });
       });
 
-      describe('When: processChunk(chunkMetas, projects, false, stats) を呼び出す', () => {
-        it(`SF-CL-${_relPath}-project: 分類結果が known_projects に含まれる`, async () => {
-          if (!_claudeAvailable) {
-            console.warn('  [SKIP] claude CLI が利用できないためスキップ');
-            return;
-          }
+      describe('When: processChunk(chunkMetas, projects, false, stats) を呼び出す', { ignore: !_shouldRunAI }, () => {
+        it(
+          `SF-CL-${_relPath}-project: 分類結果が known_projects に含まれる`,
+          async () => {
+            const _fileMeta: FileMeta = {
+              filePath: `${_tempDir}/input.md`,
+              filename: 'input.md',
+              existingProject: '',
+              title: '',
+              category: '',
+              topics: [],
+              tags: [],
+              fullText: _inputContent,
+            };
 
-          const _fileMeta: FileMeta = {
-            filePath: `${_tempDir}/input.md`,
-            filename: 'input.md',
-            existingProject: '',
-            title: '',
-            category: '',
-            topics: [],
-            tags: [],
-            fullText: _inputContent,
-          };
+            // フロントマターからメタデータを取得（簡易パース）
+            const _fm = _extractFrontmatterFields(_inputContent);
+            _fileMeta.title = _fm.title;
+            _fileMeta.category = _fm.category;
+            _fileMeta.topics = _fm.topics;
+            _fileMeta.tags = _fm.tags;
 
-          // フロントマターからメタデータを取得（簡易パース）
-          const _fm = _extractFrontmatterFields(_inputContent);
-          _fileMeta.title = _fm.title;
-          _fileMeta.category = _fm.category;
-          _fileMeta.topics = _fm.topics;
-          _fileMeta.tags = _fm.tags;
+            await processChunk([_fileMeta], _projects, false, _stats, DEFAULT_AI_MODEL);
 
-          await processChunk([_fileMeta], _projects, false, _stats);
-
-          // classify / moved ログがキャプチャされていることを確認
-          assertEquals(
-            _loggerStub.infoLogs.some((l) => l.includes('classify:')),
-            true,
-            'classify ログが infoLogs に記録されていない',
-          );
-          assertEquals(
-            _loggerStub.infoLogs.some((l) => l.includes('moved:')),
-            true,
-            'moved ログが infoLogs に記録されていない',
-          );
-
-          // 移動先ディレクトリを確認してプロジェクト名を取得
-          const _movedProject = await _findMovedProject(_tempDir);
-
-          if (_expectedOutput.expected_project !== undefined) {
+            // classify / moved ログがキャプチャされていることを確認
             assertEquals(
-              _movedProject,
-              _expectedOutput.expected_project,
-              `分類先 "${_movedProject}" が期待値 "${_expectedOutput.expected_project}" と一致しない`,
-            );
-          } else {
-            assertEquals(
-              _expectedOutput.known_projects.includes(_movedProject),
+              _loggerStub.infoLogs.some((l) => l.includes('classify:')),
               true,
-              `分類先 "${_movedProject}" が known_projects に含まれていない`,
+              'classify ログが infoLogs に記録されていない',
             );
-          }
-        });
+            assertEquals(
+              _loggerStub.infoLogs.some((l) => l.includes('moved:')),
+              true,
+              'moved ログが infoLogs に記録されていない',
+            );
+
+            // 移動先ディレクトリを確認してプロジェクト名を取得
+            const _movedProject = await _findMovedProject(_tempDir);
+
+            if (_expectedOutput.expected_project !== undefined) {
+              assertEquals(
+                _movedProject,
+                _expectedOutput.expected_project,
+                `分類先 "${_movedProject}" が期待値 "${_expectedOutput.expected_project}" と一致しない`,
+              );
+            } else {
+              assertEquals(
+                _expectedOutput.known_projects.includes(_movedProject),
+                true,
+                `分類先 "${_movedProject}" が known_projects に含まれていない`,
+              );
+            }
+          },
+        );
       });
     });
   });
