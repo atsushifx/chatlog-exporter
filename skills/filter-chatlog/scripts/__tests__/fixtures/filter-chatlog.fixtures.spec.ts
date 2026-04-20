@@ -16,7 +16,8 @@ import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-s
 import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // test target
-import { parseJsonArray, runClaude } from '../../filter-chatlog.ts';
+import { parseJsonArray } from '../../../../_scripts/libs/json-utils.ts';
+import { runClaude } from '../../filter-chatlog.ts';
 
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────
 
@@ -30,6 +31,11 @@ interface FixtureOutput {
   expected_decision: 'KEEP' | 'DISCARD';
   confidence_min: number;
   mock_response?: string;
+}
+
+interface ClaudeResult {
+  decision: 'KEEP' | 'DISCARD';
+  confidence: number;
 }
 
 // ─── claude CLI の存在確認 ────────────────────────────────────────────────────
@@ -132,7 +138,7 @@ for (const _relPath of _fixtureDirs) {
               _rawResult = await runClaude(_prompt);
             }
 
-            const _parsed = parseJsonArray(_rawResult);
+            const _parsed = parseJsonArray<ClaudeResult>(_rawResult);
 
             // JSON パースに失敗した場合はスキップ（AI の出力形式が安定しない場合がある）
             if (!_parsed || _parsed.length === 0) {
