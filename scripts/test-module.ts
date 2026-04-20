@@ -33,6 +33,9 @@ const VALID_TYPES = [
 // --allow-run が必要なテストタイプ
 const TYPES_REQUIRING_RUN = new Set<string>(['system', 'fixtures']);
 
+// --allow-env が必要なテストタイプ
+const TYPES_REQUIRING_ENV = new Set<string>(['system', 'fixtures']);
+
 type ValidModule = typeof VALID_MODULES[number];
 type ValidType = typeof VALID_TYPES[number];
 
@@ -87,12 +90,14 @@ const baseGlob = buildBaseGlob(moduleName);
 const targetPaths = targetTypes.map((type) => `${baseGlob}/${type}/**/`);
 
 const needsAllowRun = targetTypes.some((type) => TYPES_REQUIRING_RUN.has(type));
+const needsAllowEnv = targetTypes.some((type) => TYPES_REQUIRING_ENV.has(type));
 
 const denoTestArgs = [
   'test',
   '--allow-read',
   '--allow-write',
   ...(needsAllowRun ? ['--allow-run'] : []),
+  ...(needsAllowEnv ? ['--allow-env'] : []),
   ...targetPaths,
 ];
 
