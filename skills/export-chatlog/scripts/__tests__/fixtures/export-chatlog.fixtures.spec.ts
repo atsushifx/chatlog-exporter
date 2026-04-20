@@ -12,11 +12,9 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 import { parse as parseYaml } from '@std/yaml';
 
-import {
-  parseClaudeSession,
-  parseCodexSession,
-  parsePeriod,
-} from '../../export-chatlog.ts';
+import { parseClaudeSession } from '../../exporter/claude-exporter.ts';
+import { parseCodexSession } from '../../exporter/codex-exporter.ts';
+import { parsePeriod } from '../../libs/period-filter.ts';
 import type { PeriodRange } from '../../types/filter.types.ts';
 
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────
