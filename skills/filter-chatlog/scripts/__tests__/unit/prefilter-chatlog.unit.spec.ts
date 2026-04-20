@@ -12,6 +12,7 @@ import { describe, it } from '@std/testing/bdd';
 
 // test target
 import { ChatlogError } from '../../../../_scripts/classes/ChatlogError.class.ts';
+import { parseConversation, type Turn } from '../../../../_scripts/libs/markdown-utils.ts';
 import {
   checkAssistantContent,
   checkFilename,
@@ -19,9 +20,7 @@ import {
   loadFrontmatter,
   MIN_ASSISTANT_CHARS,
   parseArgs,
-  parseConversation,
 } from '../../prefilter-chatlog.ts';
-import type { Turn } from '../../prefilter-chatlog.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // loadFrontmatter
