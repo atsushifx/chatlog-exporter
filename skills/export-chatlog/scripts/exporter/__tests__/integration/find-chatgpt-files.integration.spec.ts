@@ -10,7 +10,7 @@
 import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
-import { findChatGPTFiles } from '../../../export-chatlog.ts';
+import { findChatGPTFiles } from '../../chatgpt-exporter.ts';
 
 // ─── findChatGPTFiles ─────────────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ describe('findChatGPTFiles', () => {
 
       it('T-EC-GF-01-02: 全パスが .json で終わる', async () => {
         const result = await findChatGPTFiles(tempDir);
-        assertEquals(result.every((f) => f.endsWith('.json')), true);
+        assertEquals(result.every((f: string) => f.endsWith('.json')), true);
       });
     });
   });

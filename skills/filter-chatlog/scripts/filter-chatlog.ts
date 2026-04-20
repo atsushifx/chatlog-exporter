@@ -21,7 +21,9 @@
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { runChunked } from '../../_scripts/libs/concurrency.ts';
 import { findMdFiles as findMdFilesLib } from '../../_scripts/libs/find-md-files.ts';
+import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
+import { parseConversation } from '../../_scripts/libs/markdown-utils.ts';
 
 export const CHUNK_SIZE = 10;
 export const CONCURRENCY = 4;
@@ -45,16 +47,11 @@ export interface ClaudeResult {
   reason: string;
 }
 
-export interface Turn {
-  role: 'user' | 'assistant';
-  text: string;
-}
-
 // ─────────────────────────────────────────────
 // Frontmatter パース
 // ─────────────────────────────────────────────
 
-export function parseFrontmatter(text: string): { meta: Record<string, unknown>; body: string } {
+export const parseFrontmatter = (text: string): { meta: Record<string, unknown>; body: string } => {
   if (!text.startsWith('---\n')) {
     return { meta: {}, body: text };
   }
@@ -64,29 +61,7 @@ export function parseFrontmatter(text: string): { meta: Record<string, unknown>;
   }
   const body = text.slice(end + 5);
   return { meta: {}, body };
-}
-
-// ─────────────────────────────────────────────
-// 会話ターン解析
-// ─────────────────────────────────────────────
-
-export function parseConversation(body: string): Turn[] {
-  const turns: Turn[] = [];
-  const pattern = /^### (User|Assistant)\s*$/gm;
-  const matches = [...body.matchAll(pattern)];
-
-  for (let i = 0; i < matches.length; i++) {
-    const m = matches[i];
-    const role = m[1].toLowerCase() as 'user' | 'assistant';
-    const start = m.index! + m[0].length;
-    const end = i + 1 < matches.length ? matches[i + 1].index! : body.length;
-    const text = body.slice(start, end).trim();
-    if (text) {
-      turns.push({ role, text });
-    }
-  }
-  return turns;
-}
+};
 
 // ─────────────────────────────────────────────
 // 内容ベース事前フィルタ（obsidian_filter.py 移植）
@@ -109,21 +84,21 @@ const _EXCLUDE_FILENAME_PATTERNS = [
   'command-message-deckrd-deckrd',
 ];
 
-export function isSystemOnlyMessage(text: string): boolean {
+export const isSystemOnlyMessage = (text: string): boolean => {
   const stripped = text.trim();
   return _SYSTEM_PREFIXES.some((prefix) => stripped.startsWith(prefix));
-}
+};
 
-export function isExcludedByFilename(filename: string): boolean {
+export const isExcludedByFilename = (filename: string): boolean => {
   const lower = filename.toLowerCase();
   return _EXCLUDE_FILENAME_PATTERNS.some((pat) => lower.includes(pat));
-}
+};
 
-export function isExcludedByContent(
+export const isExcludedByContent = (
   body: string,
   minCharCount = 1000,
   minAssistantChars = 300,
-): { excluded: boolean; reason: string } {
+): { excluded: boolean; reason: string } => {
   if (body.length < minCharCount) {
     return { excluded: true, reason: `本文が短すぎる (${body.length} < ${minCharCount} 文字)` };
   }
@@ -150,30 +125,30 @@ export function isExcludedByContent(
   }
 
   return { excluded: false, reason: '' };
-}
+};
 
 // ─────────────────────────────────────────────
 // 本文テキスト抽出
 // ─────────────────────────────────────────────
 
-export function extractBodyText(body: string, maxChars = MAX_BODY_CHARS): string {
+export const extractBodyText = (body: string, maxChars = MAX_BODY_CHARS): string => {
   const turns = parseConversation(body);
   const parts = turns.map((t) => {
     const role = t.role === 'user' ? 'User' : 'Assistant';
     return `### ${role}\n${t.text}`;
   });
   return parts.join('\n\n').slice(0, maxChars);
-}
+};
 
 // ─────────────────────────────────────────────
 // ファイル列挙
 // ─────────────────────────────────────────────
 
-async function _resolveSearchDir(
+const _resolveSearchDir = async (
   baseDir: string,
   period?: string,
   project?: string,
-): Promise<string> {
+): Promise<string> => {
   if (!period) {
     return baseDir;
   }
@@ -186,22 +161,22 @@ async function _resolveSearchDir(
   } catch {
     return project ? `${flatDir}/${project}` : flatDir;
   }
-}
+};
 
-export async function findMdFiles(
+export const findMdFiles = async (
   baseDir: string,
   period?: string,
   project?: string,
-): Promise<string[]> {
+): Promise<string[]> => {
   const _searchDir = await _resolveSearchDir(baseDir, period, project);
   return findMdFilesLib(_searchDir);
-}
+};
 
 // ─────────────────────────────────────────────
 // 事前フィルタ
 // ─────────────────────────────────────────────
 
-export async function prefilterFiles(files: string[]): Promise<string[]> {
+export const prefilterFiles = async (files: string[]): Promise<string[]> => {
   const passed: string[] = [];
   let skipped = 0;
 
@@ -246,13 +221,13 @@ export async function prefilterFiles(files: string[]): Promise<string[]> {
 
   logger.info(`事前フィルタ: 対象=${files.length} 通過=${passed.length} スキップ=${skipped}`);
   return passed;
-}
+};
 
 // ─────────────────────────────────────────────
 // バッチプロンプト構築
 // ─────────────────────────────────────────────
 
-export async function buildBatchPrompt(files: string[]): Promise<string> {
+export const buildBatchPrompt = async (files: string[]): Promise<string> => {
   const parts: string[] = [];
 
   for (let i = 0; i < files.length; i++) {
@@ -271,60 +246,13 @@ export async function buildBatchPrompt(files: string[]): Promise<string> {
   }
 
   return parts.join('\n\n');
-}
-
-// ─────────────────────────────────────────────
-// JSON 配列パース
-// ─────────────────────────────────────────────
-
-export function parseJsonArray(raw: string): ClaudeResult[] | null {
-  // ダイレクトパース（Claude が指示通り純粋な JSON を返した場合）
-  const trimmed = raw.trim();
-  if (trimmed.startsWith('[')) {
-    try {
-      const data = JSON.parse(trimmed);
-      if (Array.isArray(data) && data.length > 0) {
-        return data as ClaudeResult[];
-      }
-    } catch {
-      // fall through
-    }
-  }
-
-  // フォールバック: テキスト中の [...] 候補を非貪欲マッチで全て試す
-  const pattern = /\[[\s\S]*?\]/g;
-  for (const m of raw.matchAll(pattern)) {
-    try {
-      const data = JSON.parse(m[0]);
-      if (Array.isArray(data) && data.length > 0) {
-        return data as ClaudeResult[];
-      }
-    } catch {
-      // 次の候補へ
-    }
-  }
-
-  // 最後の手段: 貪欲マッチで最大の [...] を試す
-  const greedyMatch = raw.match(/\[[\s\S]*\]/);
-  if (greedyMatch) {
-    try {
-      const data = JSON.parse(greedyMatch[0]);
-      if (Array.isArray(data) && data.length > 0) {
-        return data as ClaudeResult[];
-      }
-    } catch {
-      // fall through
-    }
-  }
-
-  return null;
-}
+};
 
 // ─────────────────────────────────────────────
 // Claude CLI 呼び出し
 // ─────────────────────────────────────────────
 
-export async function runClaude(prompt: string): Promise<string> {
+export const runClaude = async (prompt: string): Promise<string> => {
   const cmd = new Deno.Command('claude', {
     args: ['-p', _SYSTEM_PROMPT, '--output-format', 'text'],
     stdin: 'piped',
@@ -344,7 +272,7 @@ export async function runClaude(prompt: string): Promise<string> {
   }
 
   return new TextDecoder().decode(output.stdout);
-}
+};
 
 // ─────────────────────────────────────────────
 // チャンク処理
@@ -357,11 +285,11 @@ export interface Stats {
   error: number;
 }
 
-export async function processChunk(
+export const processChunk = async (
   chunkFiles: string[],
   dryRun: boolean,
   stats: Stats,
-): Promise<void> {
+): Promise<void> => {
   const batchPrompt = await buildBatchPrompt(chunkFiles);
 
   let rawResult: string;
@@ -377,7 +305,7 @@ export async function processChunk(
     return;
   }
 
-  const parsed = parseJsonArray(rawResult);
+  const parsed = parseJsonArray<ClaudeResult>(rawResult);
   if (!parsed) {
     logger.warn(`  警告: JSON パース失敗。チャンク内ファイルをすべて KEEP 扱い`);
     logger.warn(`  raw output: ${rawResult.slice(0, 200)}`);
@@ -421,7 +349,7 @@ export async function processChunk(
       stats.kept++;
     }
   }
-}
+};
 
 // ─────────────────────────────────────────────
 // 引数解析
@@ -435,7 +363,7 @@ export interface Args {
   inputDir: string;
 }
 
-export function parseArgs(args: string[]): Args {
+export const parseArgs = (args: string[]): Args => {
   let agent: string | undefined;
   let period: string | undefined;
   let project: string | undefined;
@@ -462,13 +390,13 @@ export function parseArgs(args: string[]): Args {
   }
 
   return { agent: agent ?? 'claude', period, project, dryRun, inputDir };
-}
+};
 
 // ─────────────────────────────────────────────
 // メイン
 // ─────────────────────────────────────────────
 
-export async function main(args?: string[]): Promise<void> {
+export const main = async (args?: string[]): Promise<void> => {
   try {
     const { agent, period, project, dryRun, inputDir } = parseArgs(args ?? Deno.args);
     const agentDir = `${inputDir}/${agent}`;
@@ -519,7 +447,7 @@ export async function main(args?: string[]): Promise<void> {
     }
     throw e;
   }
-}
+};
 
 if (import.meta.main) {
   await main();

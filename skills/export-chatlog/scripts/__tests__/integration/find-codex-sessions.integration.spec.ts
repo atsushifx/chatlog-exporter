@@ -14,7 +14,8 @@ import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
 // -- test target --
-import { findCodexSessions, parsePeriod } from '../../export-chatlog.ts';
+import { findCodexSessions } from '../../exporter/codex-exporter.ts';
+import { parsePeriod } from '../../libs/period-filter.ts';
 // -- types --
 import type { PeriodRange } from '../../types/filter.types.ts';
 

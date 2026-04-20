@@ -9,7 +9,7 @@
 import { assertEquals, assertThrows } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
-import { inPeriod, parsePeriod } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+import { inPeriod, parsePeriod } from '../../../../export-chatlog/scripts/libs/period-filter.ts';
 
 // ─── parsePeriod ──────────────────────────────────────────────────────────────
 

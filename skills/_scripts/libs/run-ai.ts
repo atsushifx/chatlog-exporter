@@ -28,11 +28,11 @@ export type RunAIOptions = {
  * Runs a Claude CLI subprocess with the given system prompt and user prompt.
  * Returns the trimmed stdout text on success, or throws on failure.
  */
-export async function runAI(
+export const runAI = async (
   systemPrompt: string,
   userPrompt: string,
   options?: RunAIOptions,
-): Promise<string> {
+): Promise<string> => {
   const _options = { model: DEFAULT_AI_MODEL, timeoutMs: DEFAULT_TIMEOUT_MS, ...options };
   if (!_VALID_MODELS.has(_options.model)) {
     throw new ChatlogError(
@@ -82,4 +82,4 @@ export async function runAI(
   } finally {
     if (_timer !== undefined) { clearTimeout(_timer); }
   }
-}
+};

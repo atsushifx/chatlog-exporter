@@ -26,13 +26,13 @@ import type { ListDirProvider } from '../types/providers.types.ts';
  * @param dir - スキャンするディレクトリパス
  * @returns ファイル名の配列
  */
-export async function defaultListDir(dir: string): Promise<string[]> {
+export const defaultListDir = async (dir: string): Promise<string[]> => {
   const names: string[] = [];
   for await (const entry of Deno.readDir(dir)) {
     names.push(entry.name);
   }
   return names;
-}
+};
 
 // ─────────────────────────────────────────────
 // 公開 API
@@ -53,10 +53,10 @@ export async function defaultListDir(dir: string): Promise<string[]> {
  * @returns void
  * @throws {Error} バックアップスロットが 99 を超えた場合
  */
-export async function backupOldPath(
+export const backupOldPath = async (
   outputPath: string,
   listDir: ListDirProvider = defaultListDir,
-): Promise<void> {
+): Promise<void> => {
   try {
     await Deno.stat(outputPath);
   } catch {
@@ -80,4 +80,4 @@ export async function backupOldPath(
 
   const idx = String(next).padStart(2, '0');
   await Deno.rename(outputPath, `${base}.old-${idx}.md`);
-}
+};

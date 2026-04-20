@@ -15,7 +15,8 @@ import { assertEquals, assertNotEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // test target
-import { parseClaudeSession, parsePeriod } from '../../export-chatlog.ts';
+import { parseClaudeSession } from '../../exporter/claude-exporter.ts';
+import { parsePeriod } from '../../libs/period-filter.ts';
 import type { PeriodRange } from '../../types/filter.types.ts';
 
 // ─── ヘルパー ──────────────────────────────────────────────────────────────────

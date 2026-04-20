@@ -10,14 +10,10 @@
 import { ChatlogError } from '../../../_scripts/classes/ChatlogError.class.ts';
 
 // -- internal --
-import {
-  inPeriod,
-  isoToDate,
-  isSkippable,
-  isSkippableSession,
-  parsePeriod,
-  writeSession,
-} from '../export-chatlog.ts';
+import { isoToDate } from '../../../_scripts/libs/date-utils.ts';
+import { inPeriod, parsePeriod } from '../libs/period-filter.ts';
+import { writeSession } from '../libs/session-writer.ts';
+import { isSkippable, isSkippableSession } from '../libs/skip-rules.ts';
 import type { ExportConfig } from '../types/export-config.types.ts';
 import type { ExportResult } from '../types/export-result.types.ts';
 import type { FileResult } from '../types/file-result.types.ts';
@@ -44,7 +40,7 @@ import type {
  * @param message ChatGPT メッセージオブジェクト、または null
  * @returns 抽出されたテキスト。抽出不能または非 text の場合は空文字列
  */
-export function extractChatGPTText(message: ChatGPTMessage | null): string {
+export const extractChatGPTText = (message: ChatGPTMessage | null): string => {
   if (!message) { return ''; }
   if (message.content.content_type !== 'text') { return ''; }
   const parts = message.content.parts ?? [];
@@ -54,7 +50,7 @@ export function extractChatGPTText(message: ChatGPTMessage | null): string {
     .filter((s) => s.length > 0)
     .join(' ')
     .trim();
-}
+};
 
 // ─────────────────────────────────────────────
 // 会話トラバース
@@ -72,10 +68,10 @@ export function extractChatGPTText(message: ChatGPTMessage | null): string {
  * @param currentNodeId 末尾ノードの ID
  * @returns root→leaf 順の ChatGPTMessage 配列
  */
-export function traverseConversation(
+export const traverseConversation = (
   mapping: Record<string, ChatGPTMappingNode>,
   currentNodeId: string,
-): ChatGPTMessage[] {
+): ChatGPTMessage[] => {
   if (!(currentNodeId in mapping)) { return []; }
 
   // parent を辿って root まで遡る
@@ -99,7 +95,7 @@ export function traverseConversation(
     messages.push(msg);
   }
   return messages;
-}
+};
 
 // ─────────────────────────────────────────────
 // 会話パーサー
@@ -119,10 +115,10 @@ export function traverseConversation(
  * @param range parsePeriod() が生成した期間フィルタ
  * @returns ExportedSession または null
  */
-export function parseChatGPTConversation(
+export const parseChatGPTConversation = (
   conv: ChatGPTConversation,
   range: PeriodRange,
-): ExportedSession | null {
+): ExportedSession | null => {
   // 期間チェック
   const isoTimestamp = new Date(conv.create_time * 1000).toISOString();
   if (!inPeriod(isoTimestamp, range)) { return null; }
@@ -165,7 +161,7 @@ export function parseChatGPTConversation(
   };
 
   return { meta, turns };
-}
+};
 
 // ─────────────────────────────────────────────
 // ファイル探索
@@ -182,7 +178,7 @@ export function parseChatGPTConversation(
  * @param baseDir ChatGPT エクスポートディレクトリのパス
  * @returns ソート済みの JSON ファイルパス配列
  */
-export async function findChatGPTFiles(baseDir: string): Promise<string[]> {
+export const findChatGPTFiles = async (baseDir: string): Promise<string[]> => {
   const results: string[] = [];
   try {
     for await (const entry of Deno.readDir(baseDir)) {
@@ -194,7 +190,7 @@ export async function findChatGPTFiles(baseDir: string): Promise<string[]> {
     return [];
   }
   return results.sort();
-}
+};
 
 // ─────────────────────────────────────────────
 // ファイル単位処理・集約
@@ -215,14 +211,14 @@ export async function findChatGPTFiles(baseDir: string): Promise<string[]> {
  * @param writeSession 書き出し Provider
  * @returns 部分的な FileResult（マージ用）
  */
-async function _processFile(
+const _processFile = async (
   file: string,
   range: PeriodRange,
   outputDir: string,
   agent: string,
   parseConversation: ParseConversationProvider,
   writeSession: WriteSessionProvider,
-): Promise<FileResult> {
+): Promise<FileResult> => {
   let conversations: ChatGPTConversation[];
   try {
     const text = await Deno.readTextFile(file);
@@ -250,7 +246,7 @@ async function _processFile(
   }
 
   return { outputPaths, skippedCount, errorCount };
-}
+};
 
 /**
  * 複数の FileResult を1つの ExportResult にマージする。
@@ -258,7 +254,7 @@ async function _processFile(
  * @param results _processFile が返した FileResult の配列
  * @returns マージ済み ExportResult
  */
-function _mergeResults(results: FileResult[]): ExportResult {
+const _mergeResults = (results: FileResult[]): ExportResult => {
   const outputPaths: string[] = [];
   let skippedCount = 0;
   let errorCount = 0;
@@ -270,7 +266,7 @@ function _mergeResults(results: FileResult[]): ExportResult {
   }
 
   return { exportedCount: outputPaths.length, skippedCount, errorCount, outputPaths };
-}
+};
 
 // ─────────────────────────────────────────────
 // オーケストレーション
@@ -293,14 +289,14 @@ function _mergeResults(results: FileResult[]): ExportResult {
  * @param _providers テスト用 Provider（省略時は実実装を使用）
  * @returns エクスポート結果（exportedCount, skippedCount, errorCount, outputPaths）
  */
-export async function exportChatGPT(
+export const exportChatGPT = async (
   config: ExportConfig,
   _providers?: {
     findFiles?: FindFilesProvider;
     parseConversation?: ParseConversationProvider;
     writeSession?: WriteSessionProvider;
   },
-): Promise<ExportResult> {
+): Promise<ExportResult> => {
   const inputDir = config.inputDir ?? config.baseDir;
   if (!inputDir) {
     throw new ChatlogError('MissingArg', 'ChatGPT エクスポートには --input/--base でディレクトリを指定してください');
@@ -319,4 +315,4 @@ export async function exportChatGPT(
   );
 
   return _mergeResults(results);
-}
+};

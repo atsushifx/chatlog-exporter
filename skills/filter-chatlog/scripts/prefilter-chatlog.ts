@@ -32,6 +32,7 @@
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { findMdFiles as findMdFilesLib } from '../../_scripts/libs/find-md-files.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
+import { parseConversation, type Turn } from '../../_scripts/libs/markdown-utils.ts';
 import { normalizePath } from '../../_scripts/libs/utils.ts';
 
 // ─────────────────────────────────────────────
@@ -106,7 +107,7 @@ export const MIN_ASSISTANT_CHARS = 100;
 // Frontmatter パーサー
 // ─────────────────────────────────────────────
 
-export function loadFrontmatter(text: string): { meta: Record<string, string>; body: string } {
+export const loadFrontmatter = (text: string): { meta: Record<string, string>; body: string } => {
   const normalized = text.replace(/\r\n/g, '\n');
   if (!normalized.startsWith('---\n')) { return { meta: {}, body: normalized }; }
 
@@ -124,46 +125,21 @@ export function loadFrontmatter(text: string): { meta: Record<string, string>; b
     }
   }
   return { meta, body };
-}
-
-// ─────────────────────────────────────────────
-// 会話ターン解析
-// ─────────────────────────────────────────────
-
-export interface Turn {
-  role: 'user' | 'assistant';
-  text: string;
-}
-
-export function parseConversation(body: string): Turn[] {
-  const turns: Turn[] = [];
-  const pattern = /^### (User|Assistant)\s*$/gm;
-  const matches = [...body.matchAll(pattern)];
-
-  for (let i = 0; i < matches.length; i++) {
-    const m = matches[i];
-    const role = m[1].toLowerCase() as 'user' | 'assistant';
-    const start = m.index! + m[0].length;
-    const end = i + 1 < matches.length ? matches[i + 1].index! : body.length;
-    const text = body.slice(start, end).trim();
-    if (text) { turns.push({ role, text }); }
-  }
-  return turns;
-}
+};
 
 // ─────────────────────────────────────────────
 // 個別判定ロジック
 // ─────────────────────────────────────────────
 
-export function checkFilename(filename: string): string | null {
+export const checkFilename = (filename: string): string | null => {
   const lower = filename.toLowerCase();
   for (const pat of NOISE_FILENAME_PATTERNS) {
     if (pat.test(lower)) { return `ファイル名パターン: ${pat}`; }
   }
   return null;
-}
+};
 
-export function checkUserContent(turns: Turn[]): string | null {
+export const checkUserContent = (turns: Turn[]): string | null => {
   const userTurns = turns.filter((t) => t.role === 'user');
   if (userTurns.length === 0) { return 'Userターンが存在しない'; }
 
@@ -196,9 +172,9 @@ export function checkUserContent(turns: Turn[]): string | null {
   }
 
   return null;
-}
+};
 
-export function checkAssistantContent(turns: Turn[]): string | null {
+export const checkAssistantContent = (turns: Turn[]): string | null => {
   const userTurns = turns.filter((t) => t.role === 'user');
   const assistantTurns = turns.filter((t) => t.role === 'assistant');
 
@@ -209,13 +185,13 @@ export function checkAssistantContent(turns: Turn[]): string | null {
     }
   }
   return null;
-}
+};
 
 // ─────────────────────────────────────────────
 // メイン判定関数
 // ─────────────────────────────────────────────
 
-export function classifyFile(filename: string, text: string): { isNoise: boolean; reason: string } {
+export const classifyFile = (filename: string, text: string): { isNoise: boolean; reason: string } => {
   // 1. ファイル名チェック
   const filenameReason = checkFilename(filename);
   if (filenameReason) { return { isNoise: true, reason: filenameReason }; }
@@ -235,13 +211,13 @@ export function classifyFile(filename: string, text: string): { isNoise: boolean
   if (assistantReason) { return { isNoise: true, reason: assistantReason }; }
 
   return { isNoise: false, reason: '' };
-}
+};
 
 // ─────────────────────────────────────────────
 // ファイル列挙
 // ─────────────────────────────────────────────
 
-async function _resolveSearchDir(baseDir: string, agent: string, period?: string): Promise<string> {
+const _resolveSearchDir = async (baseDir: string, agent: string, period?: string): Promise<string> => {
   const _agentDir = `${baseDir}/${agent}`;
 
   if (!period) {
@@ -260,12 +236,12 @@ async function _resolveSearchDir(baseDir: string, agent: string, period?: string
   } catch {
     return _flat;
   }
-}
+};
 
-export async function findMdFiles(baseDir: string, agent: string, period?: string): Promise<string[]> {
+export const findMdFiles = async (baseDir: string, agent: string, period?: string): Promise<string[]> => {
   const _searchDir = await _resolveSearchDir(baseDir, agent, period);
   return findMdFilesLib(_searchDir);
-}
+};
 
 // ─────────────────────────────────────────────
 // 引数解析
@@ -279,7 +255,7 @@ interface Args {
   report: boolean;
 }
 
-export function parseArgs(args: string[]): Args {
+export const parseArgs = (args: string[]): Args => {
   let agent = 'claude';
   let period: string | undefined;
   let inputDir = './temp/chatlog';
@@ -306,13 +282,13 @@ export function parseArgs(args: string[]): Args {
   }
 
   return { agent, period, inputDir, dryRun: dryRun || report, report };
-}
+};
 
 // ─────────────────────────────────────────────
 // メイン
 // ─────────────────────────────────────────────
 
-export async function main(args: string[] = Deno.args): Promise<void> {
+export const main = async (args: string[] = Deno.args): Promise<void> => {
   try {
     const { agent, period, inputDir, dryRun, report } = parseArgs(args);
 
@@ -376,7 +352,7 @@ export async function main(args: string[] = Deno.args): Promise<void> {
     }
     throw e;
   }
-}
+};
 
 if (import.meta.main) {
   await main();

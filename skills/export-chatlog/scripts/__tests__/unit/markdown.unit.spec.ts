@@ -15,7 +15,7 @@ import { assertEquals, assertStringIncludes } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
-import { renderMarkdown } from '../../../../export-chatlog/scripts/export-chatlog.ts';
+import { renderMarkdown } from '../../../../export-chatlog/scripts/libs/session-writer.ts';
 import type { SessionMeta, Turn } from '../../../../export-chatlog/scripts/types/session.types.ts';
 
 function _makeMeta(overrides: Partial<SessionMeta> = {}): SessionMeta {

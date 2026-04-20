@@ -6,17 +6,12 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
-import { normalizePath } from '../../../_scripts/libs/utils.ts';
-import {
-  homeDir,
-  inPeriod,
-  isoToDate,
-  isSkippable,
-  isSkippableSession,
-  parsePeriod,
-  walkFiles,
-  writeSession,
-} from '../export-chatlog.ts';
+import { isoToDate } from '../../../_scripts/libs/date-utils.ts';
+import { homeDir, normalizePath } from '../../../_scripts/libs/utils.ts';
+import { walkFiles } from '../../../_scripts/libs/walk-files.ts';
+import { inPeriod, parsePeriod } from '../libs/period-filter.ts';
+import { writeSession } from '../libs/session-writer.ts';
+import { isSkippable, isSkippableSession } from '../libs/skip-rules.ts';
 import type { ExportConfig } from '../types/export-config.types.ts';
 import type { ExportResult } from '../types/export-result.types.ts';
 import type { PeriodRange } from '../types/filter.types.ts';
@@ -38,9 +33,9 @@ import type { CodexEntry } from './types/codex-entry.types.ts';
  * @param text 処理対象のテキスト
  * @returns `<user_instructions>` ブロックを除去してトリムしたテキスト
  */
-export function stripUserInstructions(text: string): string {
+export const stripUserInstructions = (text: string): string => {
   return text.replace(/<user_instructions>[\s\S]*?<\/user_instructions>/g, '').trim();
-}
+};
 
 // ─────────────────────────────────────────────
 // Provider 型（テスト用依存性注入）
@@ -70,10 +65,10 @@ type WriteSessionProvider = (outputDir: string, agent: string, session: Exported
  * @param range `parsePeriod()` が生成した期間フィルタ
  * @returns パース結果の `ExportedSession`、スキップ対象の場合は `null`
  */
-export async function parseCodexSession(
+export const parseCodexSession = async (
   filePath: string,
   range: PeriodRange,
-): Promise<ExportedSession | null> {
+): Promise<ExportedSession | null> => {
   let lines: string[];
   try {
     const text = await Deno.readTextFile(filePath);
@@ -151,7 +146,7 @@ export async function parseCodexSession(
   };
 
   return { meta, turns };
-}
+};
 
 // ─────────────────────────────────────────────
 // セッションファイル探索
@@ -166,9 +161,9 @@ export async function parseCodexSession(
  * @param _period 期間フィルタ（未使用。パーサー側でフィルタリングするため）
  * @returns ソート済みの JSONL ファイルパス配列
  */
-export async function findCodexSessions(
+export const findCodexSessions = async (
   _period: PeriodRange,
-): Promise<string[]> {
+): Promise<string[]> => {
   const sessionsDir = `${homeDir()}/.codex/sessions`;
   const results: string[] = [];
 
@@ -177,7 +172,7 @@ export async function findCodexSessions(
   }
 
   return results.sort();
-}
+};
 
 // ─────────────────────────────────────────────
 // オーケストレーション
@@ -198,14 +193,14 @@ export async function findCodexSessions(
  * @param _providers テスト用 Provider（省略時は実実装を使用）
  * @returns エクスポート結果（exportedCount, outputPaths）
  */
-export async function exportCodex(
+export const exportCodex = async (
   config: ExportConfig,
   _providers?: {
     findSessions?: FindSessionsProvider;
     parseSession?: ParseSessionProvider;
     writeSession?: WriteSessionProvider;
   },
-): Promise<ExportResult> {
+): Promise<ExportResult> => {
   const range = parsePeriod(config.period);
 
   const _findSessions = _providers?.findSessions ?? findCodexSessions;
@@ -234,4 +229,4 @@ export async function exportCodex(
   }
 
   return { exportedCount: outputPaths.length, skippedCount, errorCount, outputPaths };
-}
+};

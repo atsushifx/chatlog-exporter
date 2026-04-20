@@ -6,17 +6,12 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
-import { normalizePath } from '../../../_scripts/libs/utils.ts';
-import {
-  homeDir,
-  inPeriod,
-  isoToDate,
-  isSkippable,
-  isSkippableSession,
-  parsePeriod,
-  walkFiles,
-  writeSession,
-} from '../export-chatlog.ts';
+import { isoToDate } from '../../../_scripts/libs/date-utils.ts';
+import { homeDir, normalizePath } from '../../../_scripts/libs/utils.ts';
+import { walkFiles } from '../../../_scripts/libs/walk-files.ts';
+import { inPeriod, parsePeriod } from '../libs/period-filter.ts';
+import { writeSession } from '../libs/session-writer.ts';
+import { isSkippable, isSkippableSession } from '../libs/skip-rules.ts';
 import type { ExportConfig } from '../types/export-config.types.ts';
 import type { ExportResult } from '../types/export-result.types.ts';
 import type { PeriodRange } from '../types/filter.types.ts';
@@ -48,7 +43,7 @@ type WriteSessionProvider = (outputDir: string, agent: string, session: Exported
  * @param content `ClaudeEntry.message.content` の値
  * @returns 抽出されたユーザーテキスト。抽出不能または除外対象の場合は空文字列
  */
-export function extractClaudeUserText(content: unknown): string {
+export const extractClaudeUserText = (content: unknown): string => {
   if (typeof content === 'string') {
     const text = content.trim();
     if (/^<local-command-stdout\b/.test(text)) { return ''; }
@@ -71,7 +66,7 @@ export function extractClaudeUserText(content: unknown): string {
     return parts.join(' ').trim();
   }
   return '';
-}
+};
 
 /**
  * Claude JSONL エントリの `message.content` フィールドからアシスタントテキストを抽出する。
@@ -83,7 +78,7 @@ export function extractClaudeUserText(content: unknown): string {
  * @param content `ClaudeEntry.message.content` の値
  * @returns 抽出されたアシスタントテキスト。抽出不能の場合は空文字列
  */
-export function extractClaudeAssistantText(content: unknown): string {
+export const extractClaudeAssistantText = (content: unknown): string => {
   if (typeof content === 'string') { return content.trim(); }
   if (Array.isArray(content)) {
     const parts: string[] = [];
@@ -97,7 +92,7 @@ export function extractClaudeAssistantText(content: unknown): string {
     return parts.join('\n').trim();
   }
   return '';
-}
+};
 
 // ─────────────────────────────────────────────
 // セッションパーサー
@@ -110,10 +105,10 @@ export function extractClaudeAssistantText(content: unknown): string {
  * @param range `parsePeriod()` が生成した期間フィルタ
  * @returns パース結果の `ExportedSession`、スキップ対象の場合は `null`
  */
-export async function parseClaudeSession(
+export const parseClaudeSession = async (
   filePath: string,
   range: PeriodRange,
-): Promise<ExportedSession | null> {
+): Promise<ExportedSession | null> => {
   let lines: string[];
   try {
     const text = await Deno.readTextFile(filePath);
@@ -191,7 +186,7 @@ export async function parseClaudeSession(
   };
 
   return { meta, turns };
-}
+};
 
 // ─────────────────────────────────────────────
 // セッションファイル探索
@@ -205,10 +200,10 @@ export async function parseClaudeSession(
  * @param _period 期間フィルタ（未使用。パーサー側でフィルタリングするため）
  * @returns ソート済みの JSONL ファイルパス配列
  */
-export async function findClaudeSessions(
+export const findClaudeSessions = async (
   _period: PeriodRange,
   projectDir?: string,
-): Promise<string[]> {
+): Promise<string[]> => {
   const projectsDir = projectDir ?? `${homeDir()}/.claude/projects`;
   const results: string[] = [];
 
@@ -231,7 +226,7 @@ export async function findClaudeSessions(
   }
 
   return results.sort();
-}
+};
 
 // ─────────────────────────────────────────────
 // オーケストレーション
@@ -252,14 +247,14 @@ export async function findClaudeSessions(
  * @param _providers テスト用 Provider（省略時は実実装を使用）
  * @returns エクスポート結果（exportedCount, outputPaths）
  */
-export async function exportClaude(
+export const exportClaude = async (
   config: ExportConfig,
   _providers?: {
     findSessions?: FindSessionsProvider;
     parseSession?: ParseSessionProvider;
     writeSession?: WriteSessionProvider;
   },
-): Promise<ExportResult> {
+): Promise<ExportResult> => {
   const range = parsePeriod(config.period);
 
   const _findSessions = _providers?.findSessions
@@ -289,4 +284,4 @@ export async function exportClaude(
   }
 
   return { exportedCount: outputPaths.length, skippedCount, errorCount, outputPaths };
-}
+};
