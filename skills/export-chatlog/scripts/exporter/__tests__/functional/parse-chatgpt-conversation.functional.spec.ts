@@ -18,7 +18,8 @@ import { assertEquals, assertNotEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // -- test target --
-import { parseChatGPTConversation, parsePeriod } from '../../../export-chatlog.ts';
+import { parseChatGPTConversation } from '../../chatgpt-exporter.ts';
+import { parsePeriod } from '../../../libs/period-filter.ts';
 
 // -- types --
 import type { PeriodRange } from '../../../types/filter.types.ts';
