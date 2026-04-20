@@ -11,11 +11,11 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
+import { parseJsonArray } from '../../../../_scripts/libs/json-utils.ts';
+import { cleanYaml } from '../../../../_scripts/libs/markdown-utils.ts';
 import {
-  cleanYaml,
   extractBaseName,
   parseFrontmatter,
-  parseJsonArray,
 } from '../../normalize-chatlog.ts';
 
 // ─── cleanYaml tests ──────────────────────────────────────────────────────────
