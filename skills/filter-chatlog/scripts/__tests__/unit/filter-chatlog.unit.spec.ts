@@ -12,14 +12,15 @@ import { describe, it } from '@std/testing/bdd';
 
 // test target
 import { ChatlogError } from '../../../../_scripts/classes/ChatlogError.class.ts';
+import { parseJsonArray } from '../../../../_scripts/libs/json-utils.ts';
+import { parseConversation } from '../../../../_scripts/libs/markdown-utils.ts';
 import {
+  type ClaudeResult,
   extractBodyText,
   isExcludedByContent,
   isExcludedByFilename,
   parseArgs,
-  parseConversation,
   parseFrontmatter,
-  parseJsonArray,
 } from '../../filter-chatlog.ts';
 
 type Args = ReturnType<typeof parseArgs>;
@@ -284,14 +285,14 @@ describe('parseJsonArray', () => {
 
         it('T-FL-PJ-01-02: 配列の最初の要素の file が "a.md" になる', () => {
           const raw = JSON.stringify([{ file: 'a.md', decision: 'KEEP', confidence: 0.9, reason: 'good' }]);
-          const result = parseJsonArray(raw);
+          const result = parseJsonArray<ClaudeResult>(raw);
 
           assertEquals(result![0].file, 'a.md');
         });
 
         it('T-FL-PJ-01-03: decision が "KEEP" になる', () => {
           const raw = JSON.stringify([{ file: 'a.md', decision: 'KEEP', confidence: 0.9, reason: 'good' }]);
-          const result = parseJsonArray(raw);
+          const result = parseJsonArray<ClaudeResult>(raw);
 
           assertEquals(result![0].decision, 'KEEP');
         });
