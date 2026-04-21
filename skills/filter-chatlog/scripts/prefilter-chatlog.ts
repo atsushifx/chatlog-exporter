@@ -30,7 +30,7 @@
  */
 
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
-import { findMdFiles as findMdFilesLib } from '../../_scripts/libs/find-md-files.ts';
+import { findFiles as findFilesLib } from '../../_scripts/libs/find-files.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 import { parseConversation, type Turn } from '../../_scripts/libs/markdown-utils.ts';
 import { normalizePath } from '../../_scripts/libs/utils.ts';
@@ -240,7 +240,7 @@ const _resolveSearchDir = async (baseDir: string, agent: string, period?: string
 
 export const findMdFiles = async (baseDir: string, agent: string, period?: string): Promise<string[]> => {
   const _searchDir = await _resolveSearchDir(baseDir, agent, period);
-  return findMdFilesLib(_searchDir);
+  return findFilesLib(_searchDir);
 };
 
 // ─────────────────────────────────────────────
