@@ -15,7 +15,7 @@ import {
   DEFAULT_HASH_LENGTH,
   DEFAULT_MAX_RANDOM_LENGTH,
   MIN_RANDOM_LENGTH,
-} from '../../../constants/common.constants.ts';
+} from '../../../constants/defaults.constants.ts';
 
 // test target
 import { generateHash } from '../../../libs/hash.ts';
