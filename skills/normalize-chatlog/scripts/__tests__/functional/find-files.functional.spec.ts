@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write
 // src: scripts/__tests__/functional/find-md-files.functional.spec.ts
-// @(#): findMdFiles の機能テスト - GlobProvider 注入によるモック
-//       対象: findMdFiles (skills/_scripts/libs/find-md-files.ts 経由で呼び出し)
+// @(#): findFiles の機能テスト - GlobProvider 注入によるモック
+//       対象: findFiles (skills/_scripts/libs/find-files.ts 経由で呼び出し)
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //
@@ -12,7 +12,7 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
-import { findMdFiles } from '../../../../_scripts/libs/find-md-files.ts';
+import { findFiles } from '../../../../_scripts/libs/find-files.ts';
 import type { GlobProvider } from '../../../../_scripts/types/providers.types.ts';
 
 // ─── local helpers ────────────────────────────────────────────────────────────
@@ -35,19 +35,19 @@ function _makeGlob(mdMap: Record<string, string[]>, dirMap: Record<string, strin
   };
 }
 
-// ─── findMdFiles functional tests ────────────────────────────────────────────
+// ─── findFiles functional tests ────────────────────────────────────────────
 
 /**
- * findMdFiles の機能テスト。
+ * findFiles の機能テスト。
  * GlobProvider 注入により仮想ディレクトリツリーを構築し、
  * .md ファイルの正常取得・再帰・ソート・フィルタリングを検証する。
  */
-describe('findMdFiles', () => {
+describe('findFiles', () => {
   // ── T-06-04 ──────────────────────────────────────────────────────────────
 
   /** 正常系: 単一階層に .md ファイルが3件ある場合、全件取得できる */
   describe('Given: glob がルートディレクトリに3つの .md ファイルを返す', () => {
-    describe('When: findMdFiles(dir, { glob }) を呼び出す', () => {
+    describe('When: findFiles(dir, { glob }) を呼び出す', () => {
       /**
        * Task T-06-04: 単一階層の .md ファイル取得。
        * 全3件が返され、各パスが正しいフルパス形式であることを確認する。
@@ -58,7 +58,7 @@ describe('findMdFiles', () => {
             '/mock/root': ['/mock/root/a.md', '/mock/root/b.md', '/mock/root/c.md'],
           });
 
-          const _result = await findMdFiles('/mock/root', { glob: _glob });
+          const _result = await findFiles('/mock/root', { glob: _glob });
 
           assertEquals(_result.length, 3);
         });
@@ -68,7 +68,7 @@ describe('findMdFiles', () => {
             '/mock/root': ['/mock/root/a.md', '/mock/root/b.md', '/mock/root/c.md'],
           });
 
-          const _result = await findMdFiles('/mock/root', { glob: _glob });
+          const _result = await findFiles('/mock/root', { glob: _glob });
 
           assertEquals(_result.every((p) => p.startsWith('/mock/root/')), true);
         });
@@ -80,7 +80,7 @@ describe('findMdFiles', () => {
 
   /** 正常系: サブディレクトリを含む3階層ツリーを再帰的に収集できる */
   describe('Given: glob が3階層ディレクトリツリーを返す', () => {
-    describe('When: findMdFiles(dir, { glob }) を呼び出す', () => {
+    describe('When: findFiles(dir, { glob }) を呼び出す', () => {
       /**
        * Task T-06-05: サブディレクトリの再帰的 .md 収集。
        * 全階層の .md ファイルが収集され、ディレクトリ自体はパスに含まれないことを確認する。
@@ -99,7 +99,7 @@ describe('findMdFiles', () => {
             },
           );
 
-          const _result = await findMdFiles('/mock', { glob: _glob });
+          const _result = await findFiles('/mock', { glob: _glob });
 
           assertEquals(_result.length, 3);
         });
@@ -117,7 +117,7 @@ describe('findMdFiles', () => {
             },
           );
 
-          const _result = await findMdFiles('/mock', { glob: _glob });
+          const _result = await findFiles('/mock', { glob: _glob });
 
           assertEquals(
             _result.every((p) => !p.endsWith('/sub1') && !p.endsWith('/sub2')),
@@ -132,7 +132,7 @@ describe('findMdFiles', () => {
 
   /** 正常系: glob が逆順でファイルを返しても、結果が辞書順ソートされる */
   describe('Given: glob が [c.md, a.md, b.md] を逆順で返す', () => {
-    describe('When: findMdFiles(dir, { glob }) を呼び出す', () => {
+    describe('When: findFiles(dir, { glob }) を呼び出す', () => {
       /**
        * Task T-06-06: 辞書順ソートの保証。
        * glob の返却順序に依らず結果が辞書順にソートされることを確認する。
@@ -143,7 +143,7 @@ describe('findMdFiles', () => {
             '/mock/root': ['/mock/root/c.md', '/mock/root/a.md', '/mock/root/b.md'],
           });
 
-          const _result = await findMdFiles('/mock/root', { glob: _glob });
+          const _result = await findFiles('/mock/root', { glob: _glob });
 
           const _sorted = [..._result].sort();
           assertEquals(_result, _sorted);
@@ -156,7 +156,7 @@ describe('findMdFiles', () => {
 
   /** 異常系: .md ファイルが存在しない場合は空配列を返す */
   describe('Given: glob が空の配列を返す', () => {
-    describe('When: findMdFiles(dir, { glob }) を呼び出す', () => {
+    describe('When: findFiles(dir, { glob }) を呼び出す', () => {
       /**
        * Task T-06-07: ファイルなし時の空配列返却。
        * .md ファイルが存在しない場合に空配列が返ることを確認する。
@@ -165,7 +165,7 @@ describe('findMdFiles', () => {
         it('T-06-07-01: 返却配列が空配列 [] である', async () => {
           const _glob = _makeGlob({ '/empty/dir': [] });
 
-          const _result = await findMdFiles('/empty/dir', { glob: _glob });
+          const _result = await findFiles('/empty/dir', { glob: _glob });
 
           assertEquals(_result, []);
         });
@@ -177,7 +177,7 @@ describe('findMdFiles', () => {
 
   /** エッジケース: .md 以外の拡張子ファイルは結果に含まれない */
   describe('Given: glob が .md ファイルのみを返す（フィルタ済み）', () => {
-    describe('When: findMdFiles(dir, { glob }) を呼び出す', () => {
+    describe('When: findFiles(dir, { glob }) を呼び出す', () => {
       /**
        * Task T-06-08: 非 .md ファイルのフィルタリング。
        * .md 以外の拡張子ファイルは結果から除外されることを確認する。
@@ -188,7 +188,7 @@ describe('findMdFiles', () => {
             '/mock/dir': ['/mock/dir/readme.md'],
           });
 
-          const _result = await findMdFiles('/mock/dir', { glob: _glob });
+          const _result = await findFiles('/mock/dir', { glob: _glob });
 
           assertEquals(_result.length, 1);
         });
@@ -198,7 +198,7 @@ describe('findMdFiles', () => {
             '/mock/dir': ['/mock/dir/readme.md'],
           });
 
-          const _result = await findMdFiles('/mock/dir', { glob: _glob });
+          const _result = await findFiles('/mock/dir', { glob: _glob });
 
           assertEquals(_result[0].endsWith('.md'), true);
         });
@@ -208,7 +208,7 @@ describe('findMdFiles', () => {
             '/mock/dir': ['/mock/dir/readme.md'],
           });
 
-          const _result = await findMdFiles('/mock/dir', { glob: _glob });
+          const _result = await findFiles('/mock/dir', { glob: _glob });
 
           assertEquals(
             _result.some((p) => p.endsWith('.txt') || p.endsWith('.yaml') || p.endsWith('.json')),
