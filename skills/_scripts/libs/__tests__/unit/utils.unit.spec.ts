@@ -15,7 +15,6 @@ import {
   getDirectory,
   getFileName,
   homeDir,
-  isDirectoryArg,
   normalizeLine,
   normalizePath,
   textToSlug,
@@ -386,62 +385,6 @@ describe('textToSlug', () => {
       describe('Then: T-LIB-U-10-08 - 第 1 段落のみが使われる', () => {
         it('T-LIB-U-10-08: 2 段落目以降は無視されスラッグが返る', () => {
           assertEquals(textToSlug('first paragraph\n\nsecond paragraph'), 'first-paragraph');
-        });
-      });
-    });
-  });
-});
-
-// ─────────────────────────────────────────────
-// isDirectoryArg
-// ─────────────────────────────────────────────
-
-describe('isDirectoryArg', () => {
-  describe('Given: スラッシュを含む Unix スタイルのパス', () => {
-    describe('When: isDirectoryArg を実行する', () => {
-      describe('Then: T-LIB-U-11-01 - true が返る', () => {
-        it('T-LIB-U-11-01: /path/to/dir はディレクトリ引数として認識される', () => {
-          assertEquals(isDirectoryArg('/path/to/dir'), true);
-        });
-      });
-    });
-  });
-
-  describe('Given: スラッシュを含む相対パス', () => {
-    describe('When: isDirectoryArg を実行する', () => {
-      describe('Then: T-LIB-U-11-02 - true が返る', () => {
-        it('T-LIB-U-11-02: ./temp/chatlog はディレクトリ引数として認識される', () => {
-          assertEquals(isDirectoryArg('./temp/chatlog'), true);
-        });
-      });
-    });
-  });
-
-  describe('Given: スラッシュを含まない単純な文字列', () => {
-    describe('When: isDirectoryArg を実行する', () => {
-      describe('Then: T-LIB-U-11-03 - false が返る', () => {
-        it('T-LIB-U-11-03: claude はディレクトリ引数として認識されない', () => {
-          assertEquals(isDirectoryArg('claude'), false);
-        });
-      });
-    });
-  });
-
-  describe('Given: バックスラッシュパス（Windows 形式）', () => {
-    describe('When: isDirectoryArg を実行する', () => {
-      describe('Then: T-LIB-U-11-04 - normalizePath 後にスラッシュを含むので true が返る', () => {
-        it('T-LIB-U-11-04: C:\\Users\\foo はスラッシュ正規化後にディレクトリ引数として認識される', () => {
-          assertEquals(isDirectoryArg('C:\\Users\\foo'), true);
-        });
-      });
-    });
-  });
-
-  describe('Given: 空文字列', () => {
-    describe('When: isDirectoryArg を実行する', () => {
-      describe('Then: T-LIB-U-11-05 - false が返る', () => {
-        it('T-LIB-U-11-05: 空文字列はディレクトリ引数として認識されない', () => {
-          assertEquals(isDirectoryArg(''), false);
         });
       });
     });
