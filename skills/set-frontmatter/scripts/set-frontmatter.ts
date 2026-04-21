@@ -27,7 +27,7 @@
 import { parse as parseYaml } from '@std/yaml';
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { runConcurrent } from '../../_scripts/libs/concurrency.ts';
-import { findMdFiles } from '../../_scripts/libs/find-md-files.ts';
+import { findFiles } from '../../_scripts/libs/find-files.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 import { cleanYaml } from '../../_scripts/libs/markdown-utils.ts';
 import { normalizeLine } from '../../_scripts/libs/utils.ts';
@@ -607,7 +607,7 @@ export const main = async (args: string[]): Promise<void> => {
         + `types=${dics.typeEntries.length}件`,
     );
 
-    const allFiles = await findMdFiles(targetDir);
+    const allFiles = await findFiles(targetDir);
     logger.info(`対象ファイル数: ${allFiles.length}`);
     if (dryRun) { logger.info('dry-run モード: ファイルは更新しません'); }
     if (!review) { logger.info('--no-review モード: Phase 3.5 をスキップします'); }
