@@ -11,7 +11,7 @@
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { backupOldPath, defaultListDir } from '../../_scripts/libs/backup.ts';
 import { runConcurrent } from '../../_scripts/libs/concurrency.ts';
-import { findMdFiles } from '../../_scripts/libs/find-md-files.ts';
+import { findFiles } from '../../_scripts/libs/find-files.ts';
 import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 import { normalizeLine, normalizePath } from '../../_scripts/libs/utils.ts';
@@ -513,7 +513,7 @@ const _DEFAULT_OUTPUT_DIR = 'temp/normalize_logs';
 /**
  * Orchestrates the full normalize-chatlog pipeline.
  *
- * Flow: parseArgs → resolveInputDir → findMdFiles → withConcurrency(per-file:
+ * Flow: parseArgs → resolveInputDir → findFiles → withConcurrency(per-file:
  *   segmentChatlog → generateSegmentFile + attachFrontmatter + writeOutput) → reportResults
  *
  * @param argv   - CLI argument array; defaults to `Deno.args` when omitted
@@ -532,7 +532,7 @@ export const main = async (argv?: string[], hashFn?: HashProvider): Promise<void
     const inputDir = resolved.dir;
     const outputBase = args.output ?? _DEFAULT_OUTPUT_DIR;
 
-    const mdFiles = await findMdFiles(inputDir);
+    const mdFiles = await findFiles(inputDir);
     const stats: Stats = { success: 0, skip: 0, fail: 0 };
 
     await runConcurrent(mdFiles, async (filePath) => {
