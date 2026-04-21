@@ -154,6 +154,71 @@ describe('findEntries', () => {
   });
 
   // ─────────────────────────────────────────────
+  // T-FE-08: findEntries - include オプションでフィルタリング
+  // ─────────────────────────────────────────────
+
+  describe('Given: glob が 3 件返し、うち 1 件のパスに "2026-03" を含む', () => {
+    const _glob: GlobProvider = (pattern: string): Promise<string[]> => {
+      if (pattern === '/mock/claude/**/*.md') {
+        return Promise.resolve([
+          '/mock/claude/2026-02/feb.md',
+          '/mock/claude/2026-03/mar.md',
+          '/mock/claude/2026-04/apr.md',
+        ]);
+      }
+      return Promise.resolve([]);
+    };
+
+    describe('When: findEntries(["/mock/claude"], ".md", { glob, include: ["2026-03"] }) を呼び出す', () => {
+      describe('Then: T-FE-08 - "2026-03" を含むパスのみ返される', () => {
+        it('T-FE-08-01: 返却件数が 1 件', async () => {
+          const _result = await findEntries(['/mock/claude'], '.md', {
+            glob: _glob,
+            include: ['2026-03'],
+          });
+
+          assertEquals(_result.length, 1);
+        });
+
+        it('T-FE-08-02: 返却パスが "2026-03" を含む', async () => {
+          const _result = await findEntries(['/mock/claude'], '.md', {
+            glob: _glob,
+            include: ['2026-03'],
+          });
+
+          assertEquals(_result[0].includes('2026-03'), true);
+        });
+      });
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // T-FE-09: findEntries - include が空配列の場合はすべて通す
+  // ─────────────────────────────────────────────
+
+  describe('Given: glob が 2 件返し、include が空配列', () => {
+    const _glob: GlobProvider = (pattern: string): Promise<string[]> => {
+      if (pattern === '/mock/root/**/*.md') {
+        return Promise.resolve(['/mock/root/a.md', '/mock/root/b.md']);
+      }
+      return Promise.resolve([]);
+    };
+
+    describe('When: findEntries(["/mock/root"], ".md", { glob, include: [] }) を呼び出す', () => {
+      describe('Then: T-FE-09 - include 空配列はフィルタなしと同等', () => {
+        it('T-FE-09-01: 2 件すべて返される', async () => {
+          const _result = await findEntries(['/mock/root'], '.md', {
+            glob: _glob,
+            include: [],
+          });
+
+          assertEquals(_result.length, 2);
+        });
+      });
+    });
+  });
+
+  // ─────────────────────────────────────────────
   // T-FE-06: findEntries - exclude オプションでフィルタリング
   // ─────────────────────────────────────────────
 

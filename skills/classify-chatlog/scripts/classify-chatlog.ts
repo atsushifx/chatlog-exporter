@@ -15,15 +15,19 @@
  */
 
 // -- external --
-import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { isKnownAgent } from '../../_scripts/constants/agents.constants.ts';
+import { runChunked } from '../../_scripts/libs/concurrency.ts';
+import { findEntries } from '../../_scripts/libs/find-entries.ts';
+import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
+import { runAI } from '../../_scripts/libs/run-ai.ts';
+import { getDirectory, isDirectoryArg, normalizeLine, normalizePath } from '../../_scripts/libs/utils.ts';
+// instances
+import { logger } from '../../_scripts/libs/logger.ts';
+// constants
 import { DEFAULT_AI_MODEL } from '../../_scripts/constants/common.constants.ts';
 import { DEFAULT_CHUNK_SIZE, DEFAULT_CONCURRENCY } from '../../_scripts/constants/concurrency.constants.ts';
-import { runChunked } from '../../_scripts/libs/concurrency.ts';
-import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
-import { logger } from '../../_scripts/libs/logger.ts';
-import { runAI } from '../../_scripts/libs/run-ai.ts';
-import { getDirectory, normalizeLine, normalizePath } from '../../_scripts/libs/utils.ts';
+// classes
+import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 
 // -- internal --
 import { FALLBACK_PROJECT, MIN_CLASSIFIABLE_LENGTH } from './constants/classify.constants.ts';
@@ -168,103 +172,6 @@ export const loadFileMeta = async (filePath: string): Promise<FileMeta | null> =
 };
 
 // ─────────────────────────────────────────────
-// ファイル列挙（直下の .md のみ）
-// ─────────────────────────────────────────────
-
-export const findMdFilesFlat = async (
-  inputDir: string,
-  agent: string,
-  period?: string,
-): Promise<string[]> => {
-  const agentDir = `${inputDir}/${agent}`;
-  const results: string[] = [];
-
-  if (agent === 'chatgpt') {
-    // chatgpt: inputDir/chatgpt/YYYY/YYYY-MM/*.md
-    await collectChatGptFiles(agentDir, period, results);
-  } else {
-    // claude など: inputDir/agent/YYYY-MM/*.md
-    await collectClaudeFiles(agentDir, period, results);
-  }
-
-  return results.sort();
-};
-
-export const collectChatGptFiles = async (
-  agentDir: string,
-  period: string | undefined,
-  results: string[],
-): Promise<void> => {
-  let yearDirs: string[];
-  try {
-    yearDirs = [];
-    for await (const entry of Deno.readDir(agentDir)) {
-      if (entry.isDirectory && /^\d{4}$/.test(entry.name)) {
-        yearDirs.push(`${agentDir}/${entry.name}`);
-      }
-    }
-  } catch {
-    return;
-  }
-
-  for (const yearDir of yearDirs.sort()) {
-    let monthDirs: string[];
-    try {
-      monthDirs = [];
-      for await (const entry of Deno.readDir(yearDir)) {
-        if (entry.isDirectory && /^\d{4}-\d{2}$/.test(entry.name)) {
-          if (!period || entry.name === period) {
-            monthDirs.push(`${yearDir}/${entry.name}`);
-          }
-        }
-      }
-    } catch {
-      continue;
-    }
-
-    for (const monthDir of monthDirs.sort()) {
-      await collectDirectMdFiles(monthDir, results);
-    }
-  }
-};
-
-export const collectClaudeFiles = async (
-  agentDir: string,
-  period: string | undefined,
-  results: string[],
-): Promise<void> => {
-  let monthDirs: string[];
-  try {
-    monthDirs = [];
-    for await (const entry of Deno.readDir(agentDir)) {
-      if (entry.isDirectory && /^\d{4}-\d{2}$/.test(entry.name)) {
-        if (!period || entry.name === period) {
-          monthDirs.push(`${agentDir}/${entry.name}`);
-        }
-      }
-    }
-  } catch {
-    return;
-  }
-
-  for (const monthDir of monthDirs.sort()) {
-    await collectDirectMdFiles(monthDir, results);
-  }
-};
-
-export const collectDirectMdFiles = async (dir: string, results: string[]): Promise<void> => {
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isFile && entry.name.endsWith('.md')) {
-        results.push(`${dir}/${entry.name}`);
-      }
-    }
-  } catch {
-    // ディレクトリが存在しない場合は無視
-  }
-};
-
-// ─────────────────────────────────────────────
 // バッチプロンプト構築
 // ─────────────────────────────────────────────
 
@@ -405,45 +312,71 @@ export const processChunk = async (
 // ─────────────────────────────────────────────
 
 export const parseArgs = (args: string[]): ClassifyConfig => {
-  let agent: string | undefined;
-  let period: string | undefined;
-  let dryRun = false;
-  let inputDir = './temp/chatlog';
-  let dicsDir = './assets/dics';
-  let model: string | undefined;
+  const _config: Record<string, string | boolean> = {};
+
+  const _optKeys: Record<string, keyof ClassifyConfig> = {
+    '--input': 'inputDir',
+    '--dics': 'dicsDir',
+    '--model': 'model',
+  };
+
+  const _optFlags: Record<string, keyof ClassifyConfig> = {
+    '--dry-run': 'dryRun',
+  };
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === '--dry-run') {
-      dryRun = true;
-    } else if (arg === '--input' && i + 1 < args.length) {
-      inputDir = args[++i];
-    } else if (arg.startsWith('--input=')) {
-      inputDir = arg.slice('--input='.length);
-    } else if (arg === '--dics' && i + 1 < args.length) {
-      dicsDir = args[++i];
-    } else if (arg.startsWith('--dics=')) {
-      dicsDir = arg.slice('--dics='.length);
-    } else if (arg === '--model' && i + 1 < args.length) {
-      model = args[++i];
-    } else if (arg.startsWith('--model=')) {
-      model = arg.slice('--model='.length);
-    } else if (arg.startsWith('-')) {
+
+    const _flagAttr = _optFlags[arg];
+    if (_flagAttr !== undefined) {
+      _config[_flagAttr] = true;
+      continue;
+    }
+
+    if (arg.startsWith('--')) {
+      const _eqIdx = arg.indexOf('=');
+      const _hasEq = _eqIdx !== -1;
+      const _key = _hasEq ? arg.slice(0, _eqIdx) : arg;
+      const _value = _hasEq ? arg.slice(_eqIdx + 1) : undefined;
+
+      const _attr = _optKeys[_key];
+      if (_attr !== undefined) {
+        if (_hasEq) {
+          _config[_attr] = _value!;
+        } else {
+          if (i + 1 >= args.length) { throw new ChatlogError('InvalidArgs', `値が不足しています: ${_key}`); }
+          _config[_attr] = args[++i];
+        }
+        continue;
+      }
+
       throw new ChatlogError('InvalidArgs', `不明なオプション: ${arg}`);
-    } else if (/^\d{4}-\d{2}$/.test(arg)) {
-      period = arg;
-    } else if (isKnownAgent(arg)) {
-      agent = arg;
+    }
+
+    // 通常パラメータ
+    if (/^\d{4}-\d{2}$/.test(arg)) { // YYYY-MM
+      _config['period'] = arg;
+    } else if (isKnownAgent(arg)) { // agent
+      _config['agent'] = arg;
+    } else if (isDirectoryArg(arg)) { // directory path
+      _config['inputDir'] = arg;
     } else {
       throw new ChatlogError('InvalidArgs', `不明な引数: ${arg}`);
     }
   }
 
-  const _model = model ?? DEFAULT_AI_MODEL;
+  const _model = (_config['model'] ?? DEFAULT_AI_MODEL) as string;
   if (!_VALID_MODELS.has(_model)) {
     throw new ChatlogError('InvalidArgs', `不正なモデル名: ${_model}`);
   }
-  return { agent: agent ?? 'chatgpt', period, dryRun, inputDir, dicsDir, model: _model };
+  return {
+    agent: (_config['agent'] ?? 'chatgpt') as string,
+    period: _config['period'] as string | undefined,
+    dryRun: (_config['dryRun'] ?? false) as boolean,
+    inputDir: (_config['inputDir'] ?? './temp/chatlog') as string,
+    dicsDir: (_config['dicsDir'] ?? './assets/dics') as string,
+    model: _model,
+  };
 };
 
 // ─────────────────────────────────────────────
@@ -478,7 +411,11 @@ export const main = async (argv?: string[]): Promise<void> => {
     logger.info(`プロジェクト候補: ${projects.join(', ')}`);
 
     // ファイル列挙
-    const allFiles = await findMdFilesFlat(_config.inputDir, _config.agent, _config.period);
+    const allFiles = await findEntries(
+      [agentDir],
+      '.md',
+      _config.period ? { include: [_config.period] } : undefined,
+    );
     if (allFiles.length === 0) {
       logger.info('対象ファイルなし');
       logger.info('完了: moved=0 skipped=0 error=0');
