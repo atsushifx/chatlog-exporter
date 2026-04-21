@@ -20,7 +20,7 @@ import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-st
 import { assertAllOutputFiles } from '../../../../_scripts/__tests__/helpers/output-validator.ts';
 
 // test target
-import { findMdFiles } from '../../../../_scripts/libs/find-md-files.ts';
+import { findFiles } from '../../../../_scripts/libs/find-files.ts';
 import { main } from '../../normalize-chatlog.ts';
 
 // ─── 構造テスト ────────────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ describe('main - output structure', () => {
         it('T-15-01-01-02-01: 各出力ファイルが ---\\n で始まる YAML frontmatter と ## Summary セクションを含む', async () => {
           await main(['--dir', inputDir, '--output', outputDir]);
 
-          const files = await findMdFiles(outputDir);
+          const files = await findFiles(outputDir);
           await assertAllOutputFiles(files);
         });
       });
@@ -116,7 +116,7 @@ describe('main - output structure', () => {
         it('出力ファイルの frontmatter に project: my-project が含まれる', async () => {
           await main(['--dir', inputDir, '--output', outputDir]);
 
-          const files = await findMdFiles(outputDir);
+          const files = await findFiles(outputDir);
           await assertAllOutputFiles(files, {
             expectFrontmatterField: { key: 'project', value: 'my-project' },
           });
