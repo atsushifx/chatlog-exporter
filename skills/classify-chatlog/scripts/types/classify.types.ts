@@ -76,6 +76,8 @@ export interface ClassifyConfig {
   inputDir: string;
   /** `projects.dic` が置かれた辞書ディレクトリのパス。 */
   dicsDir: string;
+  /** claude CLI に渡すモデル名。 */
+  model: string;
 }
 
 // ─────────────────────────────────────────────
