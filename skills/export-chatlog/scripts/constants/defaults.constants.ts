@@ -6,18 +6,8 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+import { DEFAULT_AGENT } from '../../../_scripts/constants/agents.constants.ts';
 import type { ExportConfig } from '../types/export-config.types.ts';
-
-/**
- * CLI でエージェントが指定されなかった場合のデフォルトエージェント名。
- *
- * `parseArgs()` が引数なしで呼ばれた場合のフォールバック値として使用する。
- * `KNOWN_AGENTS` の先頭要素に対応する。
- *
- * @see parseArgs
- * @see KNOWN_AGENTS
- */
-export const DEFAULT_AGENT = 'claude';
 
 /**
  * CLI で `--output` が指定されなかった場合のデフォルト出力ディレクトリ。
