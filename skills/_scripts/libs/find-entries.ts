@@ -17,13 +17,8 @@ import { normalizePath } from './utils.ts';
 // Internal utilities
 // ─────────────────────────────────────────────
 
-const _defaultGlob: GlobProvider = async (pattern: string): Promise<string[]> => {
-  const _results: string[] = [];
-  for await (const entry of expandGlob(pattern)) {
-    _results.push(normalizePath(entry.path));
-  }
-  return _results;
-};
+const _defaultGlob: GlobProvider = (pattern: string): Promise<string[]> =>
+  Array.fromAsync(expandGlob(pattern), (entry) => normalizePath(entry.path));
 
 // ─────────────────────────────────────────────
 // Public interfaces
@@ -45,17 +40,15 @@ export interface FindEntriesOptions {
  * ディレクトリ不存在・権限エラー時は空配列を返す（例外なし）。
  */
 export async function findDirectories(dir: string): Promise<string[]> {
-  const _results: string[] = [];
   try {
-    for await (const e of Deno.readDir(dir)) {
-      if (e.isDirectory) {
-        _results.push(`${dir}/${e.name}`);
-      }
-    }
+    const _entries = await Array.fromAsync(Deno.readDir(dir));
+    return _entries
+      .filter((e) => e.isDirectory)
+      .map((e) => `${dir}/${e.name}`)
+      .sort();
   } catch {
     return [];
   }
-  return _results.sort();
 }
 
 /**
@@ -73,19 +66,17 @@ export async function findEntries(
   const _glob = options?.glob ?? _defaultGlob;
   const _include = options?.include ?? [];
   const _exclude = options?.exclude ?? [];
-  const _results: string[] = [];
 
-  for (const dir of dirs) {
-    const _entries = await _glob(`${dir}/**/*${ext}`);
-    for (const entry of _entries) {
-      if (
+  const _entryGroups = await Promise.all(
+    dirs.map((dir) => _glob(`${dir}/**/*${ext}`)),
+  );
+
+  return _entryGroups
+    .flatMap((entries) =>
+      entries.filter((entry) =>
         _include.every((inc) => entry.includes(inc))
         && _exclude.every((ex) => !entry.includes(ex))
-      ) {
-        _results.push(entry);
-      }
-    }
-  }
-
-  return _results.sort();
+      )
+    )
+    .sort();
 }
