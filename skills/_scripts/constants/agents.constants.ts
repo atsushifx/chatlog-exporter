@@ -12,6 +12,9 @@ export const KNOWN_AGENTS = ['claude', 'chatgpt', 'codex'] as const;
 /** サポートする AI エージェント識別子のユニオン型。 */
 export type KnownAgent = typeof KNOWN_AGENTS[number];
 
+/** CLI でエージェントが指定されなかった場合のデフォルトエージェント名。 */
+export const DEFAULT_AGENT: KnownAgent = KNOWN_AGENTS[0];
+
 /** 与えられた文字列が KnownAgent かどうかを判定する型ガード。 */
 export function isKnownAgent(agent: string): agent is KnownAgent {
   return (KNOWN_AGENTS as readonly string[]).includes(agent);

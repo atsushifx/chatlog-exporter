@@ -38,19 +38,9 @@ interface ClaudeResult {
   confidence: number;
 }
 
-// ─── claude CLI の存在確認 ────────────────────────────────────────────────────
+// ─── claude CLI テストの opt-in 制御 ──────────────────────────────────────────
 
-async function _isClaudeAvailable(): Promise<boolean> {
-  try {
-    const cmd = new Deno.Command('claude', { args: ['--version'], stdout: 'null', stderr: 'null' });
-    const result = await cmd.output();
-    return result.success;
-  } catch {
-    return false;
-  }
-}
-
-const _claudeAvailable = await _isClaudeAvailable();
+const _shouldRunClaude = Deno.env.get('RUN_CLAUDE_TESTS') === '1';
 
 // ─── ヘルパー ─────────────────────────────────────────────────────────────────
 
@@ -119,6 +109,7 @@ for (const _relPath of _fixtureDirs) {
       describe('When: runClaude(prompt) を呼び出して parseJsonArray で解析する', () => {
         it(
           `SF-FL-${_relPath}-decision: 判定が expected_decision (${_expectedOutput.expected_decision}) になる`,
+          { ignore: !_expectedOutput.mock_response && !_shouldRunClaude },
           async () => {
             const _inputContent = await Deno.readTextFile(_inputPath);
             const { body } = _parseFrontmatter(_inputContent);
@@ -130,11 +121,6 @@ for (const _relPath of _fixtureDirs) {
               // mock_response がある場合は固定レスポンスで決定論的テスト
               _rawResult = _expectedOutput.mock_response;
             } else {
-              // 実 claude CLI を呼ぶ
-              if (!_claudeAvailable) {
-                // claude CLI が利用できないためスキップ
-                return;
-              }
               _rawResult = await runClaude(_prompt);
             }
 

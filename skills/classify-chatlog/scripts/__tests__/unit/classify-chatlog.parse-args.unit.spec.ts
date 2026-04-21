@@ -11,9 +11,12 @@ import { assertEquals, assertThrows } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // -- modules for test --
-import { ChatlogError } from '../../../../_scripts/classes/ChatlogError.class.ts';
 // test target
 import { parseArgs } from '../../classify-chatlog.ts';
+// constants
+import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/common.constants.ts';
+// classes
+import { ChatlogError } from '../../../../_scripts/classes/ChatlogError.class.ts';
 
 type ClassifyConfig = ReturnType<typeof parseArgs>;
 
@@ -29,6 +32,7 @@ describe('parseArgs', () => {
           { id: 'T-CL-PA-01-03', field: 'inputDir', expected: './temp/chatlog' },
           { id: 'T-CL-PA-01-04', field: 'dicsDir', expected: './assets/dics' },
           { id: 'T-CL-PA-01-05', field: 'period', expected: undefined },
+          { id: 'T-CL-PA-01-06', field: 'model', expected: DEFAULT_AI_MODEL },
         ];
         for (const { id, field, expected } of _defaultCases) {
           it(`${id}: ${field} が ${JSON.stringify(expected)} になる`, () => {
@@ -51,6 +55,8 @@ describe('parseArgs', () => {
           { id: 'T-CL-PA-05-01', args: ['--input', '/path/to/input'], field: 'inputDir', expected: '/path/to/input' },
           { id: 'T-CL-PA-06-01', args: ['--input=/path/to/input'], field: 'inputDir', expected: '/path/to/input' },
           { id: 'T-CL-PA-07-01', args: ['--dics', '/path/to/dics'], field: 'dicsDir', expected: '/path/to/dics' },
+          { id: 'T-CL-PA-11-01', args: ['--model', 'opus'], field: 'model', expected: 'opus' },
+          { id: 'T-CL-PA-11-02', args: ['--model=sonnet'], field: 'model', expected: 'sonnet' },
         ];
         for (const { id, args, field, expected } of _cases) {
           it(`${id}: ${field} が ${JSON.stringify(expected)} になる`, () => {
@@ -82,6 +88,22 @@ describe('parseArgs', () => {
           assertEquals(result.dryRun, true);
           assertEquals(result.inputDir, './in');
           assertEquals(result.dicsDir, './dics');
+        });
+      });
+    });
+  });
+
+  // ─── 異常系: 不正なモデル名 ───────────────────────────────────────────────
+
+  describe('Given: 不正なモデル名', () => {
+    describe('When: parseArgs(["--model", "invalid-model"]) を呼び出す', () => {
+      describe('Then: T-CL-PA-12 - ChatlogError(InvalidArgs) がスローされる', () => {
+        it('T-CL-PA-12-01: 不正モデル名 → ChatlogError(InvalidArgs) がスローされる', () => {
+          assertThrows(
+            () => parseArgs(['--model', 'invalid-model']),
+            ChatlogError,
+            'Invalid Args',
+          );
         });
       });
     });

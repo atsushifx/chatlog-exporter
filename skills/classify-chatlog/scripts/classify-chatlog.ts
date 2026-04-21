@@ -17,15 +17,26 @@
 // -- external --
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { isKnownAgent } from '../../_scripts/constants/agents.constants.ts';
+import { DEFAULT_AI_MODEL } from '../../_scripts/constants/common.constants.ts';
 import { DEFAULT_CHUNK_SIZE, DEFAULT_CONCURRENCY } from '../../_scripts/constants/concurrency.constants.ts';
 import { runChunked } from '../../_scripts/libs/concurrency.ts';
 import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
-import { normalizeLine, normalizePath } from '../../_scripts/libs/utils.ts';
+import { runAI } from '../../_scripts/libs/run-ai.ts';
+import { getDirectory, normalizeLine, normalizePath } from '../../_scripts/libs/utils.ts';
 
 // -- internal --
 import { FALLBACK_PROJECT, MIN_CLASSIFIABLE_LENGTH } from './constants/classify.constants.ts';
 import type { ClassifyConfig, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
+
+const _VALID_MODELS = new Set([
+  'claude-opus-4-6',
+  'claude-sonnet-4-6',
+  'claude-haiku-4-5-20251001',
+  'opus',
+  'sonnet',
+  'haiku',
+]);
 
 // ─────────────────────────────────────────────
 // 辞書読み込み
@@ -289,33 +300,8 @@ export const buildSystemPrompt = (projects: string[]): string => {
 
 Choose project ONLY from this list: ${_projectList}
 If no project matches well, use "${FALLBACK_PROJECT}".
+If the file has no metadata AND the body is fewer than 3 lines, assign "${FALLBACK_PROJECT}" unconditionally.
 Base your decision on: title, category, topics, tags.`;
-};
-
-// ─────────────────────────────────────────────
-// Claude CLI 呼び出し
-// ─────────────────────────────────────────────
-
-export const runClaude = async (systemPrompt: string, userPrompt: string): Promise<string> => {
-  const cmd = new Deno.Command('claude', {
-    args: ['-p', systemPrompt, '--output-format', 'text'],
-    stdin: 'piped',
-    stdout: 'piped',
-    stderr: 'null',
-  });
-
-  const process = cmd.spawn();
-
-  const writer = process.stdin.getWriter();
-  await writer.write(new TextEncoder().encode(userPrompt));
-  await writer.close();
-
-  const output = await process.output();
-  if (!output.success) {
-    throw new ChatlogError('CliError', `claude CLI がエラーで終了しました (code=${output.code})`);
-  }
-
-  return new TextDecoder().decode(output.stdout);
 };
 
 // ─────────────────────────────────────────────
@@ -329,7 +315,7 @@ export const classifyFile = async (
   stats: Stats,
 ): Promise<void> => {
   const srcPath = fileMeta.filePath;
-  const srcDir = normalizePath(srcPath).split('/').slice(0, -1).join('/');
+  const srcDir = getDirectory(srcPath);
   const dstDir = `${srcDir}/${project}`;
   const dstPath = `${dstDir}/${fileMeta.filename}`;
 
@@ -364,13 +350,16 @@ export const processChunk = async (
   projects: string[],
   dryRun: boolean,
   stats: Stats,
+  model: string,
 ): Promise<void> => {
   // フロントマターなし かつ 本文が短すぎるファイルは Claude に渡さず misc に直接分類
   const classifiable: FileMeta[] = [];
   for (const f of chunkMetas) {
     const hasMeta = f.title || f.category || f.topics.length > 0 || f.tags.length > 0;
     if (!hasMeta && f.fullText.trim().length < MIN_CLASSIFIABLE_LENGTH) {
-      logger.info(`  classify: ${f.filename} → ${FALLBACK_PROJECT} (本文が短すぎるため直接分類)`);
+      logger.warn(
+        `[skip-ai: too-short] classify: ${f.filename} → ${FALLBACK_PROJECT} (本文が短すぎるため AI をスキップ)`,
+      );
       await classifyFile(f, FALLBACK_PROJECT, dryRun, stats);
     } else {
       classifiable.push(f);
@@ -383,9 +372,9 @@ export const processChunk = async (
 
   let rawResult: string;
   try {
-    rawResult = await runClaude(_systemPrompt, _batchPrompt);
+    rawResult = await runAI(_systemPrompt, _batchPrompt, { model });
   } catch (e) {
-    logger.warn(`  警告: claude CLI 実行失敗。チャンク内ファイルをすべて ${FALLBACK_PROJECT} 扱い`);
+    logger.warn(`  claude CLI 実行失敗。チャンク内ファイルをすべて ${FALLBACK_PROJECT} 扱い`);
     logger.warn(`  error: ${e}`);
     for (const f of classifiable) {
       await classifyFile(f, FALLBACK_PROJECT, dryRun, stats);
@@ -395,7 +384,7 @@ export const processChunk = async (
 
   const parsed = parseJsonArray<ClassifyResult>(rawResult);
   if (!parsed) {
-    logger.warn(`  警告: JSON パース失敗。チャンク内ファイルをすべて ${FALLBACK_PROJECT} 扱い`);
+    logger.warn(`  JSON パース失敗。チャンク内ファイルをすべて ${FALLBACK_PROJECT} 扱い`);
     logger.warn(`  raw output: ${rawResult.slice(0, 200)}`);
     for (const f of classifiable) {
       await classifyFile(f, FALLBACK_PROJECT, dryRun, stats);
@@ -421,6 +410,7 @@ export const parseArgs = (args: string[]): ClassifyConfig => {
   let dryRun = false;
   let inputDir = './temp/chatlog';
   let dicsDir = './assets/dics';
+  let model: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -434,6 +424,10 @@ export const parseArgs = (args: string[]): ClassifyConfig => {
       dicsDir = args[++i];
     } else if (arg.startsWith('--dics=')) {
       dicsDir = arg.slice('--dics='.length);
+    } else if (arg === '--model' && i + 1 < args.length) {
+      model = args[++i];
+    } else if (arg.startsWith('--model=')) {
+      model = arg.slice('--model='.length);
     } else if (arg.startsWith('-')) {
       throw new ChatlogError('InvalidArgs', `不明なオプション: ${arg}`);
     } else if (/^\d{4}-\d{2}$/.test(arg)) {
@@ -445,7 +439,11 @@ export const parseArgs = (args: string[]): ClassifyConfig => {
     }
   }
 
-  return { agent: agent ?? 'chatgpt', period, dryRun, inputDir, dicsDir };
+  const _model = model ?? DEFAULT_AI_MODEL;
+  if (!_VALID_MODELS.has(_model)) {
+    throw new ChatlogError('InvalidArgs', `不正なモデル名: ${_model}`);
+  }
+  return { agent: agent ?? 'chatgpt', period, dryRun, inputDir, dicsDir, model: _model };
 };
 
 // ─────────────────────────────────────────────
@@ -471,7 +469,7 @@ export const main = async (argv?: string[]): Promise<void> => {
     // プロジェクト辞書読み込み
     const projects = await loadProjects(_config.dicsDir);
     if (projects.length === 0) {
-      logger.warn('警告: projects.dic にプロジェクトが定義されていません。すべて misc に分類されます。');
+      logger.warn('projects.dic にプロジェクトが定義されていません。すべて misc に分類されます。');
     }
 
     logger.info(`対象 agent: ${_config.agent}`);
@@ -516,7 +514,7 @@ export const main = async (argv?: string[]): Promise<void> => {
     await runChunked(
       targetMetas,
       DEFAULT_CHUNK_SIZE,
-      (chunk) => processChunk(chunk, projects, _config.dryRun, stats),
+      (chunk) => processChunk(chunk, projects, _config.dryRun, stats, _config.model),
       DEFAULT_CONCURRENCY,
     );
 

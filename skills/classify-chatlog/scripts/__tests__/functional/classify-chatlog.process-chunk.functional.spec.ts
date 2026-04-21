@@ -6,12 +6,16 @@
 //
 // This software is released under the MIT License.
 
+// -- BDD modules --
 import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // test target
 import { processChunk } from '../../classify-chatlog.ts';
+// constants
+import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/common.constants.ts';
 import { FALLBACK_PROJECT } from '../../constants/classify.constants.ts';
+// types
 import type { FileMeta, Stats } from '../../types/classify.types.ts';
 
 // helpers
@@ -52,8 +56,10 @@ describe('processChunk', () => {
       describe('Then: T-CL-PC-01 - 正常分類 → stats.moved インクリメント', () => {
         let mockHandle: CommandMockHandle;
         let loggerStub: LoggerStub;
+        let model: string;
 
         beforeEach(() => {
+          model = DEFAULT_AI_MODEL;
           loggerStub = makeLoggerStub();
           const response = JSON.stringify([
             { file: 'a.md', project: 'app1', confidence: 0.9, reason: 'matched' },
@@ -72,7 +78,7 @@ describe('processChunk', () => {
           const metas = [_makeFileMeta('a.md')];
           const stats = _makeStats();
 
-          await processChunk(metas, ['app1', 'app2'], true, stats);
+          await processChunk(metas, ['app1', 'app2'], true, stats, model);
 
           assertEquals(stats.moved, 1);
         });
@@ -81,7 +87,7 @@ describe('processChunk', () => {
           const metas = [_makeFileMeta('a.md')];
           const stats = _makeStats();
 
-          await processChunk(metas, ['app1', 'app2'], true, stats);
+          await processChunk(metas, ['app1', 'app2'], true, stats, model);
 
           assertEquals(stats.error, 0);
         });
@@ -90,7 +96,7 @@ describe('processChunk', () => {
           const metas = [_makeFileMeta('a.md')];
           const stats = _makeStats();
 
-          await processChunk(metas, ['app1', 'app2'], true, stats);
+          await processChunk(metas, ['app1', 'app2'], true, stats, model);
 
           assertEquals(
             loggerStub.infoLogs.some((l) => l.includes('classify:')),
@@ -103,7 +109,7 @@ describe('processChunk', () => {
           const metas = [_makeFileMeta('a.md')];
           const stats = _makeStats();
 
-          await processChunk(metas, ['app1', 'app2'], true, stats);
+          await processChunk(metas, ['app1', 'app2'], true, stats, model);
 
           assertEquals(
             loggerStub.infoLogs.some((l) => l.includes('[dry-run]')),
@@ -122,8 +128,10 @@ describe('processChunk', () => {
       describe(`Then: T-CL-PC-02 - CLI エラー → ${FALLBACK_PROJECT} で全件処理`, () => {
         let mockHandle: CommandMockHandle;
         let loggerStub: LoggerStub;
+        let model: string;
 
         beforeEach(() => {
+          model = DEFAULT_AI_MODEL;
           loggerStub = makeLoggerStub();
           mockHandle = installCommandMock(makeFailMock(1));
         });
@@ -137,7 +145,7 @@ describe('processChunk', () => {
           const metas = [_makeFileMeta('a.md'), _makeFileMeta('b.md')];
           const stats = _makeStats();
 
-          await processChunk(metas, ['app1'], true, stats);
+          await processChunk(metas, ['app1'], true, stats, model);
 
           assertEquals(stats.moved, 2);
         });
@@ -146,7 +154,7 @@ describe('processChunk', () => {
           const metas = [_makeFileMeta('a.md'), _makeFileMeta('b.md')];
           const stats = _makeStats();
 
-          await processChunk(metas, ['app1'], true, stats);
+          await processChunk(metas, ['app1'], true, stats, model);
 
           assertEquals(stats.error, 0);
         });
@@ -155,10 +163,10 @@ describe('processChunk', () => {
           const metas = [_makeFileMeta('a.md'), _makeFileMeta('b.md')];
           const stats = _makeStats();
 
-          await processChunk(metas, ['app1'], true, stats);
+          await processChunk(metas, ['app1'], true, stats, model);
 
           assertEquals(
-            loggerStub.warnLogs.some((l) => l.includes('警告')),
+            loggerStub.warnLogs.some((l) => l.includes('claude CLI 実行失敗')),
             true,
             '警告ログが warnLogs に記録されていない',
           );
@@ -174,8 +182,10 @@ describe('processChunk', () => {
       describe(`Then: T-CL-PC-03 - JSON パース失敗 → ${FALLBACK_PROJECT} で全件処理`, () => {
         let mockHandle: CommandMockHandle;
         let loggerStub: LoggerStub;
+        let model: string;
 
         beforeEach(() => {
+          model = DEFAULT_AI_MODEL;
           loggerStub = makeLoggerStub();
           mockHandle = installCommandMock(
             makeSuccessMock(new TextEncoder().encode('これはJSONではありません')),
@@ -191,7 +201,7 @@ describe('processChunk', () => {
           const metas = [_makeFileMeta('a.md')];
           const stats = _makeStats();
 
-          await processChunk(metas, ['app1'], true, stats);
+          await processChunk(metas, ['app1'], true, stats, model);
 
           assertEquals(stats.moved, 1);
         });
@@ -200,7 +210,7 @@ describe('processChunk', () => {
           const metas = [_makeFileMeta('a.md')];
           const stats = _makeStats();
 
-          await processChunk(metas, ['app1'], true, stats);
+          await processChunk(metas, ['app1'], true, stats, model);
 
           assertEquals(stats.error, 0);
         });
@@ -209,10 +219,10 @@ describe('processChunk', () => {
           const metas = [_makeFileMeta('a.md')];
           const stats = _makeStats();
 
-          await processChunk(metas, ['app1'], true, stats);
+          await processChunk(metas, ['app1'], true, stats, model);
 
           assertEquals(
-            loggerStub.warnLogs.some((l) => l.includes('警告')),
+            loggerStub.warnLogs.some((l) => l.includes('JSON パース失敗')),
             true,
             '警告ログが warnLogs に記録されていない',
           );
@@ -228,8 +238,10 @@ describe('processChunk', () => {
       describe(`Then: T-CL-PC-04 - ファイル名不一致 → ${FALLBACK_PROJECT} で処理`, () => {
         let mockHandle: CommandMockHandle;
         let loggerStub: LoggerStub;
+        let model: string;
 
         beforeEach(() => {
+          model = DEFAULT_AI_MODEL;
           loggerStub = makeLoggerStub();
           // "b.md" の結果を返すが、対象ファイルは "a.md"
           const response = JSON.stringify([
@@ -249,7 +261,7 @@ describe('processChunk', () => {
           const metas = [_makeFileMeta('a.md')];
           const stats = _makeStats();
 
-          await processChunk(metas, ['app1'], true, stats);
+          await processChunk(metas, ['app1'], true, stats, model);
 
           assertEquals(stats.moved, 1);
         });
@@ -258,7 +270,7 @@ describe('processChunk', () => {
           const metas = [_makeFileMeta('a.md')];
           const stats = _makeStats();
 
-          await processChunk(metas, ['app1'], true, stats);
+          await processChunk(metas, ['app1'], true, stats, model);
 
           assertEquals(
             loggerStub.infoLogs.some((l) => l.includes('[dry-run]')),

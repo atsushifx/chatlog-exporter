@@ -25,10 +25,12 @@ import { logger } from '../../_scripts/libs/logger.ts';
 import { normalizePath } from '../../_scripts/libs/utils.ts';
 
 // -- internal --
-import { DEFAULT_EXPORT_CONFIG } from './constants/defaults.constants.ts';
 import { exportChatGPT } from './exporter/chatgpt-exporter.ts';
 import { exportClaude } from './exporter/claude-exporter.ts';
 import { exportCodex } from './exporter/codex-exporter.ts';
+// constants
+import { DEFAULT_EXPORT_CONFIG } from './constants/defaults.constants.ts';
+// type
 import type { ExportConfig } from './types/export-config.types.ts';
 
 // ─────────────────────────────────────────────
@@ -61,30 +63,36 @@ export const parseArgs = (args: string[]): ExportConfig => {
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === '--output' && i + 1 < args.length) {
-      _config.outputDir = args[++i];
-    } else if (arg.startsWith('--output=')) {
-      _config.outputDir = arg.slice('--output='.length);
-    } else if (arg === '--base' && i + 1 < args.length) {
-      _config.baseDir = args[++i];
-    } else if (arg.startsWith('--base=')) {
-      _config.baseDir = arg.slice('--base='.length);
-    } else if (arg === '--input' && i + 1 < args.length) {
-      _config.inputDir = args[++i];
-    } else if (arg.startsWith('--input=')) {
-      _config.inputDir = arg.slice('--input='.length);
-    } else if (arg.startsWith('-')) {
-      throw new ChatlogError('InvalidArgs', `不明なオプション: ${arg}`);
-    } else if (isKnownAgent(arg)) {
-      _config.agent = arg;
-    } else if (/^\d{4}-\d{2}$/.test(arg) || /^\d{4}$/.test(arg)) {
-      _config.period = arg;
-    } else {
-      const normalized = normalizePath(arg);
-      if (normalized.includes('/')) {
-        _config.inputDir = normalized;
-      } else {
-        throw new ChatlogError('InvalidArgs', `不明な引数: ${arg}`);
+    const eqIdx = arg.indexOf('=');
+    const flag = eqIdx >= 0 ? arg.slice(0, eqIdx) : arg;
+    const eqVal = eqIdx >= 0 ? arg.slice(eqIdx + 1) : undefined;
+
+    switch (flag) {
+      case '--output':
+        _config.outputDir = eqVal ?? args[++i];
+        break;
+      case '--base':
+        _config.baseDir = eqVal ?? args[++i];
+        break;
+      case '--input':
+        _config.inputDir = eqVal ?? args[++i];
+        break;
+      default: {
+        if (flag.startsWith('-')) {
+          throw new ChatlogError('InvalidArgs', `不明なオプション: ${arg}`);
+        }
+        if (isKnownAgent(arg)) {
+          _config.agent = arg;
+        } else if (/^\d{4}-\d{2}$/.test(arg) || /^\d{4}$/.test(arg)) {
+          _config.period = arg;
+        } else {
+          const normalized = normalizePath(arg);
+          if (normalized.includes('/')) {
+            _config.inputDir = normalized;
+          } else {
+            throw new ChatlogError('InvalidArgs', `不明な引数: ${arg}`);
+          }
+        }
       }
     }
   }
