@@ -1,5 +1,5 @@
-// src: skills/_scripts/libs/find-md-files.ts
-// @(#): マークダウンファイル一覧取得共通ユーティリティ
+// src: skills/_scripts/libs/find-files.ts
+// @(#): ファイル一覧取得共通ユーティリティ
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //
@@ -15,8 +15,10 @@ import { normalizePath } from './utils.ts';
 // 型定義
 // ─────────────────────────────────────────────
 
-/** {@link findMdFiles} のオプション引数。 */
-export interface FindMdFilesOptions {
+/** {@link findFiles} のオプション引数。 */
+export interface FindFilesOptions {
+  /** 検索対象ファイルの拡張子（デフォルト `".md"`）。必ずドット始まりで指定する。 */
+  ext?: string;
   /** glob パターンでパス一覧を返す関数。未指定時は `expandGlob` を使用。 */
   glob?: GlobProvider;
 }
@@ -33,9 +35,9 @@ const _defaultGlob: GlobProvider = async (pattern: string): Promise<string[]> =>
   return _results;
 };
 
-/** `dir` 直下の `.md` ファイルパス一覧を返す。 */
-const _findMdFlats = async (dir: string, glob: GlobProvider): Promise<string[]> => {
-  return await glob(`${dir}/*.md`);
+/** `dir` 直下の `ext` ファイルパス一覧を返す。 */
+const _findFileFlats = async (dir: string, ext: string, glob: GlobProvider): Promise<string[]> => {
+  return await glob(`${dir}/*${ext}`);
 };
 
 /** `dir` 直下のサブディレクトリパス一覧を返す。 */
@@ -44,23 +46,28 @@ const _findDirFlat = async (dir: string, glob: GlobProvider): Promise<string[]> 
 };
 
 /**
- * ディレクトリ `dir` 配下の .md ファイルパスを再帰的に収集し、辞書順ソートして返す。
+ * ディレクトリ `dir` 配下の `ext` ファイルパスを再帰的に収集し、辞書順ソートして返す。
  * 存在しないディレクトリを渡した場合は空配列を返す（例外なし）。
  *
  * @param dir - 走査対象のディレクトリパス
- * @param options - オプション（`glob` でテスト用モックを注入可能）
- * @returns 辞書順ソート済みの .md ファイルパス配列
+ * @param options - オプション（`ext` で拡張子を指定、`glob` でテスト用モックを注入可能）
+ * @returns 辞書順ソート済みのファイルパス配列
+ * @throws Error `ext` がドット始まりでない場合
  */
-export const findMdFiles = async (
+export const findFiles = async (
   dir: string,
-  options?: FindMdFilesOptions,
+  options?: FindFilesOptions,
 ): Promise<string[]> => {
+  const _ext = options?.ext ?? '.md';
+  if (!_ext.startsWith('.')) {
+    throw new Error(`ext must start with '.': "${_ext}"`);
+  }
   const _glob = options?.glob ?? _defaultGlob;
   const _all: string[] = [];
   const _queue = [dir];
   while (_queue.length > 0) {
     const current = _queue.shift()!;
-    const [files, dirs] = await Promise.all([_findMdFlats(current, _glob), _findDirFlat(current, _glob)]);
+    const [files, dirs] = await Promise.all([_findFileFlats(current, _ext, _glob), _findDirFlat(current, _glob)]);
     _all.push(...files);
     _queue.push(...dirs);
   }
