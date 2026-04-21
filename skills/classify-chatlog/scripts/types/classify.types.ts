@@ -64,7 +64,7 @@ export interface Stats {
 // 分類設定型
 // ─────────────────────────────────────────────
 
-/** `parseArgs` が返す分類処理の設定。 */
+/** `main` が使用する分類処理の設定。すべてのフィールドに値が入る。 */
 export interface ClassifyConfig {
   /** 対象 AI エージェント名（例: `claude`, `chatgpt`）。 */
   agent: string;
@@ -79,6 +79,9 @@ export interface ClassifyConfig {
   /** claude CLI に渡すモデル名。 */
   model: string;
 }
+
+/** `parseArgs` の戻り値型。引数で指定されたフィールドのみ含む。 */
+export type ParsedConfig = Partial<ClassifyConfig>;
 
 // ─────────────────────────────────────────────
 // フロントマター解析結果型
