@@ -31,6 +31,7 @@ const _defaultGlob: GlobProvider = async (pattern: string): Promise<string[]> =>
 
 /** findEntries のオプション */
 export interface FindEntriesOptions {
+  include?: string[];
   exclude?: string[];
   glob?: GlobProvider;
 }
@@ -70,13 +71,17 @@ export async function findEntries(
   if (dirs.length === 0) { return []; }
 
   const _glob = options?.glob ?? _defaultGlob;
+  const _include = options?.include ?? [];
   const _exclude = options?.exclude ?? [];
   const _results: string[] = [];
 
   for (const dir of dirs) {
     const _entries = await _glob(`${dir}/**/*${ext}`);
     for (const entry of _entries) {
-      if (_exclude.every((ex) => !entry.includes(ex))) {
+      if (
+        _include.every((inc) => entry.includes(inc))
+        && _exclude.every((ex) => !entry.includes(ex))
+      ) {
         _results.push(entry);
       }
     }
