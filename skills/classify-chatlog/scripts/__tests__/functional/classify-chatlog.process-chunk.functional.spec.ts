@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 // test target
 import { processChunk } from '../../classify-chatlog.ts';
 // constants
-import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/common.constants.ts';
+import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/defaults.constants.ts';
 import { FALLBACK_PROJECT } from '../../constants/classify.constants.ts';
 // types
 import type { FileMeta, Stats } from '../../types/classify.types.ts';
