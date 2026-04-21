@@ -1,7 +1,7 @@
 // src: scripts/__tests__/unit/normalize-chatlog.file-ops.unit.spec.ts
 // @(#): ファイル操作関数のユニットテスト
 //       対象: writeOutput, segmentChatlog
-//       (collectMdFiles/findMdFiles は _scripts/libs/find-md-files.ts に移管済み)
+//       (collectMdFiles/findFiles は _scripts/libs/find-files.ts に移管済み)
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //

@@ -25,7 +25,7 @@ import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-s
 import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // test target
-import { findMdFiles } from '../../../../_scripts/libs/find-md-files.ts';
+import { findFiles } from '../../../../_scripts/libs/find-files.ts';
 import { normalizePath } from '../../../../_scripts/libs/utils.ts';
 import { main } from '../../normalize-chatlog.ts';
 import type { HashProvider } from '../../normalize-chatlog.ts';
@@ -79,7 +79,7 @@ describe('main - I/O', () => {
         it('T-15-01-01-01: outputDir 配下に 2 件以上のセグメント出力ファイルが生成される', async () => {
           await main(['--dir', inputDir, '--output', outputDir]);
 
-          const files = await findMdFiles(outputDir);
+          const files = await findFiles(outputDir);
           assertEquals(files.length >= 2, true);
         });
       });
@@ -182,7 +182,7 @@ describe('main - I/O', () => {
           const fixedHash: HashProvider = () => 'abc1234';
           await main(['--dir', CHATLOG_INPUT_DIR, '--output', outputBase], fixedHash);
 
-          const files = await findMdFiles(outputBase);
+          const files = await findFiles(outputBase);
           assertEquals(files.length >= 1, true);
           const expectedSubPath = `claude/2026/2026-04/my-app`;
           const allUnderExpected = files.every((f) => normalizePath(f).includes(expectedSubPath));
@@ -230,7 +230,7 @@ describe('main - I/O', () => {
           const fixedHash: HashProvider = () => 'def5678';
           await main(['--dir', inputDir, '--output', outputBase], fixedHash);
 
-          const files = await findMdFiles(outputBase);
+          const files = await findFiles(outputBase);
           assertEquals(files.length >= 1, true);
           const allUnderProject = files.every((f) => normalizePath(f).includes('custom-project'));
           assertEquals(allUnderProject, true);
@@ -276,7 +276,7 @@ describe('main - I/O', () => {
         it('T-15-07-01-01: 出力ファイルのパスが <outputBase>/misc/ を含む', async () => {
           await main(['--dir', inputDir, '--output', outputBase]);
 
-          const files = await findMdFiles(outputBase);
+          const files = await findFiles(outputBase);
           assertEquals(files.length >= 1, true);
           const allUnderMisc = files.every((f) => normalizePath(f).includes('/misc/'));
           assertEquals(allUnderMisc, true);
@@ -323,7 +323,7 @@ describe('main - I/O', () => {
         it('T-15-04-04-01: outputDir 配下に正確に 1 件の .md ファイルが生成される', async () => {
           await main(['--dir', inputDir, '--output', outputDir]);
 
-          const files = await findMdFiles(outputDir);
+          const files = await findFiles(outputDir);
           assertEquals(files.length, 1);
         });
       });

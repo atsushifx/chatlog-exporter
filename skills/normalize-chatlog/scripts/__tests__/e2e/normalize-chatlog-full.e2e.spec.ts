@@ -21,7 +21,7 @@ import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-st
 import { assertAllOutputFiles } from '../../../../_scripts/__tests__/helpers/output-validator.ts';
 
 // test target
-import { findMdFiles } from '../../../../_scripts/libs/find-md-files.ts';
+import { findFiles } from '../../../../_scripts/libs/find-files.ts';
 import { main } from '../../normalize-chatlog.ts';
 import type { HashProvider } from '../../normalize-chatlog.ts';
 
@@ -75,7 +75,7 @@ describe('normalize-chatlog - full E2E', () => {
       await main(['--dir', inputDir, '--output', outputDir]);
 
       // IO: 出力ファイルが生成されている
-      const files = await findMdFiles(outputDir);
+      const files = await findFiles(outputDir);
       assertEquals(files.length >= 3, true);
 
       // aggregation: 全件 success に集計されている
@@ -117,7 +117,7 @@ describe('normalize-chatlog - full E2E', () => {
     it('T-FULL-02: 出力ファイルが YAML frontmatter・## Summary・project フィールドを含む', async () => {
       await main(['--dir', inputDir, '--output', outputDir]);
 
-      const files = await findMdFiles(outputDir);
+      const files = await findFiles(outputDir);
       assertEquals(files.length >= 1, true);
 
       // structure: frontmatter / Summary / project フィールドの検証
@@ -170,7 +170,7 @@ describe('normalize-chatlog - full E2E', () => {
       assertMatch(loggerStub.infoLogs.join('\n'), /success=1/);
 
       // reproducibility: .old-01.md バックアップが存在する（サブディレクトリも含めて再帰検索）
-      const allFiles = await findMdFiles(outputDir);
+      const allFiles = await findFiles(outputDir);
       const backupExists = allFiles.some((path) => path.includes('.old-01.md'));
       assertEquals(backupExists, true);
 

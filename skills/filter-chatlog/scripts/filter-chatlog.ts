@@ -20,7 +20,7 @@
 // -- external --
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { runChunked } from '../../_scripts/libs/concurrency.ts';
-import { findMdFiles as findMdFilesLib } from '../../_scripts/libs/find-md-files.ts';
+import { findFiles as findFilesLib } from '../../_scripts/libs/find-files.ts';
 import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 import { parseConversation } from '../../_scripts/libs/markdown-utils.ts';
@@ -169,7 +169,7 @@ export const findMdFiles = async (
   project?: string,
 ): Promise<string[]> => {
   const _searchDir = await _resolveSearchDir(baseDir, period, project);
-  return findMdFilesLib(_searchDir);
+  return findFilesLib(_searchDir);
 };
 
 // ─────────────────────────────────────────────
