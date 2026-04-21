@@ -130,4 +130,23 @@ describe('parseArgs', () => {
       });
     });
   });
+
+  // ─── ディレクトリ引数の解析 ─────────────────────────────────────────────
+
+  describe('Given: スラッシュを含むディレクトリパス引数', () => {
+    describe('When: parseArgs([path]) を呼び出す', () => {
+      describe('Then: T-CL-PA-13 - inputDir に代入される', () => {
+        const _dirCases: { id: string; args: string[]; expected: string }[] = [
+          { id: 'T-CL-PA-13-01', args: ['/path/to/input'], expected: '/path/to/input' },
+          { id: 'T-CL-PA-13-02', args: ['./my/chatlog'], expected: './my/chatlog' },
+          { id: 'T-CL-PA-13-03', args: ['C:\\Users\\foo\\logs'], expected: 'C:\\Users\\foo\\logs' },
+        ];
+        for (const { id, args, expected } of _dirCases) {
+          it(`${id}: inputDir が "${expected}" になる`, () => {
+            assertEquals(parseArgs(args).inputDir, expected);
+          });
+        }
+      });
+    });
+  });
 });
