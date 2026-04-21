@@ -357,7 +357,9 @@ export const processChunk = async (
   for (const f of chunkMetas) {
     const hasMeta = f.title || f.category || f.topics.length > 0 || f.tags.length > 0;
     if (!hasMeta && f.fullText.trim().length < MIN_CLASSIFIABLE_LENGTH) {
-      logger.info(`  classify: ${f.filename} → ${FALLBACK_PROJECT} (本文が短すぎるため直接分類)`);
+      logger.warn(
+        `[skip-ai: too-short] classify: ${f.filename} → ${FALLBACK_PROJECT} (本文が短すぎるため AI をスキップ)`,
+      );
       await classifyFile(f, FALLBACK_PROJECT, dryRun, stats);
     } else {
       classifiable.push(f);
