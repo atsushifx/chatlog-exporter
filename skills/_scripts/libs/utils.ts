@@ -37,6 +37,11 @@ export const getFileName = (path: string): string => {
   return normalizePath(path).split('/').pop() ?? '';
 };
 
+/** `normalizePath` で正規化後に `/` を含む場合 `true` を返す（ディレクトリパス判定）。 */
+export const isDirectoryArg = (arg: string): boolean => {
+  return normalizePath(arg).includes('/');
+};
+
 /**
  * テキストからファイル名用の URL セーフなスラッグ文字列を生成する。
  * 英小文字・数字・ハイフンのみからなる 3〜50 文字のスラッグ、または `fallback` を返す。
