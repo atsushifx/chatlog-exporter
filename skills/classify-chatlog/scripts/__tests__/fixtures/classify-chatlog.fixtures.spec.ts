@@ -15,7 +15,7 @@ import { parse as parseYaml } from '@std/yaml';
 import { processChunk } from '../../classify-chatlog.ts';
 
 // constants
-import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/common.constants.ts';
+import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/defaults.constants.ts';
 // types
 import type { FileMeta, Stats } from '../../types/classify.types.ts';
 
