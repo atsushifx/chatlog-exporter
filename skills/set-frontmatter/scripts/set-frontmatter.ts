@@ -30,6 +30,7 @@ import { runConcurrent } from '../../_scripts/libs/concurrency.ts';
 import { findFiles } from '../../_scripts/libs/find-files.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
 import { cleanYaml } from '../../_scripts/libs/markdown-utils.ts';
+import { toStringArrayWithNull } from '../../_scripts/libs/text-utils.ts';
 import { normalizeLine } from '../../_scripts/libs/utils.ts';
 
 // ─────────────────────────────────────────────
@@ -164,14 +165,13 @@ export const loadDics = async (dicsDir: string): Promise<Dics> => {
       .map(([k, v]) => {
         const entry = v as Record<string, unknown>;
         const rulesRaw = entry['rules'] as Record<string, unknown> | undefined;
-        const toStrArray = (val: unknown): string[] => Array.isArray(val) ? val.map(String) : [];
         return {
           key: k,
           def: (entry['def'] as string | undefined)?.trim() ?? '',
           desc: (entry['desc'] as string | undefined)?.trim() ?? '',
           rules: {
-            when: toStrArray(rulesRaw?.['when']),
-            not: toStrArray(rulesRaw?.['not']),
+            when: toStringArrayWithNull(rulesRaw?.['when']),
+            not: toStringArrayWithNull(rulesRaw?.['not']),
           },
         };
       });
