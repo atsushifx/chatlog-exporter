@@ -80,7 +80,10 @@ export function buildBaseGlob(moduleName: ValidModule | 'all' | undefined): stri
 // ── コマンド構築 ────────────────────────────────────────────────────────────
 
 export function buildDenoArgs(targetTypes: ValidType[], baseGlob: string, useAi = false): string[] {
-  const paths = targetTypes.map((type) => `${baseGlob}/${type}/**/`);
+  const paths = targetTypes.flatMap((type) => [
+    `${baseGlob}/${type}/**/`,
+    `${baseGlob}/*/${type}/**/`,
+  ]);
   const needsRun = targetTypes.some((t) => TYPES_REQUIRING_RUN.has(t));
   const needsEnv = useAi || targetTypes.some((t) => TYPES_REQUIRING_ENV.has(t));
   return [
