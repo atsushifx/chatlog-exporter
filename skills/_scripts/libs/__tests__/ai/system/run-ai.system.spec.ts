@@ -1,4 +1,4 @@
-// src: skills/_scripts/libs/__tests__/system/run-ai.system.spec.ts
+// src: skills/_scripts/libs/__tests__/ai/system/run-ai.system.spec.ts
 // @(#): runAI のシステムテスト（実 Claude CLI 使用）
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
@@ -9,8 +9,8 @@
 import { assertRejects, assertStringIncludes } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
-import { ChatlogError } from '../../../classes/ChatlogError.class.ts';
-import { runAI } from '../../../libs/run-ai.ts';
+import { ChatlogError } from '../../../../classes/ChatlogError.class.ts';
+import { runAI } from '../../../../libs/run-ai.ts';
 
 const _shouldRunClaude = Deno.env.get('RUN_CLAUDE_TESTS') === '1';
 
