@@ -17,11 +17,13 @@
 // -- external --
 import { runChunked } from '../../_scripts/libs/concurrency.ts';
 import { findEntries } from '../../_scripts/libs/find-entries.ts';
+import { extractFrontmatter } from '../../_scripts/libs/frontmatter-utils.ts';
 import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
 import { isValidModel } from '../../_scripts/libs/model-utils.ts';
 import { parseArgsToConfig } from '../../_scripts/libs/parse-args.ts';
 import { runAI } from '../../_scripts/libs/run-ai.ts';
-import { getDirectory, normalizeLine, normalizePath } from '../../_scripts/libs/utils.ts';
+import { toStringArrayWithNull, toStringWithNull } from '../../_scripts/libs/text-utils.ts';
+import { getDirectory, normalizeLine, normalizePath, readTextFile } from '../../_scripts/libs/utils.ts';
 // instances
 import { logger } from '../../_scripts/libs/logger.ts';
 // constants
@@ -52,7 +54,7 @@ export const loadProjects = async (dicsDir: string): Promise<string[]> => {
   const dicPath = `${dicsDir}/projects.dic`;
   let text: string;
   try {
-    text = await Deno.readTextFile(dicPath);
+    text = await readTextFile(dicPath);
   } catch {
     logger.warn(`projects.dic が見つかりません: ${dicPath}`);
     return [];
@@ -68,52 +70,16 @@ export const loadProjects = async (dicsDir: string): Promise<string[]> => {
 // ─────────────────────────────────────────────
 
 export const parseFrontmatter = (text: string): FrontmatterData => {
-  const empty: FrontmatterData = {
-    project: '',
-    title: '',
-    category: '',
-    topics: [],
-    tags: [],
-    frontmatterEnd: 0,
+  const { meta, frontmatterEnd } = extractFrontmatter(text);
+
+  return {
+    project: toStringWithNull(meta['project']),
+    title: toStringWithNull(meta['title']),
+    category: toStringWithNull(meta['category']),
+    topics: toStringArrayWithNull(meta['topics']),
+    tags: toStringArrayWithNull(meta['tags']),
+    frontmatterEnd,
   };
-
-  const normalized = text.replace(/\r\n/g, '\n');
-  if (!normalized.startsWith('---\n')) { return empty; }
-
-  const end = normalized.indexOf('\n---\n', 4);
-  if (end === -1) { return empty; }
-
-  const fmText = normalized.slice(4, end);
-  const frontmatterEnd = end + 5; // '\n---\n' の後
-
-  const lines = fmText.split('\n');
-  const result: FrontmatterData = { project: '', title: '', category: '', topics: [], tags: [], frontmatterEnd };
-
-  let currentList: string[] | null = null;
-
-  for (const line of lines) {
-    const listMatch = line.match(/^\s{2}- (.+)$/);
-    if (listMatch && currentList) {
-      currentList.push(listMatch[1].trim());
-      continue;
-    }
-
-    currentList = null;
-
-    if (line.startsWith('title:')) {
-      result.title = line.slice('title:'.length).trim();
-    } else if (line.startsWith('category:')) {
-      result.category = line.slice('category:'.length).trim();
-    } else if (line.startsWith('project:')) {
-      result.project = line.slice('project:'.length).trim();
-    } else if (line === 'topics:') {
-      currentList = result.topics;
-    } else if (line === 'tags:') {
-      currentList = result.tags;
-    }
-  }
-
-  return result;
 };
 
 // ─────────────────────────────────────────────
@@ -121,29 +87,27 @@ export const parseFrontmatter = (text: string): FrontmatterData => {
 // ─────────────────────────────────────────────
 
 export const insertProjectField = (text: string, project: string): string => {
-  const normalized = text.replace(/\r\n/g, '\n');
-  if (!normalized.startsWith('---\n')) { return text; }
+  const _normalized = text.replace(/\r\n/g, '\n');
+  const _lines = _normalized.split('\n');
+  if (_lines[0] !== '---') { return text; }
 
-  const end = normalized.indexOf('\n---\n', 4);
-  if (end === -1) { return text; }
+  const _closeIdx = _lines.indexOf('---', 1);
+  if (_closeIdx === -1) { return text; }
 
-  const fmText = normalized.slice(4, end);
-  const lines = fmText.split('\n');
-
-  const newLines: string[] = [];
-  let inserted = false;
-  for (const line of lines) {
-    newLines.push(line);
-    if (!inserted && line.startsWith('date:')) {
-      newLines.push(`project: ${project}`);
-      inserted = true;
+  const _fmLines = _lines.slice(1, _closeIdx);
+  const _newFmLines: string[] = [];
+  let _inserted = false;
+  for (const line of _fmLines) {
+    _newFmLines.push(line);
+    if (!_inserted && line.startsWith('date:')) {
+      _newFmLines.push(`project: ${project}`);
+      _inserted = true;
     }
   }
-  if (!inserted) {
-    newLines.unshift(`project: ${project}`);
-  }
+  if (!_inserted) { _newFmLines.unshift(`project: ${project}`); }
 
-  return `---\n${newLines.join('\n')}\n---\n${normalized.slice(end + 5)}`;
+  const _bodyLines = _lines.slice(_closeIdx + 1);
+  return ['---', ..._newFmLines, '---', ..._bodyLines].join('\n');
 };
 
 // ─────────────────────────────────────────────
@@ -153,7 +117,7 @@ export const insertProjectField = (text: string, project: string): string => {
 export const loadFileMeta = async (filePath: string): Promise<FileMeta | null> => {
   let text: string;
   try {
-    text = await Deno.readTextFile(filePath);
+    text = await readTextFile(filePath);
   } catch {
     return null;
   }
