@@ -13,7 +13,7 @@
  */
 
 // -- constants --
-import { DEFAULT_HASH_LENGTH, DEFAULT_MAX_RANDOM_LENGTH, MIN_RANDOM_LENGTH } from '../constants/common.constants.ts';
+import { DEFAULT_HASH_LENGTH, DEFAULT_MAX_RANDOM_LENGTH, MIN_RANDOM_LENGTH } from '../constants/defaults.constants.ts';
 
 // -- types --
 import type { GenerateHashOptions } from '../types/common.types.ts';

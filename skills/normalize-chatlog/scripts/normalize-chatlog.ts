@@ -14,6 +14,7 @@ import { runConcurrent } from '../../_scripts/libs/concurrency.ts';
 import { findFiles } from '../../_scripts/libs/find-files.ts';
 import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
 import { logger } from '../../_scripts/libs/logger.ts';
+import { isValidModel } from '../../_scripts/libs/model-utils.ts';
 import { normalizeLine, normalizePath } from '../../_scripts/libs/utils.ts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -57,16 +58,6 @@ const _MAX_SEGMENTS = 10;
 
 /** Markdown heading that marks the start of the body section in a segment file. */
 export const START_BODY_HEADING = '## Excerpt';
-
-/** Model IDs and aliases accepted by the Claude Code CLI. */
-const _VALID_MODELS = new Set([
-  'claude-opus-4-6',
-  'claude-sonnet-4-6',
-  'claude-haiku-4-5-20251001',
-  'opus',
-  'sonnet',
-  'haiku',
-]);
 
 /**
  * Parses a YAML frontmatter block from a Markdown text string.
@@ -243,8 +234,8 @@ export const attachFrontmatter = (
  * @throws Propagates spawn errors (e.g., command not found) naturally
  */
 export const runAI = async (model: string, systemPrompt: string, userPrompt: string): Promise<string> => {
-  if (!_VALID_MODELS.has(model)) {
-    throw new Error(`Unknown model: "${model}". Valid models: ${[..._VALID_MODELS].join(', ')}`);
+  if (!isValidModel(model)) {
+    throw new Error(`Unknown model: "${model}". Valid models: opus, sonnet, haiku (or full IDs)`);
   }
   const cmd = new Deno.Command('claude', {
     args: [

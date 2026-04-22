@@ -7,17 +7,8 @@
 // https://opensource.org/licenses/MIT
 
 import { ChatlogError } from '../classes/ChatlogError.class.ts';
-import { DEFAULT_AI_MODEL, DEFAULT_TIMEOUT_MS } from '../constants/common.constants.ts';
-
-/** Model IDs and aliases accepted by the Claude Code CLI. */
-const _VALID_MODELS = new Set([
-  'claude-opus-4-6',
-  'claude-sonnet-4-6',
-  'claude-haiku-4-5-20251001',
-  'opus',
-  'sonnet',
-  'haiku',
-]);
+import { DEFAULT_AI_MODEL, DEFAULT_TIMEOUT_MS } from '../constants/defaults.constants.ts';
+import { isValidModel } from './model-utils.ts';
 
 export type RunAIOptions = {
   model?: string;
@@ -34,10 +25,10 @@ export const runAI = async (
   options?: RunAIOptions,
 ): Promise<string> => {
   const _options = { model: DEFAULT_AI_MODEL, timeoutMs: DEFAULT_TIMEOUT_MS, ...options };
-  if (!_VALID_MODELS.has(_options.model)) {
+  if (!isValidModel(_options.model)) {
     throw new ChatlogError(
       'UnknownModel',
-      `"${_options.model}" is not valid. Valid models: ${[..._VALID_MODELS].join(', ')}`,
+      `"${_options.model}" is not valid. Valid models: opus, sonnet, haiku (or full IDs)`,
     );
   }
   const _controller = new AbortController();

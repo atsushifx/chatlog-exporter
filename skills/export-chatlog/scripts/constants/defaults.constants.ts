@@ -6,7 +6,7 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
-import { DEFAULT_AGENT } from '../../../_scripts/constants/agents.constants.ts';
+import { DEFAULT_AGENT } from '../../../_scripts/constants/defaults.constants.ts';
 import type { ExportConfig } from '../types/export-config.types.ts';
 
 /**

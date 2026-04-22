@@ -6,25 +6,18 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
-// ─────────────────────────────────────────────
-// AI 実行系
-// ─────────────────────────────────────────────
-
-/** runAI のデフォルトモデル。 */
-export const DEFAULT_AI_MODEL = 'sonnet';
-
-/** runAI のデフォルトタイムアウト (ms)。0 = タイムアウトなし。 */
-export const DEFAULT_TIMEOUT_MS = 120_000;
-
-// ─────────────────────────────────────────────
-// ハッシュ生成系
-// ─────────────────────────────────────────────
-
-/** generateHash の length パラメータのデフォルト値。 */
-export const DEFAULT_HASH_LENGTH = 8;
-
-/** _buildRandomString が生成するランダム文字列の最小長。 */
-export const MIN_RANDOM_LENGTH = 4;
-
-/** generateHash の maxRandomLength パラメータのデフォルト値。 */
-export const DEFAULT_MAX_RANDOM_LENGTH = 16;
+/** Claude Code CLI が受け付けるモデル ID およびエイリアスの集合。 */
+export const VALID_AI_MODELS = new Set([
+  'default',
+  'best',
+  'opus',
+  'sonnet',
+  'haiku',
+  'sonnet[1m]',
+  'opus[1m]',
+  'opusplan',
+  'claude-opus-4-7',
+  'claude-opus-4-6',
+  'claude-sonnet-4-6',
+  'claude-haiku-4-5-20251001',
+]);

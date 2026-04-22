@@ -15,32 +15,34 @@
  */
 
 // -- external --
-import { isKnownAgent } from '../../_scripts/constants/agents.constants.ts';
 import { runChunked } from '../../_scripts/libs/concurrency.ts';
 import { findEntries } from '../../_scripts/libs/find-entries.ts';
 import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
+import { isValidModel } from '../../_scripts/libs/model-utils.ts';
+import { parseArgsToConfig } from '../../_scripts/libs/parse-args.ts';
 import { runAI } from '../../_scripts/libs/run-ai.ts';
-import { getDirectory, isDirectoryArg, normalizeLine, normalizePath } from '../../_scripts/libs/utils.ts';
+import { getDirectory, normalizeLine, normalizePath } from '../../_scripts/libs/utils.ts';
 // instances
 import { logger } from '../../_scripts/libs/logger.ts';
 // constants
-import { DEFAULT_AI_MODEL } from '../../_scripts/constants/common.constants.ts';
-import { DEFAULT_CHUNK_SIZE, DEFAULT_CONCURRENCY } from '../../_scripts/constants/concurrency.constants.ts';
+import { DEFAULT_CHUNK_SIZE, DEFAULT_CONCURRENCY } from '../../_scripts/constants/defaults.constants.ts';
 // classes
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 
 // -- internal --
-import { FALLBACK_PROJECT, MIN_CLASSIFIABLE_LENGTH } from './constants/classify.constants.ts';
-import type { ClassifyConfig, ClassifyResult, FileMeta, FrontmatterData, Stats } from './types/classify.types.ts';
-
-const _VALID_MODELS = new Set([
-  'claude-opus-4-6',
-  'claude-sonnet-4-6',
-  'claude-haiku-4-5-20251001',
-  'opus',
-  'sonnet',
-  'haiku',
-]);
+import {
+  DEFAULT_CLASSIFY_CONFIG,
+  FALLBACK_PROJECT,
+  MIN_CLASSIFIABLE_LENGTH,
+} from './constants/classify.constants.ts';
+import type {
+  ClassifyConfig,
+  ClassifyResult,
+  FileMeta,
+  FrontmatterData,
+  ParsedConfig,
+  Stats,
+} from './types/classify.types.ts';
 
 // ─────────────────────────────────────────────
 // 辞書読み込み
@@ -311,72 +313,23 @@ export const processChunk = async (
 // 引数解析
 // ─────────────────────────────────────────────
 
-export const parseArgs = (args: string[]): ClassifyConfig => {
-  const _config: Record<string, string | boolean> = {};
+const _OPT_KEYS: Record<string, keyof ClassifyConfig> = {
+  '--input': 'inputDir',
+  '--dics': 'dicsDir',
+  '--model': 'model',
+};
 
-  const _optKeys: Record<string, keyof ClassifyConfig> = {
-    '--input': 'inputDir',
-    '--dics': 'dicsDir',
-    '--model': 'model',
-  };
+const _OPT_FLAGS: Record<string, keyof ClassifyConfig> = {
+  '--dry-run': 'dryRun',
+};
 
-  const _optFlags: Record<string, keyof ClassifyConfig> = {
-    '--dry-run': 'dryRun',
-  };
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-
-    const _flagAttr = _optFlags[arg];
-    if (_flagAttr !== undefined) {
-      _config[_flagAttr] = true;
-      continue;
-    }
-
-    if (arg.startsWith('--')) {
-      const _eqIdx = arg.indexOf('=');
-      const _hasEq = _eqIdx !== -1;
-      const _key = _hasEq ? arg.slice(0, _eqIdx) : arg;
-      const _value = _hasEq ? arg.slice(_eqIdx + 1) : undefined;
-
-      const _attr = _optKeys[_key];
-      if (_attr !== undefined) {
-        if (_hasEq) {
-          _config[_attr] = _value!;
-        } else {
-          if (i + 1 >= args.length) { throw new ChatlogError('InvalidArgs', `値が不足しています: ${_key}`); }
-          _config[_attr] = args[++i];
-        }
-        continue;
-      }
-
-      throw new ChatlogError('InvalidArgs', `不明なオプション: ${arg}`);
-    }
-
-    // 通常パラメータ
-    if (/^\d{4}-\d{2}$/.test(arg)) { // YYYY-MM
-      _config['period'] = arg;
-    } else if (isKnownAgent(arg)) { // agent
-      _config['agent'] = arg;
-    } else if (isDirectoryArg(arg)) { // directory path
-      _config['inputDir'] = arg;
-    } else {
-      throw new ChatlogError('InvalidArgs', `不明な引数: ${arg}`);
-    }
+export const parseArgs = (args: string[]): ParsedConfig => {
+  const _parsed = parseArgsToConfig<ClassifyConfig>(args, _OPT_KEYS, _OPT_FLAGS) as ParsedConfig;
+  _parsed.model = _parsed.model ?? DEFAULT_CLASSIFY_CONFIG.model;
+  if (!isValidModel(_parsed.model)) {
+    throw new ChatlogError('InvalidArgs', `不正なモデル名: ${_parsed.model}`);
   }
-
-  const _model = (_config['model'] ?? DEFAULT_AI_MODEL) as string;
-  if (!_VALID_MODELS.has(_model)) {
-    throw new ChatlogError('InvalidArgs', `不正なモデル名: ${_model}`);
-  }
-  return {
-    agent: (_config['agent'] ?? 'chatgpt') as string,
-    period: _config['period'] as string | undefined,
-    dryRun: (_config['dryRun'] ?? false) as boolean,
-    inputDir: (_config['inputDir'] ?? './temp/chatlog') as string,
-    dicsDir: (_config['dicsDir'] ?? './assets/dics') as string,
-    model: _model,
-  };
+  return _parsed;
 };
 
 // ─────────────────────────────────────────────
@@ -385,7 +338,8 @@ export const parseArgs = (args: string[]): ClassifyConfig => {
 
 export const main = async (argv?: string[]): Promise<void> => {
   try {
-    const _config = parseArgs(argv ?? Deno.args);
+    const _parsed = parseArgs(argv ?? Deno.args);
+    const _config: ClassifyConfig = { ...DEFAULT_CLASSIFY_CONFIG, ..._parsed };
 
     // 入力ディレクトリ確認
     const agentDir = `${_config.inputDir}/${_config.agent}`;

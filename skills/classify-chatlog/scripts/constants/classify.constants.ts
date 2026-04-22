@@ -6,6 +6,9 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+import { DEFAULT_AGENT, DEFAULT_AI_MODEL } from '../../../_scripts/constants/defaults.constants.ts';
+import type { ClassifyConfig } from '../types/classify.types.ts';
+
 // ─────────────────────────────────────────────
 // classify-chatlog 固有定数
 // ─────────────────────────────────────────────
@@ -15,3 +18,12 @@ export const FALLBACK_PROJECT = 'misc';
 
 /** フロントマターなし時に分類を試みる最低本文長（文字数）。これ未満は misc に直接分類する。 */
 export const MIN_CLASSIFIABLE_LENGTH = 50;
+
+/** parseArgs で未指定のフィールドに適用するデフォルト設定。 */
+export const DEFAULT_CLASSIFY_CONFIG: ClassifyConfig = {
+  agent: DEFAULT_AGENT,
+  dryRun: false,
+  inputDir: './temp/chatlog',
+  dicsDir: './assets/dics',
+  model: DEFAULT_AI_MODEL,
+};
