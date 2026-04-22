@@ -11,8 +11,8 @@ import { assertEquals } from '@std/assert';
 import { afterAll, beforeAll, describe, it } from '@std/testing/bdd';
 
 // -- test target --
-import { findDirectories, findEntries } from '../../libs/find-entries.ts';
-import type { GlobProvider } from '../../types/providers.types.ts';
+import type { GlobProvider } from '../../../../types/providers.types.ts';
+import { findDirectories, findEntries } from '../../../file-io/find-entries.ts';
 
 // ─────────────────────────────────────────────
 // T-FE-01: findDirectories - サブディレクトリ一覧取得
