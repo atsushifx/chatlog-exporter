@@ -11,7 +11,7 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // -- test target --
-import { extractFrontmatter } from '../../frontmatter-utils.ts';
+import { extractFrontmatter } from '../../../text/frontmatter-utils.ts';
 
 // ─────────────────────────────────────────────
 // extractFrontmatter
