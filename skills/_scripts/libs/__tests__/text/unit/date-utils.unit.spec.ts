@@ -11,7 +11,7 @@ import { assertEquals, assertNotEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // -- test target --
-import { isoToDate, isoToLocalDayMs, isoToMs } from '../../../libs/date-utils.ts';
+import { isoToDate, isoToLocalDayMs, isoToMs } from '../../../text/date-utils.ts';
 
 // ─────────────────────────────────────────────
 // isoToLocalDayMs
