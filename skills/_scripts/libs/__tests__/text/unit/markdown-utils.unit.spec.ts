@@ -11,7 +11,7 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // -- test target --
-import { cleanYaml, parseConversation } from '../../../libs/markdown-utils.ts';
+import { cleanYaml, parseConversation } from '../../../text/markdown-utils.ts';
 
 // ─────────────────────────────────────────────
 // parseConversation
