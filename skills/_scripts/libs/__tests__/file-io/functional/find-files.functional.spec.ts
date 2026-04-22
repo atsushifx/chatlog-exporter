@@ -11,7 +11,7 @@ import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // -- test target --
-import { findFiles } from '../../../libs/find-files.ts';
+import { findFiles } from '../../../file-io/find-files.ts';
 
 // ─────────────────────────────────────────────
 // セットアップ
