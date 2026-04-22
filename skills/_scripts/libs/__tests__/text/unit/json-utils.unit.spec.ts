@@ -11,7 +11,7 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // -- test target --
-import { parseJsonArray } from '../../../libs/json-utils.ts';
+import { parseJsonArray } from '../../../text/json-utils.ts';
 
 // ─────────────────────────────────────────────
 // parseJsonArray
