@@ -335,9 +335,13 @@ describe('buildDenoArgs', () => {
           const result = buildDenoArgs(['unit'], '**/__tests__');
           assertEquals(result.includes('--allow-env'), false);
         });
-        it('T-AT-DA-01-04: パスに "**/__tests__/unit/**/" を含む', () => {
+        it('T-AT-DA-01-04: フラットパス "**/__tests__/unit/**/" を含む', () => {
           const result = buildDenoArgs(['unit'], '**/__tests__');
           assertEquals(result.includes('**/__tests__/unit/**/'), true);
+        });
+        it('T-AT-DA-01-05: ネストパス "**/__tests__/*/unit/**/" を含む', () => {
+          const result = buildDenoArgs(['unit'], '**/__tests__');
+          assertEquals(result.includes('**/__tests__/*/unit/**/'), true);
         });
       });
     });
@@ -361,10 +365,10 @@ describe('buildDenoArgs', () => {
   describe('Given: 全テストタイプ (VALID_TYPES)', () => {
     describe('When: buildDenoArgs([...VALID_TYPES], "**/__tests__") を呼び出す', () => {
       describe('Then: T-AT-DA-03 - 全タイプのパスを含む', () => {
-        it('T-AT-DA-03-01: VALID_TYPES 数分のパスを含む', () => {
+        it('T-AT-DA-03-01: VALID_TYPES の 2 倍のパスを含む（フラット + ネスト各 1 つ）', () => {
           const result = buildDenoArgs([...VALID_TYPES], '**/__tests__');
           const paths = result.filter((a: string) => a.includes('__tests__/'));
-          assertEquals(paths.length, VALID_TYPES.length);
+          assertEquals(paths.length, VALID_TYPES.length * 2);
         });
       });
     });
@@ -435,11 +439,11 @@ describe('buildArgsFromConfig', () => {
   describe('Given: testType="all", moduleName=undefined の TesterConfig', () => {
     describe('When: buildArgsFromConfig(config) を呼び出す', () => {
       describe('Then: T-AT-AC-02 - 全 VALID_TYPES のパスを含む', () => {
-        it('T-AT-AC-02-01: VALID_TYPES 数分のパスを含む', () => {
+        it('T-AT-AC-02-01: VALID_TYPES の 2 倍のパスを含む（フラット + ネスト各 1 つ）', () => {
           const config: TesterConfig = { testType: 'all' };
           const result = buildArgsFromConfig(config);
           const paths = result.filter((a: string) => a.includes('__tests__/'));
-          assertEquals(paths.length, VALID_TYPES.length);
+          assertEquals(paths.length, VALID_TYPES.length * 2);
         });
       });
     });
