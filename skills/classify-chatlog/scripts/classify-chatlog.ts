@@ -23,7 +23,7 @@ import { readTextFile } from '../../_scripts/libs/file-io/read-utils.ts';
 import { parseArgsToConfig } from '../../_scripts/libs/io/parse-args.ts';
 import { runChunked } from '../../_scripts/libs/parallel/concurrency.ts';
 import { toStringArrayWithNull, toStringWithNull } from '../../_scripts/libs/text/coerce-utils.ts';
-import { extractFrontmatter } from '../../_scripts/libs/text/frontmatter-utils.ts';
+import { parseFrontmatter as _parseFrontmatter } from '../../_scripts/libs/text/frontmatter-utils.ts';
 import { parseJsonArray } from '../../_scripts/libs/text/json-utils.ts';
 import { normalizeLine } from '../../_scripts/libs/text/line-utils.ts';
 // instances
@@ -41,11 +41,11 @@ import {
 } from './constants/classify.constants.ts';
 import type {
   ClassifyConfig,
+  ClassifyFileMeta,
   ClassifyResult,
-  FileMeta,
+  ClassifyStats,
   FrontmatterData,
   ParsedConfig,
-  Stats,
 } from './types/classify.types.ts';
 
 // ─────────────────────────────────────────────
@@ -72,7 +72,7 @@ export const loadProjects = async (dicsDir: string): Promise<string[]> => {
 // ─────────────────────────────────────────────
 
 export const parseFrontmatter = (text: string): FrontmatterData => {
-  const { meta, frontmatterEnd } = extractFrontmatter(text);
+  const { meta, frontmatterEnd } = _parseFrontmatter(text);
 
   return {
     project: toStringWithNull(meta['project']),
@@ -116,7 +116,7 @@ export const insertProjectField = (text: string, project: string): string => {
 // ファイルメタデータ読み込み
 // ─────────────────────────────────────────────
 
-export const loadFileMeta = async (filePath: string): Promise<FileMeta | null> => {
+export const loadClassifyFileMeta = async (filePath: string): Promise<ClassifyFileMeta | null> => {
   let text: string;
   try {
     text = await readTextFile(filePath);
@@ -143,7 +143,7 @@ export const loadFileMeta = async (filePath: string): Promise<FileMeta | null> =
 // バッチプロンプト構築
 // ─────────────────────────────────────────────
 
-export const buildClassifyPrompt = (files: FileMeta[], projects: string[]): string => {
+export const buildClassifyPrompt = (files: ClassifyFileMeta[], projects: string[]): string => {
   const _projectList = [...projects, FALLBACK_PROJECT].join(', ');
   const header = `Projects: ${_projectList}\n\n`;
 
@@ -184,10 +184,10 @@ Base your decision on: title, category, topics, tags.`;
 // ─────────────────────────────────────────────
 
 export const classifyFile = async (
-  fileMeta: FileMeta,
+  fileMeta: ClassifyFileMeta,
   project: string,
   dryRun: boolean,
-  stats: Stats,
+  stats: ClassifyStats,
 ): Promise<void> => {
   const srcPath = fileMeta.filePath;
   const srcDir = getDirectory(srcPath);
@@ -221,14 +221,14 @@ export const classifyFile = async (
 // ─────────────────────────────────────────────
 
 export const processChunk = async (
-  chunkMetas: FileMeta[],
+  chunkMetas: ClassifyFileMeta[],
   projects: string[],
   dryRun: boolean,
-  stats: Stats,
+  stats: ClassifyStats,
   model: string,
 ): Promise<void> => {
   // フロントマターなし かつ 本文が短すぎるファイルは Claude に渡さず misc に直接分類
-  const classifiable: FileMeta[] = [];
+  const classifiable: ClassifyFileMeta[] = [];
   for (const f of chunkMetas) {
     const hasMeta = f.title || f.category || f.topics.length > 0 || f.tags.length > 0;
     if (!hasMeta && f.fullText.trim().length < MIN_CLASSIFIABLE_LENGTH) {
@@ -343,11 +343,11 @@ export const main = async (argv?: string[]): Promise<void> => {
     }
 
     // メタデータ読み込みとスキップ判定
-    const targetMetas: FileMeta[] = [];
-    const stats: Stats = { moved: 0, skipped: 0, error: 0 };
+    const targetMetas: ClassifyFileMeta[] = [];
+    const stats: ClassifyStats = { moved: 0, skipped: 0, error: 0 };
 
     for (const filePath of allFiles) {
-      const meta = await loadFileMeta(filePath);
+      const meta = await loadClassifyFileMeta(filePath);
       if (!meta) {
         stats.error++;
         continue;
