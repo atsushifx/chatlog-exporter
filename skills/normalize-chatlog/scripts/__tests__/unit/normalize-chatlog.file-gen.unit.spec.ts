@@ -15,7 +15,7 @@ import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
 
 // test target
-import { withConcurrency } from '../../../../_scripts/libs/concurrency.ts';
+import { withConcurrency } from '../../../../_scripts/libs/parallel/concurrency.ts';
 import {
   attachFrontmatter,
   generateOutputFileName,

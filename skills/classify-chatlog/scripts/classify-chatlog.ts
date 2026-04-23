@@ -15,17 +15,19 @@
  */
 
 // -- external --
-import { runChunked } from '../../_scripts/libs/concurrency.ts';
-import { findEntries } from '../../_scripts/libs/find-entries.ts';
-import { extractFrontmatter } from '../../_scripts/libs/frontmatter-utils.ts';
-import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
-import { isValidModel } from '../../_scripts/libs/model-utils.ts';
-import { parseArgsToConfig } from '../../_scripts/libs/parse-args.ts';
-import { runAI } from '../../_scripts/libs/run-ai.ts';
-import { toStringArrayWithNull, toStringWithNull } from '../../_scripts/libs/text-utils.ts';
-import { getDirectory, normalizeLine, normalizePath, readTextFile } from '../../_scripts/libs/utils.ts';
+import { isValidModel } from '../../_scripts/libs/ai/model-utils.ts';
+import { runAI } from '../../_scripts/libs/ai/run-ai.ts';
+import { findEntries } from '../../_scripts/libs/file-io/find-entries.ts';
+import { getDirectory, normalizePath } from '../../_scripts/libs/file-io/path-utils.ts';
+import { readTextFile } from '../../_scripts/libs/file-io/read-utils.ts';
+import { parseArgsToConfig } from '../../_scripts/libs/io/parse-args.ts';
+import { runChunked } from '../../_scripts/libs/parallel/concurrency.ts';
+import { toStringArrayWithNull, toStringWithNull } from '../../_scripts/libs/text/coerce-utils.ts';
+import { extractFrontmatter } from '../../_scripts/libs/text/frontmatter-utils.ts';
+import { parseJsonArray } from '../../_scripts/libs/text/json-utils.ts';
+import { normalizeLine } from '../../_scripts/libs/text/line-utils.ts';
 // instances
-import { logger } from '../../_scripts/libs/logger.ts';
+import { logger } from '../../_scripts/libs/io/logger.ts';
 // constants
 import { DEFAULT_CHUNK_SIZE, DEFAULT_CONCURRENCY } from '../../_scripts/constants/defaults.constants.ts';
 // classes

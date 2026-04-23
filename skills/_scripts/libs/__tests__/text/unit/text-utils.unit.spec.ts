@@ -11,7 +11,7 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // -- test target --
-import { toStringArrayWithNull, toStringWithNull } from '../../../libs/text-utils.ts';
+import { toStringArrayWithNull, toStringWithNull } from '../../../text/coerce-utils.ts';
 
 // ─────────────────────────────────────────────
 // toStringWithNull

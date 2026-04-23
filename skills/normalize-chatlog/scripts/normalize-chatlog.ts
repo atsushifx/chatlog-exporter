@@ -9,13 +9,14 @@
 
 // -- external --
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
-import { backupOldPath, defaultListDir } from '../../_scripts/libs/backup.ts';
-import { runConcurrent } from '../../_scripts/libs/concurrency.ts';
-import { findFiles } from '../../_scripts/libs/find-files.ts';
-import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
-import { logger } from '../../_scripts/libs/logger.ts';
-import { isValidModel } from '../../_scripts/libs/model-utils.ts';
-import { normalizeLine, normalizePath } from '../../_scripts/libs/utils.ts';
+import { isValidModel } from '../../_scripts/libs/ai/model-utils.ts';
+import { backupOldPath, defaultListDir } from '../../_scripts/libs/file-io/backup.ts';
+import { findFiles } from '../../_scripts/libs/file-io/find-files.ts';
+import { normalizePath } from '../../_scripts/libs/file-io/path-utils.ts';
+import { logger } from '../../_scripts/libs/io/logger.ts';
+import { runConcurrent } from '../../_scripts/libs/parallel/concurrency.ts';
+import { parseJsonArray } from '../../_scripts/libs/text/json-utils.ts';
+import { normalizeLine } from '../../_scripts/libs/text/line-utils.ts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

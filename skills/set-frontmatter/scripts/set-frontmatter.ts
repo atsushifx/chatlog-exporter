@@ -26,12 +26,12 @@
 // -- external --
 import { parse as parseYaml } from '@std/yaml';
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
-import { runConcurrent } from '../../_scripts/libs/concurrency.ts';
-import { findFiles } from '../../_scripts/libs/find-files.ts';
-import { logger } from '../../_scripts/libs/logger.ts';
-import { cleanYaml } from '../../_scripts/libs/markdown-utils.ts';
-import { toStringArrayWithNull } from '../../_scripts/libs/text-utils.ts';
-import { normalizeLine } from '../../_scripts/libs/utils.ts';
+import { findFiles } from '../../_scripts/libs/file-io/find-files.ts';
+import { logger } from '../../_scripts/libs/io/logger.ts';
+import { runConcurrent } from '../../_scripts/libs/parallel/concurrency.ts';
+import { toStringArrayWithNull } from '../../_scripts/libs/text/coerce-utils.ts';
+import { normalizeLine } from '../../_scripts/libs/text/line-utils.ts';
+import { cleanYaml } from '../../_scripts/libs/text/markdown-utils.ts';
 
 // ─────────────────────────────────────────────
 // 定数

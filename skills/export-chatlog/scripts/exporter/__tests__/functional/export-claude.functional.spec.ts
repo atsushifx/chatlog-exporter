@@ -10,7 +10,7 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
-import { normalizePath } from '../../../../../_scripts/libs/utils.ts';
+import { normalizePath } from '../../../../../_scripts/libs/file-io/path-utils.ts';
 import type { ExportConfig } from '../../../types/export-config.types.ts';
 import { exportClaude } from '../../claude-exporter.ts';
 

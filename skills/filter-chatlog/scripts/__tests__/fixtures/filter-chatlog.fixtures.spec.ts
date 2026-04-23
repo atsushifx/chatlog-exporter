@@ -16,7 +16,7 @@ import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-s
 import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // test target
-import { parseJsonArray } from '../../../../_scripts/libs/json-utils.ts';
+import { parseJsonArray } from '../../../../_scripts/libs/text/json-utils.ts';
 import { runClaude } from '../../filter-chatlog.ts';
 
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────

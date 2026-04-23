@@ -8,7 +8,7 @@
 
 import type { Stub } from '@std/testing/mock';
 import { stub } from '@std/testing/mock';
-import { logger } from '../../libs/logger.ts';
+import { logger } from '../../libs/io/logger.ts';
 
 /** makeLoggerStub() が返すハンドル。各ログレベルの出力を配列で参照し、restore() でスタブを解除する。 */
 export type LoggerStub = {

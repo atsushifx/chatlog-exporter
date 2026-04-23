@@ -9,8 +9,8 @@
 import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
-import { isoToDate, isoToMs } from '../../../../_scripts/libs/date-utils.ts';
-import { textToSlug } from '../../../../_scripts/libs/utils.ts';
+import { isoToDate, isoToMs } from '../../../../_scripts/libs/text/date-utils.ts';
+import { textToSlug } from '../../../../_scripts/libs/text/slug-utils.ts';
 import {
   isShortAffirmation,
   isSkippable,
