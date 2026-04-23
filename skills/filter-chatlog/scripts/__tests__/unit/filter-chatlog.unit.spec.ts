@@ -12,8 +12,8 @@ import { describe, it } from '@std/testing/bdd';
 
 // test target
 import { ChatlogError } from '../../../../_scripts/classes/ChatlogError.class.ts';
-import { parseJsonArray } from '../../../../_scripts/libs/json-utils.ts';
-import { parseConversation } from '../../../../_scripts/libs/markdown-utils.ts';
+import { parseJsonArray } from '../../../../_scripts/libs/text/json-utils.ts';
+import { parseConversation } from '../../../../_scripts/libs/text/markdown-utils.ts';
 import {
   type ClaudeResult,
   extractBodyText,
