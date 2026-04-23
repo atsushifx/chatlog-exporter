@@ -10,7 +10,7 @@
 import { ChatlogError } from '../../../_scripts/classes/ChatlogError.class.ts';
 
 // -- internal --
-import { isoToDate } from '../../../_scripts/libs/date-utils.ts';
+import { isoToDate } from '../../../_scripts/libs/text/date-utils.ts';
 import { inPeriod, parsePeriod } from '../libs/period-filter.ts';
 import { writeSession } from '../libs/session-writer.ts';
 import { isSkippable, isSkippableSession } from '../libs/skip-rules.ts';
