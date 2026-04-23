@@ -17,7 +17,7 @@ import { processChunk } from '../../classify-chatlog.ts';
 // constants
 import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/defaults.constants.ts';
 // types
-import type { FileMeta, Stats } from '../../types/classify.types.ts';
+import type { ClassifyFileMeta, ClassifyStats } from '../../types/classify.types.ts';
 
 // helpers
 import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
@@ -90,7 +90,7 @@ for (const _relPath of _fixtureDirs) {
   describe(`processChunk — classify-chatlog/${_relPath}`, () => {
     describe(`Given: ${_relPath}/input.md と projects.dic`, () => {
       let _tempDir: string;
-      let _stats: Stats;
+      let _stats: ClassifyStats;
       let _inputContent: string;
       let _loggerStub: LoggerStub;
 
@@ -113,7 +113,7 @@ for (const _relPath of _fixtureDirs) {
         it(
           `SF-CL-${_relPath}-project: 分類結果が known_projects に含まれる`,
           async () => {
-            const _fileMeta: FileMeta = {
+            const _fileMeta: ClassifyFileMeta = {
               filePath: `${_tempDir}/input.md`,
               filename: 'input.md',
               existingProject: '',
