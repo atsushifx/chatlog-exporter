@@ -10,7 +10,7 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
-import { withConcurrency } from '../../../../_scripts/libs/concurrency.ts';
+import { withConcurrency } from '../../../../_scripts/libs/parallel/concurrency.ts';
 
 // ─── 基本的な並列実行 ─────────────────────────────────────────────────────────
 
