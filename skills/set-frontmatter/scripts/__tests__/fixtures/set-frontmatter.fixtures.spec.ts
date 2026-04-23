@@ -22,7 +22,7 @@ import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-s
 import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // test target
-import type { Dics, FileMeta } from '../../set-frontmatter.ts';
+import type { Dics, FrontmatterFileMeta } from '../../set-frontmatter.ts';
 import { generateFrontmatter, judgeCategory, judgeType, loadDics } from '../../set-frontmatter.ts';
 
 const _enc = new TextEncoder();
@@ -98,8 +98,8 @@ async function _collectFixtureDirs(rootDir: string): Promise<string[]> {
   return dirs.sort();
 }
 
-/** FileMeta を input.md から構築する */
-async function _makeFileMeta(filePath: string): Promise<FileMeta> {
+/** FrontmatterFileMeta を input.md から構築する */
+async function _makeFrontmatterFileMeta(filePath: string): Promise<FrontmatterFileMeta> {
   const text = await Deno.readTextFile(filePath);
 
   // 簡易フロントマター解析
@@ -174,7 +174,7 @@ for (const _relPath of _fixtureDirs) {
   describe(`set-frontmatter — ${_relPath}`, () => {
     describe(`Given: ${_relPath}/input.md と辞書ファイル`, () => {
       let _tempDir: string;
-      let _fileMeta: FileMeta;
+      let _fileMeta: FrontmatterFileMeta;
       let _loggerStub: LoggerStub;
       let _commandHandle: CommandMockHandle | null = null;
 
@@ -182,7 +182,7 @@ for (const _relPath of _fixtureDirs) {
         _tempDir = await Deno.makeTempDir();
         const _tempPath = `${_tempDir}/input.md`;
         await Deno.copyFile(_inputPath, _tempPath);
-        _fileMeta = await _makeFileMeta(_tempPath);
+        _fileMeta = await _makeFrontmatterFileMeta(_tempPath);
         _loggerStub = makeLoggerStub();
 
         if (_isFallbackCase) {
