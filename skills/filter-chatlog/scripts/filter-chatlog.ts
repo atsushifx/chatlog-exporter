@@ -19,11 +19,11 @@
 
 // -- external --
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
-import { runChunked } from '../../_scripts/libs/concurrency.ts';
-import { findFiles as findFilesLib } from '../../_scripts/libs/find-files.ts';
-import { parseJsonArray } from '../../_scripts/libs/json-utils.ts';
-import { logger } from '../../_scripts/libs/logger.ts';
-import { parseConversation } from '../../_scripts/libs/markdown-utils.ts';
+import { findFiles as findFilesLib } from '../../_scripts/libs/file-io/find-files.ts';
+import { logger } from '../../_scripts/libs/io/logger.ts';
+import { runChunked } from '../../_scripts/libs/parallel/concurrency.ts';
+import { parseJsonArray } from '../../_scripts/libs/text/json-utils.ts';
+import { parseConversation } from '../../_scripts/libs/text/markdown-utils.ts';
 
 export const CHUNK_SIZE = 10;
 export const CONCURRENCY = 4;
