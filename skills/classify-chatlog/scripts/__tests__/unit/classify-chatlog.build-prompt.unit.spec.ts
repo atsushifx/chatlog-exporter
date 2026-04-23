@@ -14,11 +14,11 @@ import {
   buildSystemPrompt,
 } from '../../classify-chatlog.ts';
 import { FALLBACK_PROJECT } from '../../constants/classify.constants.ts';
-import type { FileMeta } from '../../types/classify.types.ts';
+import type { ClassifyFileMeta } from '../../types/classify.types.ts';
 
-// ─── テスト用 FileMeta ヘルパー ───────────────────────────────────────────────
+// ─── テスト用 ClassifyFileMeta ヘルパー ───────────────────────────────────────────────
 
-function makeFileMeta(overrides: Partial<FileMeta> = {}): FileMeta {
+function makeClassifyFileMeta(overrides: Partial<ClassifyFileMeta> = {}): ClassifyFileMeta {
   return {
     filePath: 'test/path/file.md',
     filename: 'file.md',
@@ -35,13 +35,13 @@ function makeFileMeta(overrides: Partial<FileMeta> = {}): FileMeta {
 // ─── buildClassifyPrompt ──────────────────────────────────────────────────────
 
 describe('buildClassifyPrompt', () => {
-  describe('Given: 2件の FileMeta と ["app1", "app2"] のプロジェクトリスト', () => {
+  describe('Given: 2件の ClassifyFileMeta と ["app1", "app2"] のプロジェクトリスト', () => {
     describe('When: buildClassifyPrompt(files, projects) を呼び出す', () => {
       describe('Then: T-CL-BCP-01 - 複数ファイルのプロンプト生成', () => {
         it('T-CL-BCP-01-01: "Projects: app1, app2, misc" ヘッダーが含まれる', () => {
           const files = [
-            makeFileMeta({ filename: 'a.md' }),
-            makeFileMeta({ filename: 'b.md' }),
+            makeClassifyFileMeta({ filename: 'a.md' }),
+            makeClassifyFileMeta({ filename: 'b.md' }),
           ];
 
           const result = buildClassifyPrompt(files, ['app1', 'app2']);
@@ -51,8 +51,8 @@ describe('buildClassifyPrompt', () => {
 
         it('T-CL-BCP-01-02: FILE 1 のセクションが含まれる', () => {
           const files = [
-            makeFileMeta({ filename: 'a.md' }),
-            makeFileMeta({ filename: 'b.md' }),
+            makeClassifyFileMeta({ filename: 'a.md' }),
+            makeClassifyFileMeta({ filename: 'b.md' }),
           ];
 
           const result = buildClassifyPrompt(files, ['app1', 'app2']);
@@ -62,8 +62,8 @@ describe('buildClassifyPrompt', () => {
 
         it('T-CL-BCP-01-03: FILE 2 のセクションが含まれる', () => {
           const files = [
-            makeFileMeta({ filename: 'a.md' }),
-            makeFileMeta({ filename: 'b.md' }),
+            makeClassifyFileMeta({ filename: 'a.md' }),
+            makeClassifyFileMeta({ filename: 'b.md' }),
           ];
 
           const result = buildClassifyPrompt(files, ['app1', 'app2']);
@@ -74,11 +74,11 @@ describe('buildClassifyPrompt', () => {
     });
   });
 
-  describe('Given: topics/tags が空の FileMeta', () => {
+  describe('Given: topics/tags が空の ClassifyFileMeta', () => {
     describe('When: buildClassifyPrompt([fileMeta], projects) を呼び出す', () => {
       describe('Then: T-CL-BCP-02 - topics/tags が空のとき (none) が出力される', () => {
         it('T-CL-BCP-02-01: topics として "(none)" が含まれる', () => {
-          const files = [makeFileMeta({ topics: [], tags: [] })];
+          const files = [makeClassifyFileMeta({ topics: [], tags: [] })];
 
           const result = buildClassifyPrompt(files, ['app1']);
 
@@ -86,7 +86,7 @@ describe('buildClassifyPrompt', () => {
         });
 
         it('T-CL-BCP-02-02: tags として "(none)" が含まれる', () => {
-          const files = [makeFileMeta({ topics: [], tags: [] })];
+          const files = [makeClassifyFileMeta({ topics: [], tags: [] })];
 
           const result = buildClassifyPrompt(files, ['app1']);
 
@@ -96,12 +96,12 @@ describe('buildClassifyPrompt', () => {
     });
   });
 
-  describe('Given: フロントマターなし（title/category/topics/tags が空）の FileMeta', () => {
+  describe('Given: フロントマターなし（title/category/topics/tags が空）の ClassifyFileMeta', () => {
     describe('When: buildClassifyPrompt([fileMeta], projects) を呼び出す', () => {
       describe('Then: T-CL-BCP-04 - 本文スニペットが追加される', () => {
         it('T-CL-BCP-04-01: "body:" フィールドが含まれる', () => {
           const files = [
-            makeFileMeta({
+            makeClassifyFileMeta({
               title: '',
               category: '',
               topics: [],
@@ -118,7 +118,7 @@ describe('buildClassifyPrompt', () => {
         it('T-CL-BCP-04-02: 本文が 500 文字以内にトリムされて含まれる', () => {
           const longBody = 'a'.repeat(600);
           const files = [
-            makeFileMeta({
+            makeClassifyFileMeta({
               title: '',
               category: '',
               topics: [],
@@ -135,12 +135,12 @@ describe('buildClassifyPrompt', () => {
     });
   });
 
-  describe('Given: フロントマターあり（title が存在する）の FileMeta', () => {
+  describe('Given: フロントマターあり（title が存在する）の ClassifyFileMeta', () => {
     describe('When: buildClassifyPrompt([fileMeta], projects) を呼び出す', () => {
       describe('Then: T-CL-BCP-05 - 本文スニペットは追加されない', () => {
         it('T-CL-BCP-05-01: "body:" フィールドが含まれない', () => {
           const files = [
-            makeFileMeta({
+            makeClassifyFileMeta({
               title: 'テストタイトル',
               category: '',
               topics: [],
@@ -161,11 +161,11 @@ describe('buildClassifyPrompt', () => {
     });
   });
 
-  describe('Given: topics/tags が存在する FileMeta', () => {
+  describe('Given: topics/tags が存在する ClassifyFileMeta', () => {
     describe('When: buildClassifyPrompt([fileMeta], projects) を呼び出す', () => {
       describe('Then: T-CL-BCP-03 - topics/tags がカンマ区切りで出力される', () => {
         it('T-CL-BCP-03-01: topics がカンマ区切りで含まれる', () => {
-          const files = [makeFileMeta({ topics: ['API', '設計'], tags: ['ts'] })];
+          const files = [makeClassifyFileMeta({ topics: ['API', '設計'], tags: ['ts'] })];
 
           const result = buildClassifyPrompt(files, ['app1']);
 
@@ -173,7 +173,7 @@ describe('buildClassifyPrompt', () => {
         });
 
         it('T-CL-BCP-03-02: tags がカンマ区切りで含まれる', () => {
-          const files = [makeFileMeta({ topics: ['API'], tags: ['ts', 'deno'] })];
+          const files = [makeClassifyFileMeta({ topics: ['API'], tags: ['ts', 'deno'] })];
 
           const result = buildClassifyPrompt(files, ['app1']);
 
