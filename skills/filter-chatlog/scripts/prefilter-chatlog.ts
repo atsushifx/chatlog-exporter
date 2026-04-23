@@ -30,10 +30,10 @@
  */
 
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
-import { findFiles as findFilesLib } from '../../_scripts/libs/find-files.ts';
-import { logger } from '../../_scripts/libs/logger.ts';
-import { parseConversation, type Turn } from '../../_scripts/libs/markdown-utils.ts';
-import { normalizePath } from '../../_scripts/libs/utils.ts';
+import { findFiles as findFilesLib } from '../../_scripts/libs/file-io/find-files.ts';
+import { normalizePath } from '../../_scripts/libs/file-io/path-utils.ts';
+import { logger } from '../../_scripts/libs/io/logger.ts';
+import { parseConversation, type Turn } from '../../_scripts/libs/text/markdown-utils.ts';
 
 // ─────────────────────────────────────────────
 // ノイズ判定パターン定義
