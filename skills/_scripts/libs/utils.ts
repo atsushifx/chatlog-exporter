@@ -37,6 +37,11 @@ export const getFileName = (path: string): string => {
   return normalizePath(path).split('/').pop() ?? '';
 };
 
+/** ファイルを読み込み、行末文字を LF に正規化して返す。 */
+export const readTextFile = async (path: string): Promise<string> => {
+  return normalizeLine(await Deno.readTextFile(path));
+};
+
 /**
  * テキストからファイル名用の URL セーフなスラッグ文字列を生成する。
  * 英小文字・数字・ハイフンのみからなる 3〜50 文字のスラッグ、または `fallback` を返す。
