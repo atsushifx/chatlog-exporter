@@ -10,7 +10,7 @@ import { assertRejects, assertStringIncludes } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 import { ChatlogError } from '../../../../classes/ChatlogError.class.ts';
-import { runAI } from '../../../../libs/run-ai.ts';
+import { runAI } from '../../../ai/run-ai.ts';
 
 const _shouldRunClaude = Deno.env.get('RUN_CLAUDE_TESTS') === '1';
 
