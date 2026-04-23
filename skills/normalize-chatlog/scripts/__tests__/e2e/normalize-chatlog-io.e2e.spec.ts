@@ -25,8 +25,8 @@ import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-s
 import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 
 // test target
-import { findFiles } from '../../../../_scripts/libs/find-files.ts';
-import { normalizePath } from '../../../../_scripts/libs/utils.ts';
+import { findFiles } from '../../../../_scripts/libs/file-io/find-files.ts';
+import { normalizePath } from '../../../../_scripts/libs/file-io/path-utils.ts';
 import { main } from '../../normalize-chatlog.ts';
 import type { HashProvider } from '../../normalize-chatlog.ts';
 
