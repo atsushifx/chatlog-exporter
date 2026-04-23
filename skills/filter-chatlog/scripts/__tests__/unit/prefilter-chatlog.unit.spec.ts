@@ -12,7 +12,7 @@ import { describe, it } from '@std/testing/bdd';
 
 // test target
 import { ChatlogError } from '../../../../_scripts/classes/ChatlogError.class.ts';
-import { parseConversation, type Turn } from '../../../../_scripts/libs/markdown-utils.ts';
+import { parseConversation, type Turn } from '../../../../_scripts/libs/text/markdown-utils.ts';
 import {
   checkAssistantContent,
   checkFilename,
