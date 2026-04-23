@@ -21,8 +21,8 @@
 // -- external --
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { isKnownAgent } from '../../_scripts/constants/agents.constants.ts';
-import { logger } from '../../_scripts/libs/logger.ts';
-import { normalizePath } from '../../_scripts/libs/utils.ts';
+import { normalizePath } from '../../_scripts/libs/file-io/path-utils.ts';
+import { logger } from '../../_scripts/libs/io/logger.ts';
 
 // -- internal --
 import { exportChatGPT } from './exporter/chatgpt-exporter.ts';
