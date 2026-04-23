@@ -30,7 +30,7 @@ import { findFiles } from '../../_scripts/libs/file-io/find-files.ts';
 import { logger } from '../../_scripts/libs/io/logger.ts';
 import { runConcurrent } from '../../_scripts/libs/parallel/concurrency.ts';
 import { toStringArrayWithNull } from '../../_scripts/libs/text/coerce-utils.ts';
-import { normalizeLine } from '../../_scripts/libs/text/line-utils.ts';
+import { parseFrontmatterEntries } from '../../_scripts/libs/text/frontmatter-utils.ts';
 import { cleanYaml } from '../../_scripts/libs/text/markdown-utils.ts';
 
 // ─────────────────────────────────────────────
@@ -46,7 +46,7 @@ export const MAX_BODY_CHARS = 4000;
 
 export type LogType = string;
 
-export interface FileMeta {
+export interface FrontmatterFileMeta {
   file: string; // フルパス
   sessionId: string;
   date: string;
@@ -257,45 +257,10 @@ export const formatEntryShort = (e: DicEntry): string => {
 };
 
 // ─────────────────────────────────────────────
-// Frontmatter パーサー
-// ─────────────────────────────────────────────
-
-export const parseFrontmatter = (text: string): { meta: Record<string, string>; body: string } => {
-  const lines = normalizeLine(text).split('\n');
-
-  if (lines[0] !== '---') {
-    return { meta: {}, body: lines.join('\n') };
-  }
-
-  const _meta: Record<string, string> = {};
-  let _bodyStart = lines.length;
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (/^---/.test(line)) {
-      _bodyStart = i + 1;
-      break;
-    }
-
-    const idx = line.indexOf(': ');
-    if (idx !== -1 && !line.startsWith(' ') && /^\w/.test(line)) {
-      _meta[line.slice(0, idx).trim()] = line.slice(idx + 2).trim();
-    } else if (line.trim() === '' || line.startsWith(' ') || line.startsWith('\t')) {
-      // YAML継続値・空行はスキップ
-    } else {
-      _bodyStart = i;
-      break;
-    }
-  }
-
-  return { meta: _meta, body: lines.slice(_bodyStart).join('\n') };
-};
-
-// ─────────────────────────────────────────────
 // ファイルメタ読み込み
 // ─────────────────────────────────────────────
 
-export const loadFileMeta = async (filePath: string): Promise<FileMeta | null> => {
+export const loadFrontmatterFileMeta = async (filePath: string): Promise<FrontmatterFileMeta | null> => {
   let text: string;
   try {
     text = await Deno.readTextFile(filePath);
@@ -303,7 +268,7 @@ export const loadFileMeta = async (filePath: string): Promise<FileMeta | null> =
     return null;
   }
 
-  const { meta } = parseFrontmatter(text);
+  const { meta } = parseFrontmatterEntries(text);
 
   const rawLines = text.replace(/\r\n/g, '\n').split('\n');
   const headerIdx = rawLines.findIndex((l) => /^#/.test(l));
@@ -317,10 +282,10 @@ export const loadFileMeta = async (filePath: string): Promise<FileMeta | null> =
 
   return {
     file: filePath,
-    sessionId: meta['session_id'] ?? '',
-    date: meta['date'] ?? '',
-    project: meta['project'] ?? '',
-    slug: meta['slug'] ?? '',
+    sessionId: typeof meta['session_id'] === 'string' ? meta['session_id'] : '',
+    date: typeof meta['date'] === 'string' ? meta['date'] : '',
+    project: typeof meta['project'] === 'string' ? meta['project'] : '',
+    slug: typeof meta['slug'] === 'string' ? meta['slug'] : '',
     body: fullBody.slice(0, MAX_BODY_CHARS),
     fullBody,
   };
@@ -350,7 +315,7 @@ export const runClaude = async (systemPrompt: string, userPrompt: string): Promi
 // Phase 2: type判定（並列）
 // ─────────────────────────────────────────────
 
-export const judgeType = async (fm: FileMeta, dics: Dics): Promise<TypeResult> => {
+export const judgeType = async (fm: FrontmatterFileMeta, dics: Dics): Promise<TypeResult> => {
   const tmpl = dics.prompts.get('type') ?? { system: '', user: '' };
   const typeList = dics.typeEntries.map(formatEntryWithRules).join('\n');
   const system = renderPrompt(tmpl.system, {});
@@ -370,7 +335,7 @@ export const judgeType = async (fm: FileMeta, dics: Dics): Promise<TypeResult> =
 // Phase 3a: category判定（並列）
 // ─────────────────────────────────────────────
 
-export const judgeCategory = async (fm: FileMeta, type: LogType, dics: Dics): Promise<string> => {
+export const judgeCategory = async (fm: FrontmatterFileMeta, type: LogType, dics: Dics): Promise<string> => {
   const tmpl = dics.prompts.get('category') ?? { system: '', user: '' };
   const focusGuide = dics.categoryPrompts.get(type) ?? '';
   const system = renderPrompt(tmpl.system, {});
@@ -395,7 +360,7 @@ export const judgeCategory = async (fm: FileMeta, type: LogType, dics: Dics): Pr
 // ─────────────────────────────────────────────
 
 export const generateFrontmatter = async (
-  fm: FileMeta,
+  fm: FrontmatterFileMeta,
   type: LogType,
   category: string,
   dics: Dics,
@@ -496,7 +461,7 @@ export const reviewFrontmatter = async (
 // ─────────────────────────────────────────────
 
 export const writeFrontmatter = async (
-  fm: FileMeta,
+  fm: FrontmatterFileMeta,
   result: FrontmatterResult,
   dryRun: boolean,
   stats: Stats,
@@ -617,10 +582,10 @@ export const main = async (args: string[]): Promise<void> => {
     }
 
     // Phase 1: メタ読み込み
-    const fileMetaList: FileMeta[] = [];
+    const fileMetaList: FrontmatterFileMeta[] = [];
     const stats: Stats = { total: allFiles.length, success: 0, fail: 0, skip: 0 };
     for (const filePath of allFiles) {
-      const fm = await loadFileMeta(filePath);
+      const fm = await loadFrontmatterFileMeta(filePath);
       if (!fm) {
         logger.info(`  skip: ${filePath.split(/[/\\]/).pop()}`);
         stats.skip++;
