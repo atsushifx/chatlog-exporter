@@ -72,7 +72,7 @@ export const loadProjects = async (dicsDir: string): Promise<string[]> => {
 // ─────────────────────────────────────────────
 
 export const parseFrontmatter = (text: string): FrontmatterData => {
-  const { meta, frontmatterEnd } = _parseFrontmatter(text);
+  const { meta } = _parseFrontmatter(text);
 
   return {
     project: toStringWithNull(meta['project']),
@@ -80,7 +80,6 @@ export const parseFrontmatter = (text: string): FrontmatterData => {
     category: toStringWithNull(meta['category']),
     topics: toStringArrayWithNull(meta['topics']),
     tags: toStringArrayWithNull(meta['tags']),
-    frontmatterEnd,
   };
 };
 
@@ -232,9 +231,8 @@ export const processChunk = async (
   for (const f of chunkMetas) {
     const hasMeta = f.title || f.category || f.topics.length > 0 || f.tags.length > 0;
     if (!hasMeta && f.fullText.trim().length < MIN_CLASSIFIABLE_LENGTH) {
-      logger.warn(
-        `[skip-ai: too-short] classify: ${f.filename} → ${FALLBACK_PROJECT} (本文が短すぎるため AI をスキップ)`,
-      );
+      logger.warn(`[skip-ai: too-short] ${f.filename} (content is too short.`);
+      logger.info(`  classify: ${f.filename} → fallback:${FALLBACK_PROJECT}`);
       await classifyFile(f, FALLBACK_PROJECT, dryRun, stats);
     } else {
       classifiable.push(f);
