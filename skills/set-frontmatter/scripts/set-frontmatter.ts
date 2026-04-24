@@ -52,7 +52,7 @@ export interface FrontmatterFileMeta {
   date: string;
   project: string;
   slug: string;
-  body: string; // 本文（4000文字制限）
+  content: string; // 本文（4000文字制限）
   fullBody: string; // 本文（無制限、書き込み用）
 }
 
@@ -286,7 +286,7 @@ export const loadFrontmatterFileMeta = async (filePath: string): Promise<Frontma
     date: typeof meta['date'] === 'string' ? meta['date'] : '',
     project: typeof meta['project'] === 'string' ? meta['project'] : '',
     slug: typeof meta['slug'] === 'string' ? meta['slug'] : '',
-    body: fullBody.slice(0, MAX_BODY_CHARS),
+    content: fullBody.slice(0, MAX_BODY_CHARS),
     fullBody,
   };
 };
@@ -319,7 +319,7 @@ export const judgeType = async (fm: FrontmatterFileMeta, dics: Dics): Promise<Ty
   const tmpl = dics.prompts.get('type') ?? { system: '', user: '' };
   const typeList = dics.typeEntries.map(formatEntryWithRules).join('\n');
   const system = renderPrompt(tmpl.system, {});
-  const user = renderPrompt(tmpl.user, { type_list: typeList, body: fm.body });
+  const user = renderPrompt(tmpl.user, { type_list: typeList, body: fm.content });
   let raw: string;
   try {
     raw = await runClaude(system, user);
@@ -342,7 +342,7 @@ export const judgeCategory = async (fm: FrontmatterFileMeta, type: LogType, dics
   const user = renderPrompt(tmpl.user, {
     category_list: dics.category,
     focus_guide: focusGuide,
-    body: fm.body,
+    body: fm.content,
   });
   let raw: string;
   try {
@@ -373,7 +373,7 @@ export const generateFrontmatter = async (
     log_category: category,
     topic_list: topicList,
     tags_list: dics.tags,
-    body: fm.body,
+    body: fm.content,
   });
   let raw: string;
   try {
