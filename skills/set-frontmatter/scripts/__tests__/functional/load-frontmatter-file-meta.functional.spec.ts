@@ -85,7 +85,7 @@ describe('loadFrontmatterFileMeta', () => {
 
           const result = await loadFrontmatterFileMeta(filePath);
 
-          assertEquals(result!.body.includes('# テスト'), true);
+          assertEquals(result!.content.includes('# テスト'), true);
         });
       });
     });
@@ -104,7 +104,7 @@ describe('loadFrontmatterFileMeta', () => {
           const result = await loadFrontmatterFileMeta(filePath);
 
           assertNotEquals(result, null);
-          assertEquals(result!.body.length <= MAX_BODY_CHARS, true);
+          assertEquals(result!.content.length <= MAX_BODY_CHARS, true);
         });
 
         it('T-SF-LFM-02-02: fullBody が MAX_BODY_CHARS を超える', async () => {
