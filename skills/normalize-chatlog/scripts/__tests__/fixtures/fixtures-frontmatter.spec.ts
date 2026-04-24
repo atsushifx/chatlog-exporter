@@ -19,10 +19,10 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import { installCommandMock, makeSuccessMock } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
 
 // test target
+import { parseFrontmatterEntries as parseFrontmatter } from '../../../../_scripts/libs/text/frontmatter-utils.ts';
 import {
   attachFrontmatter,
   generateSegmentFile,
-  parseFrontmatter,
   segmentChatlog,
 } from '../../normalize-chatlog.ts';
 import type { Segment } from '../../normalize-chatlog.ts';
