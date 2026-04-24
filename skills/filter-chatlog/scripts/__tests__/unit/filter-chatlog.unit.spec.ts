@@ -1,6 +1,6 @@
 // src: scripts/__tests__/unit/filter-chatlog.unit.spec.ts
 // @(#): filter-chatlog.ts のユニットテスト
-//       parseArgs / parseFrontmatter / parseConversation / parseJsonArray /
+//       parseArgs / parseFrontmatterEntries / parseConversation / parseJsonArray /
 //       extractBodyText / isExcludedByFilename / isExcludedByContent
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
@@ -12,6 +12,7 @@ import { describe, it } from '@std/testing/bdd';
 
 // test target
 import { ChatlogError } from '../../../../_scripts/classes/ChatlogError.class.ts';
+import { parseFrontmatterEntries } from '../../../../_scripts/libs/text/frontmatter-utils.ts';
 import { parseJsonArray } from '../../../../_scripts/libs/text/json-utils.ts';
 import { parseConversation } from '../../../../_scripts/libs/text/markdown-utils.ts';
 import {
@@ -20,7 +21,6 @@ import {
   isExcludedByContent,
   isExcludedByFilename,
   parseArgs,
-  parseFrontmatter,
 } from '../../filter-chatlog.ts';
 
 type Args = ReturnType<typeof parseArgs>;
@@ -101,25 +101,25 @@ describe('parseArgs', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// parseFrontmatter
+// parseFrontmatterEntries
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('parseFrontmatter', () => {
+describe('parseFrontmatterEntries', () => {
   // ─── T-FL-PF-01: frontmatter あり → body 分離 ─────────────────────────────────
 
   describe('Given: frontmatter 付きのテキスト', () => {
-    describe('When: parseFrontmatter(text) を呼び出す', () => {
+    describe('When: parseFrontmatterEntries(text) を呼び出す', () => {
       describe('Then: T-FL-PF-01 - body が frontmatter 以降になる', () => {
         it('T-FL-PF-01-01: body が frontmatter の後の部分になる', () => {
           const text = '---\ntitle: テスト\n---\n本文です\n';
-          const { body } = parseFrontmatter(text);
+          const { content } = parseFrontmatterEntries(text);
 
-          assertEquals(body, '本文です\n');
+          assertEquals(content, '本文です\n');
         });
 
         it('T-FL-PF-01-02: meta が空オブジェクトを返す', () => {
           const text = '---\ntitle: テスト\n---\n本文';
-          const { meta } = parseFrontmatter(text);
+          const { meta } = parseFrontmatterEntries(text);
 
           assertEquals(typeof meta, 'object');
         });
@@ -130,13 +130,13 @@ describe('parseFrontmatter', () => {
   // ─── T-FL-PF-02: frontmatter なし → body=全文 ──────────────────────────────
 
   describe('Given: frontmatter なしのテキスト', () => {
-    describe('When: parseFrontmatter(text) を呼び出す', () => {
+    describe('When: parseFrontmatterEntries(text) を呼び出す', () => {
       describe('Then: T-FL-PF-02 - body が全文になる', () => {
         it('T-FL-PF-02-01: body が入力テキスト全体になる', () => {
           const text = '本文のみです\n追加テキスト';
-          const { body } = parseFrontmatter(text);
+          const { content } = parseFrontmatterEntries(text);
 
-          assertEquals(body, text);
+          assertEquals(content, text);
         });
       });
     });
@@ -145,13 +145,13 @@ describe('parseFrontmatter', () => {
   // ─── T-FL-PF-03: 閉じ区切りなし → body=全文 ────────────────────────────────
 
   describe('Given: 開始区切りはあるが閉じ区切りがないテキスト', () => {
-    describe('When: parseFrontmatter(text) を呼び出す', () => {
+    describe('When: parseFrontmatterEntries(text) を呼び出す', () => {
       describe('Then: T-FL-PF-03 - 閉じ区切りなし → body=全文', () => {
         it('T-FL-PF-03-01: body が入力テキスト全体になる', () => {
           const text = '---\ntitle: テスト\n本文（閉じ区切りなし）';
-          const { body } = parseFrontmatter(text);
+          const { content } = parseFrontmatterEntries(text);
 
-          assertEquals(body, text);
+          assertEquals(content, text);
         });
       });
     });
@@ -160,13 +160,13 @@ describe('parseFrontmatter', () => {
   // ─── T-FL-PF-04: frontmatter のみ（body 空） ────────────────────────────────
 
   describe('Given: frontmatter のみで本文がないテキスト', () => {
-    describe('When: parseFrontmatter(text) を呼び出す', () => {
+    describe('When: parseFrontmatterEntries(text) を呼び出す', () => {
       describe('Then: T-FL-PF-04 - body が空文字列になる', () => {
         it('T-FL-PF-04-01: body が空文字列になる', () => {
           const text = '---\ntitle: テスト\n---\n';
-          const { body } = parseFrontmatter(text);
+          const { content } = parseFrontmatterEntries(text);
 
-          assertEquals(body, '');
+          assertEquals(content, '');
         });
       });
     });
