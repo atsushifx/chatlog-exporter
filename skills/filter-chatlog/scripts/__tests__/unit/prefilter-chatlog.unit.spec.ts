@@ -35,9 +35,9 @@ describe('loadFrontmatter', () => {
         const text = '---\ntitle: テスト\nauthor: bob\n---\n本文\n';
 
         it('T-PF-LF-01-01: body が "本文\\n" になる', () => {
-          const { body } = loadFrontmatter(text);
+          const { content } = loadFrontmatter(text);
 
-          assertEquals(body, '本文\n');
+          assertEquals(content, '本文\n');
         });
 
         it('T-PF-LF-01-02: meta.title が "テスト" になる', () => {
@@ -63,9 +63,9 @@ describe('loadFrontmatter', () => {
         const text = '本文のみ\n追加行';
 
         it('T-PF-LF-02-01: body が入力テキスト全体と等しい', () => {
-          const { body } = loadFrontmatter(text);
+          const { content } = loadFrontmatter(text);
 
-          assertEquals(body, text);
+          assertEquals(content, text);
         });
 
         it('T-PF-LF-02-02: meta が空オブジェクトになる', () => {
@@ -85,9 +85,9 @@ describe('loadFrontmatter', () => {
         const text = '---\ntitle: テスト\n本文（閉じ区切りなし）';
 
         it('T-PF-LF-03-01: body が入力テキスト全体と等しい', () => {
-          const { body } = loadFrontmatter(text);
+          const { content } = loadFrontmatter(text);
 
-          assertEquals(body, text);
+          assertEquals(content, text);
         });
 
         it('T-PF-LF-03-02: meta が空オブジェクトになる', () => {
@@ -107,9 +107,9 @@ describe('loadFrontmatter', () => {
         const text = '---\ntitle: テスト\n---\n';
 
         it('T-PF-LF-04-01: body が空文字列になる', () => {
-          const { body } = loadFrontmatter(text);
+          const { content } = loadFrontmatter(text);
 
-          assertEquals(body, '');
+          assertEquals(content, '');
         });
 
         it('T-PF-LF-04-02: meta.title が "テスト" になる', () => {
@@ -179,9 +179,9 @@ describe('loadFrontmatter', () => {
         });
 
         it('T-PF-LF-07-02: body が "本文\\n" になる（CRLF が LF に変換される）', () => {
-          const { body } = loadFrontmatter(text);
+          const { content } = loadFrontmatter(text);
 
-          assertEquals(body, '本文\n');
+          assertEquals(content, '本文\n');
         });
       });
     });
