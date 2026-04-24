@@ -28,7 +28,7 @@ function _makeFrontmatterFileMeta(filePath: string): FrontmatterFileMeta {
     date: '2026-03-15',
     project: 'my-project',
     slug: 'test-slug',
-    body: '# テスト\n本文テキスト',
+    content: '# テスト\n本文テキスト',
     fullBody: '# テスト\n本文テキスト',
   };
 }
