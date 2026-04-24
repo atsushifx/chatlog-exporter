@@ -107,15 +107,15 @@ export const MIN_ASSISTANT_CHARS = 100;
 // Frontmatter パーサー
 // ─────────────────────────────────────────────
 
-export const loadFrontmatter = (text: string): { meta: Record<string, string>; body: string } => {
+export const loadFrontmatter = (text: string): { meta: Record<string, string>; content: string } => {
   const normalized = text.replace(/\r\n/g, '\n');
-  if (!normalized.startsWith('---\n')) { return { meta: {}, body: normalized }; }
+  if (!normalized.startsWith('---\n')) { return { meta: {}, content: normalized }; }
 
   const end = normalized.indexOf('\n---\n', 4);
-  if (end === -1) { return { meta: {}, body: normalized }; }
+  if (end === -1) { return { meta: {}, content: normalized }; }
 
   const fmText = normalized.slice(4, end);
-  const body = normalized.slice(end + 5);
+  const content = normalized.slice(end + 5);
 
   const meta: Record<string, string> = {};
   for (const line of fmText.split('\n')) {
@@ -124,7 +124,7 @@ export const loadFrontmatter = (text: string): { meta: Record<string, string>; b
       meta[line.slice(0, idx).trim()] = line.slice(idx + 2).trim();
     }
   }
-  return { meta, body };
+  return { meta, content };
 };
 
 // ─────────────────────────────────────────────
@@ -196,11 +196,11 @@ export const classifyFile = (filename: string, text: string): { isNoise: boolean
   const filenameReason = checkFilename(filename);
   if (filenameReason) { return { isNoise: true, reason: filenameReason }; }
 
-  // 2. frontmatter + body 読み込み
-  const { body } = loadFrontmatter(text);
+  // 2. frontmatter + content 読み込み
+  const { content } = loadFrontmatter(text);
 
   // 3. 会話ターン解析
-  const turns = parseConversation(body);
+  const turns = parseConversation(content);
 
   // 4. User本文チェック
   const userReason = checkUserContent(turns);
