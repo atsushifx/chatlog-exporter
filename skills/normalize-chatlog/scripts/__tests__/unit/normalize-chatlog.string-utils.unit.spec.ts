@@ -1,6 +1,6 @@
 // src: scripts/__tests__/unit/normalize-chatlog.string-utils.unit.spec.ts
 // @(#): 文字列処理関数のユニットテスト
-//       対象: cleanYaml, parseFrontmatter, extractBaseName, parseJsonArray
+//       対象: cleanYaml, parseFrontmatterEntries, extractBaseName, parseJsonArray
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //
@@ -11,12 +11,10 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
+import { parseFrontmatterEntries } from '../../../../_scripts/libs/text/frontmatter-utils.ts';
 import { parseJsonArray } from '../../../../_scripts/libs/text/json-utils.ts';
 import { cleanYaml } from '../../../../_scripts/libs/text/markdown-utils.ts';
-import {
-  extractBaseName,
-  parseFrontmatter,
-} from '../../normalize-chatlog.ts';
+import { extractBaseName } from '../../normalize-chatlog.ts';
 
 // ─── cleanYaml tests ──────────────────────────────────────────────────────────
 
@@ -85,61 +83,61 @@ describe('cleanYaml', () => {
   });
 });
 
-// ─── parseFrontmatter tests ───────────────────────────────────────────────────
+// ─── parseFrontmatterEntries tests ───────────────────────────────────────
 
 /**
- * parseFrontmatter のユニットテスト。
+ * parseFrontmatterEntries のユニットテスト。
  * Markdown テキストの先頭にある `---` 区切りのフロントマターを解析し、
- * meta オブジェクトと fullBody 文字列に分解する関数の正常系・異常系を検証する。
+ * meta オブジェクトと body 文字列に分解する関数の正常系・異常系を検証する。
  */
-describe('parseFrontmatter', () => {
-  /** 正常系: `---` で囲まれたフロントマターを meta と fullBody に分解する */
+describe('parseFrontmatterEntries', () => {
+  /** 正常系: `---` で囲まれたフロントマターを meta と body に分解する */
   describe('Given: フロントマターブロックを含む Markdown テキスト', () => {
     it('meta に project と date フィールドが含まれる', () => {
       const text = '---\nproject: ci-platform\ndate: 2026-03-01\n---\n# Body';
 
-      const { meta } = parseFrontmatter(text);
+      const { meta } = parseFrontmatterEntries(text);
 
       assertEquals(meta, { project: 'ci-platform', date: '2026-03-01' });
     });
 
-    it('fullBody に閉じ --- 以降のテキストが含まれる', () => {
+    it('body に閉じ --- 以降のテキストが含まれる', () => {
       const text = '---\nproject: ci-platform\ndate: 2026-03-01\n---\n# Body';
 
-      const { fullBody } = parseFrontmatter(text);
+      const { content } = parseFrontmatterEntries(text);
 
-      assertEquals(fullBody, '\n# Body');
+      assertEquals(content, '# Body');
     });
   });
 
-  /** 正常系: フロントマターなしの場合は meta を空にして fullBody を元テキスト全体とする */
+  /** 正常系: フロントマターなしの場合は meta を空にして body を元テキスト全体とする */
   describe('Given: --- で始まらない Markdown テキスト', () => {
     it('meta が空のレコードである', () => {
       const text = '# No Frontmatter\n\nSome content.';
 
-      const { meta } = parseFrontmatter(text);
+      const { meta } = parseFrontmatterEntries(text);
 
       assertEquals(meta, {});
     });
 
-    it('fullBody が元のテキスト全体と等しい', () => {
+    it('body が元のテキスト全体と等しい', () => {
       const text = '# No Frontmatter\n\nSome content.';
 
-      const { fullBody } = parseFrontmatter(text);
+      const { content } = parseFrontmatterEntries(text);
 
-      assertEquals(fullBody, text);
+      assertEquals(content, text);
     });
   });
 
   /** 異常系: 開き `---` はあるが閉じ `---` がない不正なフロントマターは無視する */
   describe('Given: --- で始まるが閉じ --- がない Markdown テキスト', () => {
-    it('meta が空で fullBody が元のテキスト全体を含む', () => {
+    it('meta が空で body が元のテキスト全体を含む', () => {
       const text = '---\nproject: ci-platform\n';
 
-      const { meta, fullBody } = parseFrontmatter(text);
+      const { meta, content } = parseFrontmatterEntries(text);
 
       assertEquals(meta, {});
-      assertEquals(fullBody, text);
+      assertEquals(content, text);
     });
   });
 });
@@ -206,7 +204,7 @@ describe('parseJsonArray', () => {
   /** 正常系: `[` 始まりの JSON 配列を直接パースして返す */
   describe('Given: `[` で始まる有効な JSON 配列文字列', () => {
     it('T-10-01-01: 1 オブジェクトを含む配列が返される', () => {
-      const rawDirect = '[{"title":"T1","summary":"S1","body":"B1"}]';
+      const rawDirect = '[{"title":"T1","summary":"S1","content":"B1"}]';
 
       const result = parseJsonArray(rawDirect);
 
