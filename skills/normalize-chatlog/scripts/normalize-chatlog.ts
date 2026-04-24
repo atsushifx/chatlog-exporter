@@ -15,6 +15,7 @@ import { findFiles } from '../../_scripts/libs/file-io/find-files.ts';
 import { normalizePath } from '../../_scripts/libs/file-io/path-utils.ts';
 import { logger } from '../../_scripts/libs/io/logger.ts';
 import { runConcurrent } from '../../_scripts/libs/parallel/concurrency.ts';
+import { parseFrontmatterEntries } from '../../_scripts/libs/text/frontmatter-utils.ts';
 import { parseJsonArray } from '../../_scripts/libs/text/json-utils.ts';
 import { normalizeLine } from '../../_scripts/libs/text/line-utils.ts';
 
@@ -34,7 +35,7 @@ export type ParsedArgs = {
 export type Segment = {
   title: string;
   summary: string;
-  body: string;
+  content: string;
 };
 
 /** Counters for {@link writeOutput} results across a batch run. */
@@ -59,44 +60,6 @@ const _MAX_SEGMENTS = 10;
 
 /** Markdown heading that marks the start of the body section in a segment file. */
 export const START_BODY_HEADING = '## Excerpt';
-
-/**
- * Parses a YAML frontmatter block from a Markdown text string.
- *
- * @param text - The full Markdown text, optionally starting with a `---` frontmatter block
- * @returns An object with `meta` (key-value pairs from frontmatter) and `fullBody` (text after frontmatter)
- */
-export const parseFrontmatter = (text: string): { meta: Record<string, string>; fullBody: string } => {
-  const DELIMITER = '---';
-
-  // Must start with `---\n` (or `---` at start); otherwise no frontmatter
-  if (!text.startsWith(DELIMITER + '\n')) {
-    return { meta: {}, fullBody: text };
-  }
-
-  // Find the closing `---` delimiter (after the opening line)
-  const afterOpen = text.indexOf('\n') + 1; // position after first `---\n`
-  const closeIndex = text.indexOf('\n' + DELIMITER, afterOpen);
-
-  // No closing delimiter found — treat as invalid frontmatter
-  if (closeIndex === -1) {
-    return { meta: {}, fullBody: text };
-  }
-
-  const frontmatterBlock = text.slice(afterOpen, closeIndex);
-  const fullBody = text.slice(closeIndex + 1 + DELIMITER.length);
-
-  const meta: Record<string, string> = {};
-  for (const line of frontmatterBlock.split('\n')) {
-    const colonPos = line.indexOf(':');
-    if (colonPos === -1) { continue; }
-    const key = line.slice(0, colonPos).trim();
-    const value = line.slice(colonPos + 1).trim();
-    if (key) { meta[key] = value; }
-  }
-
-  return { meta, fullBody };
-};
 
 // ─── ID Generation ────────────────────────────────────────────────────────────
 
@@ -191,7 +154,7 @@ export const generateOutputFileName = async (
  * @returns Markdown string containing the Summary and Excerpt sections
  */
 export const generateSegmentFile = (segment: Segment): string => {
-  return `## Summary\n\n${segment.summary}\n\n${START_BODY_HEADING}\n\n${segment.body}`;
+  return `## Summary\n\n${segment.summary}\n\n${START_BODY_HEADING}\n\n${segment.content}`;
 };
 
 /**
@@ -208,12 +171,17 @@ export const generateSegmentFile = (segment: Segment): string => {
  */
 export const attachFrontmatter = (
   content: string,
-  sourceMeta: Record<string, string>,
+  sourceMeta: Record<string, string | string[]>,
   segmentMeta: { title: string; log_id: string; summary: string },
 ): string => {
   const fields: string[] = [];
   for (const [key, value] of Object.entries(sourceMeta)) {
-    fields.push(`${key}: ${value}`);
+    if (Array.isArray(value)) {
+      fields.push(`${key}:`);
+      value.forEach((v) => fields.push(`  - ${v}`));
+    } else {
+      fields.push(`${key}: ${value}`);
+    }
   }
   fields.push(`title: ${segmentMeta.title}`);
   fields.push(`log_id: ${segmentMeta.log_id}`);
@@ -283,8 +251,8 @@ export const runAI = async (model: string, systemPrompt: string, userPrompt: str
 export const segmentChatlog = async (filePath: string, content: string): Promise<Segment[] | null> => {
   const systemPrompt = 'You are a chatlog analyst. Split the given chatlog into topic-based segments. '
     + 'Return ONLY a JSON array where each element has exactly three string fields: '
-    + '"title" (short topic title), "summary" (one-sentence summary), and "body" (relevant text). '
-    + 'For "body": copy the relevant conversation verbatim — do NOT rewrite, paraphrase, or reformat. '
+    + '"title" (short topic title), "summary" (one-sentence summary), and "content" (relevant text). '
+    + 'For "content": copy the relevant conversation verbatim — do NOT rewrite, paraphrase, or reformat. '
     + 'Preserve all original line breaks, blank lines, code blocks, and list formatting exactly as they appear. '
     + 'Preserve ### User and ### Assistant headings to distinguish speakers. '
     + 'Do not include any explanation or markdown fences — respond with the JSON array only.';
@@ -529,7 +497,7 @@ export const main = async (argv?: string[], hashFn?: HashProvider): Promise<void
 
     await runConcurrent(mdFiles, async (filePath) => {
       const content = await Deno.readTextFile(filePath);
-      const { meta: sourceMeta } = parseFrontmatter(content);
+      const { meta: sourceMeta } = parseFrontmatterEntries(content);
 
       const segments = await segmentChatlog(filePath, content);
       if (segments === null) {
@@ -537,7 +505,8 @@ export const main = async (argv?: string[], hashFn?: HashProvider): Promise<void
         return;
       }
 
-      const outputDir = resolveOutputDir(inputDir, outputBase, sourceMeta['project']);
+      const _project = typeof sourceMeta['project'] === 'string' ? sourceMeta['project'] : undefined;
+      const outputDir = resolveOutputDir(inputDir, outputBase, _project);
       await Deno.mkdir(outputDir, { recursive: true });
 
       for (let i = 0; i < segments.length; i++) {
