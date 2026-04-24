@@ -99,6 +99,4 @@ export interface FrontmatterData {
   topics: string[];
   /** フロントマターの `tags` リスト。 */
   tags: string[];
-  /** フロントマター終端の文字インデックス（本文先頭位置）。 */
-  frontmatterEnd: number;
 }
