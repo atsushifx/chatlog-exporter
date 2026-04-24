@@ -22,8 +22,7 @@ import { getDirectory, normalizePath } from '../../_scripts/libs/file-io/path-ut
 import { readTextFile } from '../../_scripts/libs/file-io/read-utils.ts';
 import { parseArgsToConfig } from '../../_scripts/libs/io/parse-args.ts';
 import { runChunked } from '../../_scripts/libs/parallel/concurrency.ts';
-import { toStringArrayWithNull, toStringWithNull } from '../../_scripts/libs/text/coerce-utils.ts';
-import { parseFrontmatter as _parseFrontmatter } from '../../_scripts/libs/text/frontmatter-utils.ts';
+import { parseFrontmatterEntries } from '../../_scripts/libs/text/frontmatter-utils.ts';
 import { parseJsonArray } from '../../_scripts/libs/text/json-utils.ts';
 import { normalizeLine } from '../../_scripts/libs/text/line-utils.ts';
 // instances
@@ -44,7 +43,6 @@ import type {
   ClassifyFileMeta,
   ClassifyResult,
   ClassifyStats,
-  FrontmatterData,
   ParsedConfig,
 } from './types/classify.types.ts';
 
@@ -65,22 +63,6 @@ export const loadProjects = async (dicsDir: string): Promise<string[]> => {
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith('#') && line !== FALLBACK_PROJECT);
-};
-
-// ─────────────────────────────────────────────
-// フロントマター解析
-// ─────────────────────────────────────────────
-
-export const parseFrontmatter = (text: string): FrontmatterData => {
-  const { meta } = _parseFrontmatter(text);
-
-  return {
-    project: toStringWithNull(meta['project']),
-    title: toStringWithNull(meta['title']),
-    category: toStringWithNull(meta['category']),
-    topics: toStringArrayWithNull(meta['topics']),
-    tags: toStringArrayWithNull(meta['tags']),
-  };
 };
 
 // ─────────────────────────────────────────────
@@ -124,16 +106,16 @@ export const loadClassifyFileMeta = async (filePath: string): Promise<ClassifyFi
   }
 
   const filename = normalizePath(filePath).split('/').pop()!;
-  const fm = parseFrontmatter(text);
+  const { meta } = parseFrontmatterEntries(text);
 
   return {
     filePath,
     filename,
-    existingProject: fm.project,
-    title: fm.title,
-    category: fm.category,
-    topics: fm.topics,
-    tags: fm.tags,
+    existingProject: typeof meta['project'] === 'string' ? meta['project'] : '',
+    title: typeof meta['title'] === 'string' ? meta['title'] : '',
+    category: typeof meta['category'] === 'string' ? meta['category'] : '',
+    topics: Array.isArray(meta['topics']) ? meta['topics'] as string[] : [],
+    tags: Array.isArray(meta['tags']) ? meta['tags'] as string[] : [],
     fullText: text,
   };
 };
