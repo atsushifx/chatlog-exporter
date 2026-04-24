@@ -64,7 +64,7 @@ describe('parseFrontmatter', () => {
         it('T-LIB-FM-04: body の正確性', () => {
           const text = '---\ntitle: Hello\n---\nThis is the body.\nSecond line.';
           const result = parseFrontmatter(text);
-          assertEquals(result.body, 'This is the body.\nSecond line.');
+          assertEquals(result.content, 'This is the body.\nSecond line.');
         });
       });
     });
@@ -77,7 +77,7 @@ describe('parseFrontmatter', () => {
           const text = 'This is plain text without frontmatter.';
           const result = parseFrontmatter(text);
           assertEquals(result.meta, {});
-          assertEquals(result.body, text);
+          assertEquals(result.content, text);
           assertEquals(result.frontmatterEnd, 0);
         });
       });
@@ -91,7 +91,7 @@ describe('parseFrontmatter', () => {
           const text = '---\ntitle: Hello\nno closing separator';
           const result = parseFrontmatter(text);
           assertEquals(result.meta, {});
-          assertEquals(result.body, text);
+          assertEquals(result.content, text);
           assertEquals(result.frontmatterEnd, 0);
         });
       });
@@ -118,7 +118,7 @@ describe('parseFrontmatter', () => {
           const text = '---\n---\nafter body';
           const result = parseFrontmatter(text);
           assertEquals(result.meta, {});
-          assertEquals(result.body, 'after body');
+          assertEquals(result.content, 'after body');
         });
       });
     });
@@ -131,7 +131,7 @@ describe('parseFrontmatter', () => {
           const text = '---\n: invalid: yaml: {\n---\nbody';
           const result = parseFrontmatter(text);
           assertEquals(result.meta, {});
-          assertEquals(result.body, text);
+          assertEquals(result.content, text);
           assertEquals(result.frontmatterEnd, 0);
         });
       });
@@ -156,7 +156,7 @@ describe('parseFrontmatter', () => {
         it('T-LIB-FM-11: 空文字列入力', () => {
           const result = parseFrontmatter('');
           assertEquals(result.meta, {});
-          assertEquals(result.body, '');
+          assertEquals(result.content, '');
           assertEquals(result.frontmatterEnd, 0);
         });
       });
@@ -170,7 +170,7 @@ describe('parseFrontmatter', () => {
           const text = '---\n';
           const result = parseFrontmatter(text);
           assertEquals(result.meta, {});
-          assertEquals(result.body, text);
+          assertEquals(result.content, text);
           assertEquals(result.frontmatterEnd, 0);
         });
       });
@@ -184,7 +184,7 @@ describe('parseFrontmatter', () => {
           const text = '---\ntitle: Hello\n---';
           const result = parseFrontmatter(text);
           assertEquals(result.meta, {});
-          assertEquals(result.body, text);
+          assertEquals(result.content, text);
           assertEquals(result.frontmatterEnd, 0);
         });
       });
@@ -198,7 +198,7 @@ describe('parseFrontmatter', () => {
           const text = '---\ntitle: Hello\n---\n';
           const result = parseFrontmatter(text);
           assertEquals(result.meta['title'], 'Hello');
-          assertEquals(result.body, '');
+          assertEquals(result.content, '');
           assertEquals(result.frontmatterEnd, text.length);
         });
       });
@@ -214,7 +214,7 @@ describe('parseFrontmatter', () => {
           const text = '---\r\ntitle: Hi\r\n---\r\nbody text';
           const result = parseFrontmatter(text);
           assertEquals(result.meta['title'], 'Hi');
-          assertEquals(result.body, 'body text');
+          assertEquals(result.content, 'body text');
           assertEquals(result.frontmatterEnd, 18);
         });
       });
@@ -228,7 +228,7 @@ describe('parseFrontmatter', () => {
           const text = '---\nsummary: "foo --- bar"\n---\nbody';
           const result = parseFrontmatter(text);
           assertEquals(result.meta['summary'], 'foo --- bar');
-          assertEquals(result.body, 'body');
+          assertEquals(result.content, 'body');
         });
       });
     });
@@ -284,7 +284,7 @@ describe('parseFrontmatterEntries', () => {
           const text = 'plain text without frontmatter';
           const result = parseFrontmatterEntries(text);
           assertEquals(result.meta, {});
-          assertEquals(result.body, text);
+          assertEquals(result.content, text);
         });
       });
     });
@@ -296,7 +296,37 @@ describe('parseFrontmatterEntries', () => {
         it('T-LIB-FSM-05: body の正確性', () => {
           const text = '---\ntitle: Hello\n---\n# 本文\n内容';
           const result = parseFrontmatterEntries(text);
-          assertEquals(result.body, '# 本文\n内容');
+          assertEquals(result.content, '# 本文\n内容');
+        });
+      });
+    });
+  });
+
+  describe('Given: 配列フィールドを含む frontmatter', () => {
+    describe('When: parseFrontmatterEntries(text) を呼び出す', () => {
+      describe('Then: T-LIB-FSM-06 - 配列フィールドが string[] として返る', () => {
+        it('T-LIB-FSM-06-01: 複数要素配列が順序保持で string[] に変換される', () => {
+          const text = '---\ntags:\n  - foo\n  - bar\n---\nbody';
+          const result = parseFrontmatterEntries(text);
+          assertEquals(result.meta['tags'], ['foo', 'bar']);
+        });
+
+        it('T-LIB-FSM-06-02: 単一要素配列が string[] に変換される', () => {
+          const text = '---\ntags:\n  - foo\n---\nbody';
+          const result = parseFrontmatterEntries(text);
+          assertEquals(result.meta['tags'], ['foo']);
+        });
+
+        it('T-LIB-FSM-06-03: 空配列が [] として返る', () => {
+          const text = '---\ntags: []\n---\nbody';
+          const result = parseFrontmatterEntries(text);
+          assertEquals(result.meta['tags'], []);
+        });
+
+        it('T-LIB-FSM-06-04: null 混入配列の null 要素が空文字列に変換される', () => {
+          const text = '---\ntags:\n  - foo\n  - ~\n  - bar\n---\nbody';
+          const result = parseFrontmatterEntries(text);
+          assertEquals(result.meta['tags'], ['foo', '', 'bar']);
         });
       });
     });
