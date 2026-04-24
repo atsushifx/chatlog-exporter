@@ -6,21 +6,24 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+// YAML テキストをパースする (@std/yaml)
 import { parse as parseYaml } from '@std/yaml';
 
-export type FrontmatterResult = {
-  meta: Record<string, unknown>;
-  body: string;
-  frontmatterEnd: number;
-};
+// unknown → string 変換ユーティリティ
+import { toStringWithNull } from './coerce-utils.ts';
 
-type BlockResult = {
+import type { FrontmatterEntries, FrontmatterResult } from '../../types/frontmatter.types.ts';
+
+/** frontmatter ブロック抽出の中間結果（内部使用）。 */
+type _BlockResult = {
+  /** フロントマター区切り内の YAML テキスト。 */
   yamlText: string;
+  /** フロントマター終端のバイトオフセット。 */
   frontmatterEnd: number;
 };
 
 /** 正規化済みテキストから frontmatter ブロックを抽出する。見つからない場合は null を返す。 */
-const _extractBlock = (normalized: string): BlockResult | null => {
+const _extractBlock = (normalized: string): _BlockResult | null => {
   const _lines = normalized.split('\n');
   if (_lines[0] !== '---') { return null; }
 
@@ -35,10 +38,26 @@ const _extractBlock = (normalized: string): BlockResult | null => {
   };
 };
 
+/** unknown 値を文字列に変換する。Date は YYYY-MM-DD 形式。 */
+const _unknownToString = (v: unknown): string => {
+  if (v instanceof Date) {
+    return v.toISOString().slice(0, 10);
+  }
+  return toStringWithNull(v);
+};
+
+/** unknown 値を string または string[] に変換する。配列要素は各要素を string 化。 */
+const _unknownToStringOrArray = (v: unknown): string | string[] => {
+  if (Array.isArray(v)) {
+    return v.map((item) => _unknownToString(item));
+  }
+  return _unknownToString(v);
+};
+
 /** Markdown テキストから frontmatter を抽出してパースする。 */
-export const extractFrontmatter = (text: string): FrontmatterResult => {
+export const parseFrontmatter = (text: string): FrontmatterResult => {
   const _normalized = text.replace(/\r\n/g, '\n');
-  const _failure: FrontmatterResult = { meta: {}, body: text, frontmatterEnd: 0 };
+  const _failure: FrontmatterResult = { meta: {}, content: text, frontmatterEnd: 0 };
 
   const _block = _extractBlock(_normalized);
   if (_block === null) { return _failure; }
@@ -56,7 +75,17 @@ export const extractFrontmatter = (text: string): FrontmatterResult => {
 
   return {
     meta: _meta,
-    body: _normalized.slice(_block.frontmatterEnd),
+    content: _normalized.slice(_block.frontmatterEnd),
     frontmatterEnd: _block.frontmatterEnd,
   };
+};
+
+/** Markdown テキストから frontmatter を抽出し、文字列または文字列配列に変換して返す。 */
+export const parseFrontmatterEntries = (text: string): FrontmatterEntries => {
+  const { meta, content } = parseFrontmatter(text);
+  const _typedMeta: Record<string, string | string[]> = {};
+  for (const key of Object.keys(meta)) {
+    _typedMeta[key] = _unknownToStringOrArray(meta[key]);
+  }
+  return { meta: _typedMeta, content };
 };
