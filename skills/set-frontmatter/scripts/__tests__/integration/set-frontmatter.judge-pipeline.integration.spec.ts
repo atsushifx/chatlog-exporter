@@ -23,14 +23,14 @@ import {
 } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
 
 // test target
-import type { Dics, FileMeta, FrontmatterResult } from '../../set-frontmatter.ts';
+import type { Dics, FrontmatterFileMeta, FrontmatterResult } from '../../set-frontmatter.ts';
 import { generateFrontmatter, judgeCategory, judgeType, reviewFrontmatter } from '../../set-frontmatter.ts';
 
 const _enc = new TextEncoder();
 
 // ─── テスト用ヘルパー ─────────────────────────────────────────────────────────
 
-function _makeFileMeta(): FileMeta {
+function _makeFrontmatterFileMeta(): FrontmatterFileMeta {
   return {
     file: '/tmp/test.md',
     sessionId: 'sess-001',
@@ -93,7 +93,7 @@ describe('judgeType', () => {
         });
 
         it('T-SF-JP-01-01: type が "research" になる', async () => {
-          const result = await judgeType(_makeFileMeta(), _makeDics());
+          const result = await judgeType(_makeFrontmatterFileMeta(), _makeDics());
 
           assertEquals(result.type, 'research');
         });
@@ -109,7 +109,7 @@ describe('judgeType', () => {
         });
 
         it('T-SF-JP-02-01: type が "research" になる（フォールバック）', async () => {
-          const result = await judgeType(_makeFileMeta(), _makeDics());
+          const result = await judgeType(_makeFrontmatterFileMeta(), _makeDics());
 
           assertEquals(result.type, 'research');
         });
@@ -125,7 +125,7 @@ describe('judgeType', () => {
         });
 
         it('T-SF-JP-03-01: type が "research" になる（例外なし）', async () => {
-          const result = await judgeType(_makeFileMeta(), _makeDics());
+          const result = await judgeType(_makeFrontmatterFileMeta(), _makeDics());
 
           assertEquals(result.type, 'research');
         });
@@ -145,7 +145,7 @@ describe('judgeCategory', () => {
         });
 
         it('T-SF-JP-04-01: "development" が返る', async () => {
-          const result = await judgeCategory(_makeFileMeta(), 'research', _makeDics());
+          const result = await judgeCategory(_makeFrontmatterFileMeta(), 'research', _makeDics());
 
           assertEquals(result, 'development');
         });
@@ -161,7 +161,7 @@ describe('judgeCategory', () => {
         });
 
         it('T-SF-JP-05-01: "development" が返る（フォールバック）', async () => {
-          const result = await judgeCategory(_makeFileMeta(), 'research', _makeDics());
+          const result = await judgeCategory(_makeFrontmatterFileMeta(), 'research', _makeDics());
 
           assertEquals(result, 'development');
         });
@@ -177,7 +177,7 @@ describe('judgeCategory', () => {
         });
 
         it('T-SF-JP-06-01: "development" が返る（例外なし）', async () => {
-          const result = await judgeCategory(_makeFileMeta(), 'research', _makeDics());
+          const result = await judgeCategory(_makeFrontmatterFileMeta(), 'research', _makeDics());
 
           assertEquals(result, 'development');
         });
@@ -199,19 +199,34 @@ describe('generateFrontmatter', () => {
         });
 
         it('T-SF-JP-07-01: yaml が設定される', async () => {
-          const result = await generateFrontmatter(_makeFileMeta(), 'research', 'development', _makeDics());
+          const result = await generateFrontmatter(
+            _makeFrontmatterFileMeta(),
+            'research',
+            'development',
+            _makeDics(),
+          );
 
           assertEquals(result.yaml.length > 0, true);
         });
 
         it('T-SF-JP-07-02: type が "research" になる', async () => {
-          const result = await generateFrontmatter(_makeFileMeta(), 'research', 'development', _makeDics());
+          const result = await generateFrontmatter(
+            _makeFrontmatterFileMeta(),
+            'research',
+            'development',
+            _makeDics(),
+          );
 
           assertEquals(result.type, 'research');
         });
 
         it('T-SF-JP-07-03: category が "development" になる', async () => {
-          const result = await generateFrontmatter(_makeFileMeta(), 'research', 'development', _makeDics());
+          const result = await generateFrontmatter(
+            _makeFrontmatterFileMeta(),
+            'research',
+            'development',
+            _makeDics(),
+          );
 
           assertEquals(result.category, 'development');
         });
@@ -229,7 +244,12 @@ describe('generateFrontmatter', () => {
         });
 
         it('T-SF-JP-08-01: yaml に ``` が含まれない', async () => {
-          const result = await generateFrontmatter(_makeFileMeta(), 'research', 'development', _makeDics());
+          const result = await generateFrontmatter(
+            _makeFrontmatterFileMeta(),
+            'research',
+            'development',
+            _makeDics(),
+          );
 
           assertEquals(result.yaml.includes('```'), false);
         });
@@ -245,7 +265,12 @@ describe('generateFrontmatter', () => {
         });
 
         it('T-SF-JP-09-01: yaml が空文字になる', async () => {
-          const result = await generateFrontmatter(_makeFileMeta(), 'research', 'development', _makeDics());
+          const result = await generateFrontmatter(
+            _makeFrontmatterFileMeta(),
+            'research',
+            'development',
+            _makeDics(),
+          );
 
           assertEquals(result.yaml, '');
         });
