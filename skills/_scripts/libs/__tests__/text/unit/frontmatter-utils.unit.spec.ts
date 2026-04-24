@@ -43,25 +43,10 @@ describe('parseFrontmatter', () => {
     });
   });
 
-  describe('Given: frontmatter と本文を含むテキスト', () => {
-    describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: T-LIB-FM-03 - frontmatterEnd が本文開始位置と一致する', () => {
-        it('T-LIB-FM-03: frontmatterEnd の正確性', () => {
-          // "---\ntitle: Hi\n" = 14 chars (index 0-13)
-          // "\n---\n" starts at index 13, length 5 → frontmatterEnd = 13 + 5 = 18
-          const text = '---\ntitle: Hi\n---\nbody text';
-          const result = parseFrontmatter(text);
-          // frontmatterEnd should point to the start of "body text" = index 18
-          assertEquals(result.frontmatterEnd, 18);
-        });
-      });
-    });
-  });
-
   describe('Given: frontmatter と複数行の本文を含むテキスト', () => {
     describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: T-LIB-FM-04 - body が frontmatter 以降の本文と一致する', () => {
-        it('T-LIB-FM-04: body の正確性', () => {
+      describe('Then: T-LIB-FM-04 - content が frontmatter 以降の本文と一致する', () => {
+        it('T-LIB-FM-04: content の正確性', () => {
           const text = '---\ntitle: Hello\n---\nThis is the body.\nSecond line.';
           const result = parseFrontmatter(text);
           assertEquals(result.content, 'This is the body.\nSecond line.');
@@ -72,13 +57,12 @@ describe('parseFrontmatter', () => {
 
   describe('Given: ---\\n で始まらないプレーンテキスト', () => {
     describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: T-LIB-FM-05 - meta:{}, body=text, frontmatterEnd=0 が返る', () => {
+      describe('Then: T-LIB-FM-05 - meta:{}, content=text が返る', () => {
         it('T-LIB-FM-05: frontmatter なし（---\\n で始まらない）', () => {
           const text = 'This is plain text without frontmatter.';
           const result = parseFrontmatter(text);
           assertEquals(result.meta, {});
           assertEquals(result.content, text);
-          assertEquals(result.frontmatterEnd, 0);
         });
       });
     });
@@ -86,13 +70,12 @@ describe('parseFrontmatter', () => {
 
   describe('Given: 開き --- はあるが閉じ --- がないテキスト', () => {
     describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: T-LIB-FM-06 - meta:{}, body=text, frontmatterEnd=0 が返る', () => {
+      describe('Then: T-LIB-FM-06 - meta:{}, content=text が返る', () => {
         it('T-LIB-FM-06: 閉じ --- なし', () => {
           const text = '---\ntitle: Hello\nno closing separator';
           const result = parseFrontmatter(text);
           assertEquals(result.meta, {});
           assertEquals(result.content, text);
-          assertEquals(result.frontmatterEnd, 0);
         });
       });
     });
@@ -113,7 +96,7 @@ describe('parseFrontmatter', () => {
 
   describe('Given: 空の frontmatter ブロック（---\\n---\\n の形式）', () => {
     describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: T-LIB-FM-08 - meta:{}, body が後続テキストになる', () => {
+      describe('Then: T-LIB-FM-08 - meta:{}, content が後続テキストになる', () => {
         it('T-LIB-FM-08: 空の frontmatter ブロック', () => {
           const text = '---\n---\nafter body';
           const result = parseFrontmatter(text);
@@ -126,13 +109,12 @@ describe('parseFrontmatter', () => {
 
   describe('Given: 不正な YAML を含む frontmatter ブロック', () => {
     describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: T-LIB-FM-09 - meta:{}, body=text, frontmatterEnd=0 が返る', () => {
+      describe('Then: T-LIB-FM-09 - meta:{}, content=text が返る', () => {
         it('T-LIB-FM-09: YAML パース失敗（不正な YAML）', () => {
           const text = '---\n: invalid: yaml: {\n---\nbody';
           const result = parseFrontmatter(text);
           assertEquals(result.meta, {});
           assertEquals(result.content, text);
-          assertEquals(result.frontmatterEnd, 0);
         });
       });
     });
@@ -152,12 +134,11 @@ describe('parseFrontmatter', () => {
 
   describe('Given: 空文字列', () => {
     describe('When: parseFrontmatter("") を呼び出す', () => {
-      describe('Then: T-LIB-FM-11 - meta:{}, body="", frontmatterEnd=0 が返る', () => {
+      describe('Then: T-LIB-FM-11 - meta:{}, content="" が返る', () => {
         it('T-LIB-FM-11: 空文字列入力', () => {
           const result = parseFrontmatter('');
           assertEquals(result.meta, {});
           assertEquals(result.content, '');
-          assertEquals(result.frontmatterEnd, 0);
         });
       });
     });
@@ -165,13 +146,12 @@ describe('parseFrontmatter', () => {
 
   describe('Given: 開き --- のみで本文も閉じ --- もないテキスト', () => {
     describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: T-LIB-FM-12 - meta:{}, body=text, frontmatterEnd=0 が返る', () => {
+      describe('Then: T-LIB-FM-12 - meta:{}, content=text が返る', () => {
         it('T-LIB-FM-12: 開き --- のみ（EOF）', () => {
           const text = '---\n';
           const result = parseFrontmatter(text);
           assertEquals(result.meta, {});
           assertEquals(result.content, text);
-          assertEquals(result.frontmatterEnd, 0);
         });
       });
     });
@@ -185,7 +165,6 @@ describe('parseFrontmatter', () => {
           const result = parseFrontmatter(text);
           assertEquals(result.meta, {});
           assertEquals(result.content, text);
-          assertEquals(result.frontmatterEnd, 0);
         });
       });
     });
@@ -193,13 +172,12 @@ describe('parseFrontmatter', () => {
 
   describe('Given: frontmatter のみで本文が空のテキスト', () => {
     describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: T-LIB-FM-14 - body が空文字列で frontmatterEnd が正しい', () => {
-        it('T-LIB-FM-14: frontmatter 後の本文が空', () => {
+      describe('Then: T-LIB-FM-14 - content が空文字列になる', () => {
+        it('T-LIB-FM-14: frontmatter 後の content が空', () => {
           const text = '---\ntitle: Hello\n---\n';
           const result = parseFrontmatter(text);
           assertEquals(result.meta['title'], 'Hello');
           assertEquals(result.content, '');
-          assertEquals(result.frontmatterEnd, text.length);
         });
       });
     });
@@ -207,15 +185,12 @@ describe('parseFrontmatter', () => {
 
   describe('Given: CRLF 改行を含む frontmatter ブロック', () => {
     describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: T-LIB-FM-15 - body と frontmatterEnd も正しく取得できる', () => {
-        it('T-LIB-FM-15: CRLF 正規化後の body と frontmatterEnd', () => {
-          // CRLF を LF に正規化してから処理するため、frontmatterEnd は正規化後の位置
-          // "---\ntitle: Hi\n---\n" = 18 chars → frontmatterEnd=18, body=""
+      describe('Then: T-LIB-FM-15 - content が正しく取得できる', () => {
+        it('T-LIB-FM-15: CRLF 正規化後の content', () => {
           const text = '---\r\ntitle: Hi\r\n---\r\nbody text';
           const result = parseFrontmatter(text);
           assertEquals(result.meta['title'], 'Hi');
           assertEquals(result.content, 'body text');
-          assertEquals(result.frontmatterEnd, 18);
         });
       });
     });
@@ -279,7 +254,7 @@ describe('parseFrontmatterEntries', () => {
 
   describe('Given: frontmatter のないプレーンテキスト', () => {
     describe('When: parseFrontmatterEntries(text) を呼び出す', () => {
-      describe('Then: T-LIB-FSM-04 - meta={}, body=元テキスト が返る', () => {
+      describe('Then: T-LIB-FSM-04 - meta={}, content=元テキスト が返る', () => {
         it('T-LIB-FSM-04: frontmatter なし', () => {
           const text = 'plain text without frontmatter';
           const result = parseFrontmatterEntries(text);
@@ -292,8 +267,8 @@ describe('parseFrontmatterEntries', () => {
 
   describe('Given: frontmatter と本文を含むテキスト', () => {
     describe('When: parseFrontmatterEntries(text) を呼び出す', () => {
-      describe('Then: T-LIB-FSM-05 - body が frontmatter 後のテキストと一致する', () => {
-        it('T-LIB-FSM-05: body の正確性', () => {
+      describe('Then: T-LIB-FSM-05 - content が frontmatter 後のテキストと一致する', () => {
+        it('T-LIB-FSM-05: content の正確性', () => {
           const text = '---\ntitle: Hello\n---\n# 本文\n内容';
           const result = parseFrontmatterEntries(text);
           assertEquals(result.content, '# 本文\n内容');
