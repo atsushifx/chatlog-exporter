@@ -82,21 +82,3 @@ export interface ClassifyConfig {
 
 /** `parseArgs` の戻り値型。引数で指定されたフィールドのみ含む。 */
 export type ParsedConfig = Partial<ClassifyConfig>;
-
-// ─────────────────────────────────────────────
-// フロントマター解析結果型
-// ─────────────────────────────────────────────
-
-/** `parseFrontmatter` が返す YAML フロントマターの解析結果。 */
-export interface FrontmatterData {
-  /** フロントマターの `project` フィールド値。未設定の場合は空文字。 */
-  project: string;
-  /** フロントマターの `title` フィールド値。 */
-  title: string;
-  /** フロントマターの `category` フィールド値。 */
-  category: string;
-  /** フロントマターの `topics` リスト。 */
-  topics: string[];
-  /** フロントマターの `tags` リスト。 */
-  tags: string[];
-}
