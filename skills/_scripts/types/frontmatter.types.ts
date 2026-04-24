@@ -16,8 +16,6 @@ export type FrontmatterResult = {
   meta: Record<string, unknown>;
   /** フロントマターを除いた本文。 */
   content: string;
-  /** フロントマター終端のバイトオフセット。 */
-  frontmatterEnd: number;
 };
 
 /** frontmatter フィールドを文字列または文字列配列に変換した抽出結果。 */

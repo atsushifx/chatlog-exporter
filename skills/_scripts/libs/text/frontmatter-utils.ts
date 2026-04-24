@@ -57,7 +57,7 @@ const _unknownToStringOrArray = (v: unknown): string | string[] => {
 /** Markdown テキストから frontmatter を抽出してパースする。 */
 export const parseFrontmatter = (text: string): FrontmatterResult => {
   const _normalized = text.replace(/\r\n/g, '\n');
-  const _failure: FrontmatterResult = { meta: {}, content: text, frontmatterEnd: 0 };
+  const _failure: FrontmatterResult = { meta: {}, content: text };
 
   const _block = _extractBlock(_normalized);
   if (_block === null) { return _failure; }
@@ -76,7 +76,6 @@ export const parseFrontmatter = (text: string): FrontmatterResult => {
   return {
     meta: _meta,
     content: _normalized.slice(_block.frontmatterEnd),
-    frontmatterEnd: _block.frontmatterEnd,
   };
 };
 
