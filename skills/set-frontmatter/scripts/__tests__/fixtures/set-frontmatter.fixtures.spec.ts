@@ -125,7 +125,7 @@ async function _makeFrontmatterFileMeta(filePath: string): Promise<FrontmatterFi
     date: meta['date'] ?? '',
     project: meta['project'] ?? '',
     slug: meta['slug'] ?? '',
-    body: fullBody.slice(0, 4000),
+    content: fullBody.slice(0, 4000),
     fullBody,
   };
 }
