@@ -206,7 +206,7 @@ describe('generateSegmentFile', () => {
   /** 正常系: summary フィールドが `## Summary` セクションとして出力される */
   describe('Given: { title: "Fix CI pipeline", summary: "Fix CI pipeline", body: "..." } を持つセグメント', () => {
     it('T-11-01-01: 返却文字列に `## Summary\\nFix CI pipeline` が含まれる', () => {
-      const seg = { title: 'Fix CI pipeline', summary: 'Fix CI pipeline', body: '### User\nHow do I fix CI?' };
+      const seg = { title: 'Fix CI pipeline', summary: 'Fix CI pipeline', content: '### User\nHow do I fix CI?' };
 
       const result = generateSegmentFile(seg);
 
@@ -217,7 +217,7 @@ describe('generateSegmentFile', () => {
   /** 正常系: body フィールドが START_BODY_HEADING セクションとして出力される */
   describe('Given: { title: "Debug session", summary: "Debug session", body: "..." } を持つセグメント', () => {
     it('T-11-01-02: 返却文字列に START_BODY_HEADING + "\\n### User\\nHow do I..." が含まれる', () => {
-      const seg = { title: 'Debug session', summary: 'Debug session', body: '### User\nHow do I...' };
+      const seg = { title: 'Debug session', summary: 'Debug session', content: '### User\nHow do I...' };
 
       const result = generateSegmentFile(seg);
 
@@ -228,7 +228,7 @@ describe('generateSegmentFile', () => {
   /** エッジケース: 全フィールドが空でも `## Summary` と START_BODY_HEADING 見出しを含む文字列を返す */
   describe('Given: { title: "", summary: "", body: "" } を持つセグメント', () => {
     it('T-11-02-01: 返却文字列に `## Summary` と START_BODY_HEADING の両セクション見出しが含まれる', () => {
-      const seg = { title: '', summary: '', body: '' };
+      const seg = { title: '', summary: '', content: '' };
 
       const result = generateSegmentFile(seg);
 

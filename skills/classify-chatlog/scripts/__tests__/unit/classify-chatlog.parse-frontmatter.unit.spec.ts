@@ -1,6 +1,6 @@
 // src: scripts/__tests__/unit/classify-chatlog.parseFrontmatter.unit.spec.ts
 // @(#): parseFrontmatter のユニットテスト (classify-chatlog 専用)
-//       topics/tags リスト対応・frontmatterEnd インデックス付き
+//       topics/tags リスト対応
 //       ※ normalize-chatlog.ts の parseFrontmatter とは戻り値型が異なる
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
@@ -126,22 +126,6 @@ describe('parseFrontmatter', () => {
     });
   });
 
-  // ─── frontmatterEnd の正確性 ──────────────────────────────────────────────
-
-  describe('Given: フロントマターブロックを含むテキスト', () => {
-    describe('When: parseFrontmatter(text) を呼び出す', () => {
-      describe('Then: T-CL-PF-06 - frontmatterEnd の正確性', () => {
-        it('T-CL-PF-06-01: frontmatterEnd が本文開始位置を指す', () => {
-          const text = '---\ntitle: test\n---\nHello World';
-
-          const result = parseFrontmatter(text);
-
-          assertEquals(text.slice(result.frontmatterEnd), 'Hello World');
-        });
-      });
-    });
-  });
-
   // ─── frontmatter なし ─────────────────────────────────────────────────────
 
   describe('Given: --- で始まらない Markdown テキスト', () => {
@@ -155,15 +139,7 @@ describe('parseFrontmatter', () => {
           assertEquals(result.title, '');
         });
 
-        it('T-CL-PF-07-02: frontmatterEnd が 0 である', () => {
-          const text = '# タイトル\n本文';
-
-          const result = parseFrontmatter(text);
-
-          assertEquals(result.frontmatterEnd, 0);
-        });
-
-        it('T-CL-PF-07-03: topics が空配列である', () => {
+        it('T-CL-PF-07-02: topics が空配列である', () => {
           const text = '# タイトル\n本文';
 
           const result = parseFrontmatter(text);
@@ -185,14 +161,6 @@ describe('parseFrontmatter', () => {
           const result = parseFrontmatter(text);
 
           assertEquals(result.title, '');
-        });
-
-        it('T-CL-PF-08-02: frontmatterEnd が 0 である', () => {
-          const text = '---\ntitle: foo\n';
-
-          const result = parseFrontmatter(text);
-
-          assertEquals(result.frontmatterEnd, 0);
         });
       });
     });

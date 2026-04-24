@@ -19,10 +19,10 @@ import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 import { installCommandMock, makeSuccessMock } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
 
 // test target
+import { parseFrontmatterEntries as parseFrontmatter } from '../../../../_scripts/libs/text/frontmatter-utils.ts';
 import {
   attachFrontmatter,
   generateSegmentFile,
-  parseFrontmatter,
   segmentChatlog,
 } from '../../normalize-chatlog.ts';
 import type { Segment } from '../../normalize-chatlog.ts';
@@ -51,7 +51,7 @@ async function _loadOutputSegment(filePath: string): Promise<Segment> {
   return {
     title: _extractFrontmatterField(content, 'title'),
     summary: _extractFrontmatterField(content, 'summary'),
-    body: '',
+    content: '',
   };
 }
 
@@ -62,7 +62,7 @@ async function _loadOutputSegment(filePath: string): Promise<Segment> {
  */
 function _buildOutput(
   segment: Segment,
-  sourceMeta: Record<string, string>,
+  sourceMeta: Record<string, string | string[]>,
 ): string {
   const segmentContent = generateSegmentFile(segment);
   return attachFrontmatter(segmentContent, sourceMeta, {
@@ -128,7 +128,7 @@ for (const _dirName of _fixtureDirs) {
       let _segments: Segment[];
       let _expectedSegments: Segment[];
       let _fixtureContents: string[];
-      let _sourceMeta: Record<string, string>;
+      let _sourceMeta: Record<string, string | string[]>;
       let _mockHandle: ReturnType<typeof installCommandMock>;
 
       beforeEach(async () => {

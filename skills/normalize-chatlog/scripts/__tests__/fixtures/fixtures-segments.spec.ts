@@ -76,7 +76,7 @@ function _buildMock(output: FixtureOutput): DenoCommandLike {
   const _mockSegments = Array.from({ length: output.count }, () => ({
     title: '',
     summary: '',
-    body: '',
+    content: '',
   }));
   return makeSuccessMock(new TextEncoder().encode(JSON.stringify(_mockSegments)));
 }

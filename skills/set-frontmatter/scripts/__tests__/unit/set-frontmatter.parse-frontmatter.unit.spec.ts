@@ -1,5 +1,5 @@
 // src: scripts/__tests__/unit/set-frontmatter.parse-frontmatter.unit.spec.ts
-// @(#): parseFrontmatter のユニットテスト
+// @(#): parseFrontmatterEntries のユニットテスト
 //       Markdownテキストからフロントマターを抽出する関数の検証
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
@@ -10,26 +10,26 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // test target
-import { parseFrontmatter } from '../../set-frontmatter.ts';
+import { parseFrontmatterEntries } from '../../../../_scripts/libs/text/frontmatter-utils.ts';
 
 // ─── フロントマターなしのテキスト ─────────────────────────────────────────────
 
-describe('parseFrontmatter', () => {
+describe('parseFrontmatterEntries', () => {
   describe('Given: フロントマターのないテキスト "# タイトル\\n本文"', () => {
     describe('When: parseFrontmatter を呼び出す', () => {
       describe('Then: T-SF-PF-01 - meta={}、body=元テキスト', () => {
         const text = '# タイトル\n本文';
 
         it('T-SF-PF-01-01: meta が空オブジェクトになる', () => {
-          const result = parseFrontmatter(text);
+          const result = parseFrontmatterEntries(text);
 
           assertEquals(result.meta, {});
         });
 
         it('T-SF-PF-01-02: body が元テキスト全体になる', () => {
-          const result = parseFrontmatter(text);
+          const result = parseFrontmatterEntries(text);
 
-          assertEquals(result.body, text);
+          assertEquals(result.content, text);
         });
       });
     });
@@ -43,15 +43,15 @@ describe('parseFrontmatter', () => {
         const text = '---\nkey: val\n---\n本文';
 
         it('T-SF-PF-02-01: meta.key が "val" になる', () => {
-          const result = parseFrontmatter(text);
+          const result = parseFrontmatterEntries(text);
 
           assertEquals(result.meta['key'], 'val');
         });
 
         it('T-SF-PF-02-02: body が "本文" になる', () => {
-          const result = parseFrontmatter(text);
+          const result = parseFrontmatterEntries(text);
 
-          assertEquals(result.body, '本文');
+          assertEquals(result.content, '本文');
         });
       });
     });
@@ -75,25 +75,25 @@ describe('parseFrontmatter', () => {
         ].join('\n');
 
         it('T-SF-PF-03-01: session_id が "sess-001" になる', () => {
-          const result = parseFrontmatter(text);
+          const result = parseFrontmatterEntries(text);
 
           assertEquals(result.meta['session_id'], 'sess-001');
         });
 
         it('T-SF-PF-03-02: date が "2026-03-15" になる', () => {
-          const result = parseFrontmatter(text);
+          const result = parseFrontmatterEntries(text);
 
           assertEquals(result.meta['date'], '2026-03-15');
         });
 
         it('T-SF-PF-03-03: project が "my-project" になる', () => {
-          const result = parseFrontmatter(text);
+          const result = parseFrontmatterEntries(text);
 
           assertEquals(result.meta['project'], 'my-project');
         });
 
         it('T-SF-PF-03-04: slug が "test-slug" になる', () => {
-          const result = parseFrontmatter(text);
+          const result = parseFrontmatterEntries(text);
 
           assertEquals(result.meta['slug'], 'test-slug');
         });
@@ -109,15 +109,15 @@ describe('parseFrontmatter', () => {
         const text = '---\r\nkey: val\r\n---\r\n本文';
 
         it('T-SF-PF-04-01: meta.key が "val" になる', () => {
-          const result = parseFrontmatter(text);
+          const result = parseFrontmatterEntries(text);
 
           assertEquals(result.meta['key'], 'val');
         });
 
         it('T-SF-PF-04-02: body が "本文" になる', () => {
-          const result = parseFrontmatter(text);
+          const result = parseFrontmatterEntries(text);
 
-          assertEquals(result.body, '本文');
+          assertEquals(result.content, '本文');
         });
       });
     });
@@ -131,43 +131,44 @@ describe('parseFrontmatter', () => {
         const text = '---\n---\n本文';
 
         it('T-SF-PF-05-01: meta が空オブジェクトになる', () => {
-          const result = parseFrontmatter(text);
+          const result = parseFrontmatterEntries(text);
 
           assertEquals(result.meta, {});
         });
 
         it('T-SF-PF-05-02: body が "本文" になる', () => {
-          const result = parseFrontmatter(text);
+          const result = parseFrontmatterEntries(text);
 
-          assertEquals(result.body, '本文');
+          assertEquals(result.content, '本文');
         });
       });
     });
   });
 
-  // ─── インデント継続値（YAML multiline）のスキップ ─────────────────────────
+  // ─── YAML block scalar（正当な multiline）のパース ────────────────────────
 
-  describe('Given: インデントされた継続値を含むフロントマター', () => {
-    describe('When: parseFrontmatter を呼び出す', () => {
-      describe('Then: T-SF-PF-06 - インデント行はスキップされる', () => {
+  describe('Given: YAML block scalar (|) を含むフロントマター', () => {
+    describe('When: parseFrontmatterEntries を呼び出す', () => {
+      describe('Then: T-SF-PF-06 - summary が複数行文字列として取得できる', () => {
         const text = [
           '---',
-          'key: val',
-          '  continued: line',
+          'summary: |',
+          '  line1',
+          '  line2',
           '---',
           '本文',
         ].join('\n');
 
-        it('T-SF-PF-06-01: key が "val" になる（インデント行は無視）', () => {
-          const result = parseFrontmatter(text);
+        it('T-SF-PF-06-01: summary が "line1\\nline2\\n" になる', () => {
+          const result = parseFrontmatterEntries(text);
 
-          assertEquals(result.meta['key'], 'val');
+          assertEquals(result.meta['summary'], 'line1\nline2\n');
         });
 
-        it('T-SF-PF-06-02: "continued" キーは meta に含まれない', () => {
-          const result = parseFrontmatter(text);
+        it('T-SF-PF-06-02: body が "本文" になる', () => {
+          const result = parseFrontmatterEntries(text);
 
-          assertEquals('continued' in result.meta, false);
+          assertEquals(result.content, '本文');
         });
       });
     });

@@ -27,7 +27,7 @@ export interface ClassifyResult {
 // ─────────────────────────────────────────────
 
 /** 分類処理に使用する1ファイルのメタデータ。`loadFileMeta` が返す。 */
-export interface FileMeta {
+export interface ClassifyFileMeta {
   /** ファイルの絶対パス。 */
   filePath: string;
   /** ファイル名（パスなし）。 */
@@ -51,7 +51,7 @@ export interface FileMeta {
 // ─────────────────────────────────────────────
 
 /** 処理全体の集計カウンター。`main` 関数が完了時に出力する。 */
-export interface Stats {
+export interface ClassifyStats {
   /** 移動（または dry-run での移動予定）件数。 */
   moved: number;
   /** 既にプロジェクト設定済みでスキップした件数。 */
@@ -99,6 +99,4 @@ export interface FrontmatterData {
   topics: string[];
   /** フロントマターの `tags` リスト。 */
   tags: string[];
-  /** フロントマター終端の文字インデックス（本文先頭位置）。 */
-  frontmatterEnd: number;
 }

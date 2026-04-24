@@ -54,8 +54,8 @@ describe('segmentChatlog', () => {
 
         it('T-09-01-01: {title, summary, body}[] の2件以上の配列を返す', async () => {
           const segments = [
-            { title: 'Topic A', summary: 'Summary A', body: 'Body A' },
-            { title: 'Topic B', summary: 'Summary B', body: 'Body B' },
+            { title: 'Topic A', summary: 'Summary A', content: 'Body A' },
+            { title: 'Topic B', summary: 'Summary B', content: 'Body B' },
           ];
           const mock = makeSuccessMock(new TextEncoder().encode(JSON.stringify(segments)));
           (Deno as unknown as Record<string, unknown>).Command = mock;
@@ -66,14 +66,14 @@ describe('segmentChatlog', () => {
           assertEquals((result as unknown[]).length >= 2, true);
           assertEquals((result as { title: string }[])[0].title, 'Topic A');
           assertEquals((result as { summary: string }[])[0].summary, 'Summary A');
-          assertEquals((result as { body: string }[])[0].body, 'Body A');
+          assertEquals((result as { content: string }[])[0].content, 'Body A');
         });
 
         it('T-09-01-02: 1呼び出しにつき runAI をちょうど1回だけ呼び出す', async () => {
           const counter = { calls: 0 };
           const segments = [
-            { title: 'Topic A', summary: 'Summary A', body: 'Body A' },
-            { title: 'Topic B', summary: 'Summary B', body: 'Body B' },
+            { title: 'Topic A', summary: 'Summary A', content: 'Body A' },
+            { title: 'Topic B', summary: 'Summary B', content: 'Body B' },
           ];
           const mock = makeCountingMock(JSON.stringify(segments), counter);
           (Deno as unknown as Record<string, unknown>).Command = mock;
@@ -142,7 +142,7 @@ describe('segmentChatlog', () => {
           const segments = Array.from({ length: 15 }, (_, i) => ({
             title: `Topic ${i + 1}`,
             summary: `Summary ${i + 1}`,
-            body: `Body ${i + 1}`,
+            content: `Body ${i + 1}`,
           }));
           const mock = makeSuccessMock(new TextEncoder().encode(JSON.stringify(segments)));
           (Deno as unknown as Record<string, unknown>).Command = mock;

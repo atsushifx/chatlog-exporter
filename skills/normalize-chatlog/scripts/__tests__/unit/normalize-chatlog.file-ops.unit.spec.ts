@@ -140,8 +140,8 @@ describe('segmentChatlog', () => {
     it('T-SC-01-01: AI が有効な JSON 配列を返すとき Segment 配列を返す', async () => {
       // arrange
       const segments = [
-        { title: 'Topic 1', summary: 'Summary 1', body: 'Body 1' },
-        { title: 'Topic 2', summary: 'Summary 2', body: 'Body 2' },
+        { title: 'Topic 1', summary: 'Summary 1', content: 'Body 1' },
+        { title: 'Topic 2', summary: 'Summary 2', content: 'Body 2' },
       ];
       const stdout = new TextEncoder().encode(JSON.stringify(segments));
       mockHandle = installCommandMock(makeSuccessMock(stdout));
@@ -187,7 +187,7 @@ describe('segmentChatlog', () => {
       const segments = Array.from({ length: 12 }, (_, i) => ({
         title: `Topic ${i + 1}`,
         summary: `Summary ${i + 1}`,
-        body: `Body ${i + 1}`,
+        content: `Body ${i + 1}`,
       }));
       const stdout = new TextEncoder().encode(JSON.stringify(segments));
       mockHandle = installCommandMock(makeSuccessMock(stdout));

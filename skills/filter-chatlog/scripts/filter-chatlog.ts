@@ -22,6 +22,7 @@ import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { findFiles as findFilesLib } from '../../_scripts/libs/file-io/find-files.ts';
 import { logger } from '../../_scripts/libs/io/logger.ts';
 import { runChunked } from '../../_scripts/libs/parallel/concurrency.ts';
+import { parseFrontmatterEntries } from '../../_scripts/libs/text/frontmatter-utils.ts';
 import { parseJsonArray } from '../../_scripts/libs/text/json-utils.ts';
 import { parseConversation } from '../../_scripts/libs/text/markdown-utils.ts';
 
@@ -46,22 +47,6 @@ export interface ClaudeResult {
   confidence: number;
   reason: string;
 }
-
-// ─────────────────────────────────────────────
-// Frontmatter パース
-// ─────────────────────────────────────────────
-
-export const parseFrontmatter = (text: string): { meta: Record<string, unknown>; body: string } => {
-  if (!text.startsWith('---\n')) {
-    return { meta: {}, body: text };
-  }
-  const end = text.indexOf('\n---\n', 4);
-  if (end === -1) {
-    return { meta: {}, body: text };
-  }
-  const body = text.slice(end + 5);
-  return { meta: {}, body };
-};
 
 // ─────────────────────────────────────────────
 // 内容ベース事前フィルタ（obsidian_filter.py 移植）
@@ -197,20 +182,20 @@ export const prefilterFiles = async (files: string[]): Promise<string[]> => {
       continue;
     }
 
-    const { body } = parseFrontmatter(text);
-    if (!body.trim()) {
+    const { content } = parseFrontmatterEntries(text);
+    if (!content.trim()) {
       skipped++;
       continue;
     }
 
-    const { excluded, reason } = isExcludedByContent(body);
+    const { excluded, reason } = isExcludedByContent(content);
     if (excluded) {
       logger.info(`  skipped (${reason}): ${filename}`);
       skipped++;
       continue;
     }
 
-    const bodyText = extractBodyText(body);
+    const bodyText = extractBodyText(content);
     if (!bodyText.trim()) {
       skipped++;
       continue;
@@ -239,8 +224,8 @@ export const buildBatchPrompt = async (files: string[]): Promise<string> => {
     } catch {
       text = '';
     }
-    const { body } = parseFrontmatter(text);
-    const bodyText = extractBodyText(body, MAX_BODY_CHARS);
+    const { content } = parseFrontmatterEntries(text);
+    const bodyText = extractBodyText(content, MAX_BODY_CHARS);
 
     parts.push(`=== FILE ${i + 1}: ${filename} ===\n${bodyText}`);
   }

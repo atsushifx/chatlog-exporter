@@ -48,7 +48,7 @@ async function _loadOutputSegment(filePath: string): Promise<Segment> {
   return {
     title: '',
     summary: '',
-    body: idx === -1 ? '' : content.slice(idx + marker.length).replace(/^\n+/, ''),
+    content: idx === -1 ? '' : content.slice(idx + marker.length).replace(/^\n+/, ''),
   };
 }
 
