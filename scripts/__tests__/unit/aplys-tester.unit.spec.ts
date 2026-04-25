@@ -228,8 +228,8 @@ describe('buildBaseGlob', () => {
   describe('Given: moduleName が "libs"', () => {
     describe('When: buildBaseGlob("libs") を呼び出す', () => {
       describe('Then: T-AT-BG-03 - libs 用の特殊パスを返す', () => {
-        it('T-AT-BG-03-01: 戻り値が "**/_scripts/libs/**/__tests__" である', () => {
-          assertEquals(buildBaseGlob('libs'), '**/_scripts/libs/**/__tests__');
+        it('T-AT-BG-03-01: 戻り値が "**/_scripts/**/__tests__" である', () => {
+          assertEquals(buildBaseGlob('libs'), '**/_scripts/**/__tests__');
         });
       });
     });
@@ -289,8 +289,8 @@ describe('MODULE_GLOB_TABLE', () => {
         it('T-AT-GT-01: "all" エントリが "**/__tests__" である', () => {
           assertEquals(MODULE_GLOB_TABLE['all'], '**/__tests__');
         });
-        it('T-AT-GT-02: "libs" エントリが "**/_scripts/libs/**/__tests__" である', () => {
-          assertEquals(MODULE_GLOB_TABLE['libs'], '**/_scripts/libs/**/__tests__');
+        it('T-AT-GT-02: "libs" エントリが "**/_scripts/**/__tests__" である', () => {
+          assertEquals(MODULE_GLOB_TABLE['libs'], '**/_scripts/**/__tests__');
         });
         it('T-AT-GT-03: "scripts" エントリが "scripts/**/__tests__" である', () => {
           assertEquals(MODULE_GLOB_TABLE['scripts'], 'scripts/**/__tests__');
