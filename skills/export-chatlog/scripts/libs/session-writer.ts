@@ -9,6 +9,7 @@
 import { getDirectory } from '../../../_scripts/libs/file-io/path-utils.ts';
 import { normalizeLine } from '../../../_scripts/libs/text/line-utils.ts';
 import { textToSlug } from '../../../_scripts/libs/text/slug-utils.ts';
+import { quoteString } from '../../../_scripts/libs/text/string-utils.ts';
 import type { ExportedSession, SessionMeta, Turn } from '../types/session.types.ts';
 
 /** セッションの Markdown ファイル出力パスを生成する。 */
@@ -29,10 +30,10 @@ export const buildOutputPath = (
 export const renderMarkdown = (meta: SessionMeta, turns: Turn[]): string => {
   const _lines: string[] = [];
   _lines.push('---');
-  _lines.push(`session_id: ${meta.sessionId}`);
-  _lines.push(`date: ${meta.date}`);
-  _lines.push(`project: ${meta.project}`);
-  if (meta.slug) { _lines.push(`slug: ${meta.slug}`); }
+  _lines.push(`session_id: ${quoteString(meta.sessionId)}`);
+  _lines.push(`date: ${quoteString(meta.date)}`);
+  _lines.push(`project: ${quoteString(meta.project)}`);
+  if (meta.slug) { _lines.push(`slug: ${quoteString(meta.slug)}`); }
   _lines.push('---');
   _lines.push('');
   _lines.push(`# ${meta.firstUserText.replace(/\n/g, ' ').slice(0, 100)}`);
