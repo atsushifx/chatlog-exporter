@@ -29,7 +29,7 @@ import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { findFiles } from '../../_scripts/libs/file-io/find-files.ts';
 import { logger } from '../../_scripts/libs/io/logger.ts';
 import { runConcurrent } from '../../_scripts/libs/parallel/concurrency.ts';
-import { toStringArrayWithNull } from '../../_scripts/libs/text/coerce-utils.ts';
+import { toStringArrayWithNull } from '../../_scripts/libs/text/string-utils.ts';
 import { parseFrontmatterEntries } from '../../_scripts/libs/text/frontmatter-utils.ts';
 import { cleanYaml } from '../../_scripts/libs/text/markdown-utils.ts';
 
