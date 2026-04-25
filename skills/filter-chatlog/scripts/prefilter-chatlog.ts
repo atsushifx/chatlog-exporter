@@ -33,6 +33,7 @@ import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { findFiles as findFilesLib } from '../../_scripts/libs/file-io/find-files.ts';
 import { normalizePath } from '../../_scripts/libs/file-io/path-utils.ts';
 import { logger } from '../../_scripts/libs/io/logger.ts';
+import { normalizeLine } from '../../_scripts/libs/text/line-utils.ts';
 import { parseConversation, type Turn } from '../../_scripts/libs/text/markdown-utils.ts';
 
 // ─────────────────────────────────────────────
@@ -108,7 +109,7 @@ export const MIN_ASSISTANT_CHARS = 100;
 // ─────────────────────────────────────────────
 
 export const loadFrontmatter = (text: string): { meta: Record<string, string>; content: string } => {
-  const normalized = text.replace(/\r\n/g, '\n');
+  const normalized = normalizeLine(text);
   if (!normalized.startsWith('---\n')) { return { meta: {}, content: normalized }; }
 
   const end = normalized.indexOf('\n---\n', 4);
