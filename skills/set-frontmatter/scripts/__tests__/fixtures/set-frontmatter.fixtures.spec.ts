@@ -20,6 +20,7 @@ import {
 } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
 import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { normalizeLine } from '../../../../_scripts/libs/text/line-utils.ts';
 
 // test target
 import type { Dics, FrontmatterFileMeta } from '../../set-frontmatter.ts';
@@ -103,7 +104,7 @@ async function _makeFrontmatterFileMeta(filePath: string): Promise<FrontmatterFi
   const text = await Deno.readTextFile(filePath);
 
   // 簡易フロントマター解析
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const lines = normalizeLine(text).split('\n');
   const meta: Record<string, string> = {};
   if (lines[0] === '---') {
     for (let i = 1; i < lines.length; i++) {
