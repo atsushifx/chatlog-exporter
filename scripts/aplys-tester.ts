@@ -32,7 +32,7 @@ export const TYPES_REQUIRING_ENV = new Set<string>(['system', 'fixtures']);
 // 特殊モジュール: 固有のパス構造を持つ
 const _SPECIAL_GLOB_TABLE = {
   'all': '**/__tests__',
-  'libs': '**/_scripts/libs/**/__tests__',
+  'libs': '**/_scripts/**/__tests__',
   'scripts': 'scripts/**/__tests__',
 } as const;
 
