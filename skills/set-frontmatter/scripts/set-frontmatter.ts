@@ -29,9 +29,10 @@ import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
 import { findFiles } from '../../_scripts/libs/file-io/find-files.ts';
 import { logger } from '../../_scripts/libs/io/logger.ts';
 import { runConcurrent } from '../../_scripts/libs/parallel/concurrency.ts';
-import { toStringArrayWithNull } from '../../_scripts/libs/text/string-utils.ts';
 import { parseFrontmatterEntries } from '../../_scripts/libs/text/frontmatter-utils.ts';
+import { normalizeLine } from '../../_scripts/libs/text/line-utils.ts';
 import { cleanYaml } from '../../_scripts/libs/text/markdown-utils.ts';
+import { quoteString, toStringArrayWithNull } from '../../_scripts/libs/text/string-utils.ts';
 
 // ─────────────────────────────────────────────
 // 定数
@@ -270,7 +271,7 @@ export const loadFrontmatterFileMeta = async (filePath: string): Promise<Frontma
 
   const { meta } = parseFrontmatterEntries(text);
 
-  const rawLines = text.replace(/\r\n/g, '\n').split('\n');
+  const rawLines = normalizeLine(text).split('\n');
   const headerIdx = rawLines.findIndex((l) => /^#/.test(l));
   if (headerIdx === -1) { return null; }
 
@@ -474,12 +475,12 @@ export const writeFrontmatter = async (
 
   const newFrontmatter = [
     '---',
-    `session_id: ${fm.sessionId}`,
-    `date: ${fm.date}`,
-    `project: ${fm.project}`,
-    `slug: ${fm.slug}`,
-    `type: ${result.type}`,
-    `category: ${result.category}`,
+    `session_id: ${quoteString(fm.sessionId)}`,
+    `date: ${quoteString(fm.date)}`,
+    `project: ${quoteString(fm.project)}`,
+    `slug: ${quoteString(fm.slug)}`,
+    `type: ${quoteString(result.type)}`,
+    `category: ${quoteString(result.category)}`,
     result.yaml,
     '---',
   ].join('\n');
