@@ -99,7 +99,7 @@ describe('writeFrontmatter', () => {
           await writeFrontmatter(fm, result, false, stats);
 
           const updated = await Deno.readTextFile(filePath);
-          assertEquals(updated.includes('type: research'), true);
+          assertEquals(updated.includes("type: 'research'"), true);
         });
 
         it('T-SF-WF-01-04: ファイルに "category: development" が含まれる', async () => {
@@ -112,7 +112,7 @@ describe('writeFrontmatter', () => {
           await writeFrontmatter(fm, result, false, stats);
 
           const updated = await Deno.readTextFile(filePath);
-          assertEquals(updated.includes('category: development'), true);
+          assertEquals(updated.includes("category: 'development'"), true);
         });
 
         it('T-SF-WF-01-05: fullBody が末尾に保持される', async () => {
