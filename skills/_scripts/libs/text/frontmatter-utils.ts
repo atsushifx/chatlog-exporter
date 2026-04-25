@@ -10,7 +10,7 @@
 import { parse as parseYaml } from '@std/yaml';
 
 // unknown → string 変換ユーティリティ
-import { toStringWithNull } from './coerce-utils.ts';
+import { toStringWithNull } from './string-utils.ts';
 
 import type { FrontmatterEntries, FrontmatterResult } from '../../types/frontmatter.types.ts';
 
