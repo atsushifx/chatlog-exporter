@@ -53,24 +53,24 @@ describe('renderMarkdown', () => {
           assertStringIncludes(result, '---\n');
         });
 
-        it('T-EC-RM-01-02: "session_id: sess-001" が含まれる', () => {
+        it('T-EC-RM-01-02: "session_id: \'sess-001\'" が含まれる', () => {
           const result = renderMarkdown(_makeMeta({ sessionId: 'sess-001' }), _basicTurns);
-          assertStringIncludes(result, 'session_id: sess-001');
+          assertStringIncludes(result, "session_id: 'sess-001'");
         });
 
-        it('T-EC-RM-01-03: "date: 2026-03-15" が含まれる', () => {
+        it('T-EC-RM-01-03: "date: \'2026-03-15\'" が含まれる', () => {
           const result = renderMarkdown(_makeMeta({ date: '2026-03-15' }), _basicTurns);
-          assertStringIncludes(result, 'date: 2026-03-15');
+          assertStringIncludes(result, "date: '2026-03-15'");
         });
 
-        it('T-EC-RM-01-04: "project: my-app" が含まれる', () => {
+        it('T-EC-RM-01-04: "project: \'my-app\'" が含まれる', () => {
           const result = renderMarkdown(_makeMeta({ project: 'my-app' }), _basicTurns);
-          assertStringIncludes(result, 'project: my-app');
+          assertStringIncludes(result, "project: 'my-app'");
         });
 
-        it('T-EC-RM-01-05: slug が空でない場合 "slug: test-slug" が含まれる', () => {
+        it('T-EC-RM-01-05: slug が空でない場合 "slug: \'test-slug\'" が含まれる', () => {
           const result = renderMarkdown(_makeMeta({ slug: 'test-slug' }), _basicTurns);
-          assertStringIncludes(result, 'slug: test-slug');
+          assertStringIncludes(result, "slug: 'test-slug'");
         });
 
         it('T-EC-RM-01-06: slug が空の場合 "slug:" 行が含まれない', () => {
