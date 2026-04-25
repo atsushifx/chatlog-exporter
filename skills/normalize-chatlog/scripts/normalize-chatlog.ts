@@ -18,6 +18,7 @@ import { runConcurrent } from '../../_scripts/libs/parallel/concurrency.ts';
 import { parseFrontmatterEntries } from '../../_scripts/libs/text/frontmatter-utils.ts';
 import { parseJsonArray } from '../../_scripts/libs/text/json-utils.ts';
 import { normalizeLine } from '../../_scripts/libs/text/line-utils.ts';
+import { quoteString } from '../../_scripts/libs/text/string-utils.ts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -180,12 +181,12 @@ export const attachFrontmatter = (
       fields.push(`${key}:`);
       value.forEach((v) => fields.push(`  - ${v}`));
     } else {
-      fields.push(`${key}: ${value}`);
+      fields.push(`${key}: ${quoteString(value as string)}`);
     }
   }
-  fields.push(`title: ${segmentMeta.title}`);
-  fields.push(`log_id: ${segmentMeta.log_id}`);
-  fields.push(`summary: ${segmentMeta.summary}`);
+  fields.push(`title: ${quoteString(segmentMeta.title)}`);
+  fields.push(`log_id: ${quoteString(segmentMeta.log_id)}`);
+  fields.push(`summary: ${quoteString(segmentMeta.summary)}`);
   return `---\n${fields.join('\n')}\n---\n\n${content}`;
 };
 

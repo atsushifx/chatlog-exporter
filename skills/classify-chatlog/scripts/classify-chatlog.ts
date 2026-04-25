@@ -25,6 +25,7 @@ import { runChunked } from '../../_scripts/libs/parallel/concurrency.ts';
 import { parseFrontmatterEntries } from '../../_scripts/libs/text/frontmatter-utils.ts';
 import { parseJsonArray } from '../../_scripts/libs/text/json-utils.ts';
 import { normalizeLine } from '../../_scripts/libs/text/line-utils.ts';
+import { quoteString } from '../../_scripts/libs/text/string-utils.ts';
 // instances
 import { logger } from '../../_scripts/libs/io/logger.ts';
 // constants
@@ -70,7 +71,7 @@ export const loadProjects = async (dicsDir: string): Promise<string[]> => {
 // ─────────────────────────────────────────────
 
 export const insertProjectField = (text: string, project: string): string => {
-  const _normalized = text.replace(/\r\n/g, '\n');
+  const _normalized = normalizeLine(text);
   const _lines = _normalized.split('\n');
   if (_lines[0] !== '---') { return text; }
 
@@ -83,11 +84,11 @@ export const insertProjectField = (text: string, project: string): string => {
   for (const line of _fmLines) {
     _newFmLines.push(line);
     if (!_inserted && line.startsWith('date:')) {
-      _newFmLines.push(`project: ${project}`);
+      _newFmLines.push(`project: ${quoteString(project)}`);
       _inserted = true;
     }
   }
-  if (!_inserted) { _newFmLines.unshift(`project: ${project}`); }
+  if (!_inserted) { _newFmLines.unshift(`project: ${quoteString(project)}`); }
 
   const _bodyLines = _lines.slice(_closeIdx + 1);
   return ['---', ..._newFmLines, '---', ..._bodyLines].join('\n');

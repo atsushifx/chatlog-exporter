@@ -10,6 +10,7 @@
 import { parse as parseYaml } from '@std/yaml';
 
 // unknown → string 変換ユーティリティ
+import { normalizeLine } from './line-utils.ts';
 import { toStringWithNull } from './string-utils.ts';
 
 import type { FrontmatterEntries, FrontmatterResult } from '../../types/frontmatter.types.ts';
@@ -56,7 +57,7 @@ const _unknownToStringOrArray = (v: unknown): string | string[] => {
 
 /** Markdown テキストから frontmatter を抽出してパースする。 */
 export const parseFrontmatter = (text: string): FrontmatterResult => {
-  const _normalized = text.replace(/\r\n/g, '\n');
+  const _normalized = normalizeLine(text);
   const _failure: FrontmatterResult = { meta: {}, content: text };
 
   const _block = _extractBlock(_normalized);

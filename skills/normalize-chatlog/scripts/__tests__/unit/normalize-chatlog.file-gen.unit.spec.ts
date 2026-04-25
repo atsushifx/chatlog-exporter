@@ -248,14 +248,14 @@ describe('generateSegmentFile', () => {
 describe('attachFrontmatter', () => {
   /** 正常系: sourceMeta の project フィールドを引き継ぎ、AI 生成フィールドを付加する */
   describe('Given: project を含む sourceMeta と title・log_id・summary を含む segmentMeta', () => {
-    it('T-12-01-01: 出力フロントマターに project: ci-platform が含まれる', () => {
+    it("T-12-01-01: 出力フロントマターに project: 'ci-platform' が含まれる", () => {
       const sourceMeta = { project: 'ci-platform', date: '2026-03-01' };
       const segmentMeta = { title: 'Fix CI', log_id: 'abc1234', summary: 'CI fix' };
       const content = '## Summary\nFix CI';
 
       const result = attachFrontmatter(content, sourceMeta, segmentMeta);
 
-      assertEquals(result.includes('project: ci-platform'), true);
+      assertEquals(result.includes("project: 'ci-platform'"), true);
     });
 
     it('T-12-01-02: 出力フロントマターに title・log_id・summary が含まれる', () => {
@@ -265,9 +265,9 @@ describe('attachFrontmatter', () => {
 
       const result = attachFrontmatter(content, sourceMeta, segmentMeta);
 
-      assertEquals(result.includes('title: Fix CI'), true);
-      assertEquals(result.includes('log_id: abc1234'), true);
-      assertEquals(result.includes('summary: CI fix'), true);
+      assertEquals(result.includes("title: 'Fix CI'"), true);
+      assertEquals(result.includes("log_id: 'abc1234'"), true);
+      assertEquals(result.includes("summary: 'CI fix'"), true);
     });
   });
 
@@ -280,9 +280,9 @@ describe('attachFrontmatter', () => {
 
       const result = attachFrontmatter(content, sourceMeta, segmentMeta);
 
-      assertEquals(result.includes('title: Topic'), true);
-      assertEquals(result.includes('log_id: aaabbbb'), true);
-      assertEquals(result.includes('summary: Summary'), true);
+      assertEquals(result.includes("title: 'Topic'"), true);
+      assertEquals(result.includes("log_id: 'aaabbbb'"), true);
+      assertEquals(result.includes("summary: 'Summary'"), true);
       assertEquals(result.includes('project:'), false);
     });
   });
