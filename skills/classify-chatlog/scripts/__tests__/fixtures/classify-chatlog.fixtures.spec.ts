@@ -22,6 +22,7 @@ import type { ClassifyFileMeta, ClassifyStats } from '../../types/classify.types
 // helpers
 import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
+import { normalizeLine } from '../../../../_scripts/libs/text/line-utils.ts';
 
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────
 
@@ -178,7 +179,7 @@ function _extractFrontmatterFields(text: string): {
   tags: string[];
 } {
   const result = { title: '', category: '', topics: [] as string[], tags: [] as string[] };
-  const normalized = text.replace(/\r\n/g, '\n');
+  const normalized = normalizeLine(text);
   if (!normalized.startsWith('---\n')) { return result; }
   const end = normalized.indexOf('\n---\n', 4);
   if (end === -1) { return result; }
