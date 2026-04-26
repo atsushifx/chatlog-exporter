@@ -22,21 +22,32 @@ export type IsFixtureDirProvider = (dir: string) => Promise<boolean>;
 // ─────────────────────────────────────────────
 
 /**
+ * dir 直下に `input.md` が存在すれば true を返す。
+ * ファイルが存在しない場合や stat に失敗した場合は false を返す。
+ */
+export const defaultIsFixtureDir = async (dir: string): Promise<boolean> => {
+  try {
+    await Deno.stat(`${dir}/input.md`);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
  * rootDir 以下を再帰的に走査し、isFixtureDir が true を返したディレクトリの
  * rootDir からのスラッシュ区切り相対パスを辞書順ソートして返す。
  */
 export const findFixtureDirs = async (
   rootDir: string,
-  isFixtureDir: IsFixtureDirProvider,
+  isFixtureDir: IsFixtureDirProvider = defaultIsFixtureDir,
 ): Promise<string[]> => {
   const _rootNorm = normalizePath(rootDir);
 
   const _walk = async (dir: string): Promise<string[]> => {
     const subs = await findDirectories(dir);
     const nested = await Promise.all(
-      subs.map(async (sub) =>
-        (await isFixtureDir(sub)) ? [sub] : _walk(sub)
-      ),
+      subs.map(async (sub) => (await isFixtureDir(sub)) ? [sub] : _walk(sub)),
     );
     return nested.flat();
   };
