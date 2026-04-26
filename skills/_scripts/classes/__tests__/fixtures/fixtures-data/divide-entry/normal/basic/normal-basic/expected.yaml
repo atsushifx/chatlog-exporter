@@ -1,0 +1,6 @@
+frontmatterText: |
+  ---
+  title: Hello World
+  category: dev
+  ---
+content: "This is a basic entry body.\n"

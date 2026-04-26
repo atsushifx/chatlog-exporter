@@ -1,0 +1,5 @@
+frontmatterText: |
+  ---
+  title: Trailing Blank Lines
+  ---
+content: "body\n"

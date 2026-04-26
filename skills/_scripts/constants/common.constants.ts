@@ -6,6 +6,9 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+/** Markdown フロントマターの開始・終了区切り文字。 */
+export const FRONTMATTER_DELIMITER = '---';
+
 /** Claude Code CLI が受け付けるモデル ID およびエイリアスの集合。 */
 export const VALID_AI_MODELS = new Set([
   'default',

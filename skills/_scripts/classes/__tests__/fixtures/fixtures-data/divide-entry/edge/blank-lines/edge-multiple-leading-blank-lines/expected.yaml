@@ -1,0 +1,5 @@
+frontmatterText: |
+  ---
+  title: Multiple Leading Blank Lines
+  ---
+content: "body\n"
