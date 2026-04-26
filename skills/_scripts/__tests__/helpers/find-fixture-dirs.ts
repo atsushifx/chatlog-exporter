@@ -37,6 +37,9 @@ export const defaultIsFixtureDir = async (dir: string): Promise<boolean> => {
 /**
  * rootDir 以下を再帰的に走査し、isFixtureDir が true を返したディレクトリの
  * rootDir からのスラッシュ区切り相対パスを辞書順ソートして返す。
+ *
+ * isFixtureDir が true を返したディレクトリはそこで走査を打ち切る（内部を再帰しない）。
+ * fixture ディレクトリのネストは想定しない仕様。
  */
 export const findFixtureDirs = async (
   rootDir: string,
