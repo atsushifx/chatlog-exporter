@@ -1,0 +1,8 @@
+frontmatterText: |
+  ---
+  title: Multi
+  tags:
+    - foo
+    - bar
+  ---
+content: "body text\n"

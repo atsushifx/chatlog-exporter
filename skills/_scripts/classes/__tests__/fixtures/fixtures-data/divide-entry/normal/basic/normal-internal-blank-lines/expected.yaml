@@ -1,0 +1,5 @@
+frontmatterText: |
+  ---
+  title: Internal Blank Lines
+  ---
+content: "line1\n\nline2\n"
