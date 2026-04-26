@@ -12,10 +12,21 @@ import { assertEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // -- test target --
+<<<<<<< HEAD
 import { defaultIsFixtureDir, findFixtureDirs } from '../find-fixture-dirs.ts';
 // -- utils --
+||||||| parent of d9bf5f4d (test(helpers/find-fixture-dirs): add defaultIsFixtureDir tests)
+import { findFixtureDirs } from '../find-fixture-dirs.ts';
+import type { IsFixtureDirProvider } from '../find-fixture-dirs.ts';
+=======
+>>>>>>> d9bf5f4d (test(helpers/find-fixture-dirs): add defaultIsFixtureDir tests)
 import { normalizePath } from '../../../libs/file-io/path-utils.ts';
+<<<<<<< HEAD
 // -- types --
+||||||| parent of d9bf5f4d (test(helpers/find-fixture-dirs): add defaultIsFixtureDir tests)
+=======
+import { defaultIsFixtureDir, findFixtureDirs } from '../find-fixture-dirs.ts';
+>>>>>>> d9bf5f4d (test(helpers/find-fixture-dirs): add defaultIsFixtureDir tests)
 import type { IsFixtureDirProvider } from '../find-fixture-dirs.ts';
 
 // ─────────────────────────────────────────────
@@ -76,10 +87,16 @@ describe('Given: defaultIsFixtureDir', () => {
   });
 });
 
+const FILTER_FIXTURES_ROOT = new URL(
+  '../../../../filter-chatlog/scripts/__tests__/fixtures/fixtures-data',
+  import.meta.url,
+).pathname.replace(/^\/([A-Z]:)/, '$1');
+
 // ─────────────────────────────────────────────
 // findFixtureDirs — ユニットテスト
 // ─────────────────────────────────────────────
 
+<<<<<<< HEAD
 /** findFixtureDirs: isFixtureDir を省略してデフォルト動作を確認するテスト */
 describe('Given: findFixtureDirs (デフォルト isFixtureDir)', () => {
   let _tempDir: string;
@@ -116,6 +133,80 @@ describe('Given: findFixtureDirs (デフォルト isFixtureDir)', () => {
 });
 
 /** findFixtureDirs: カスタム isFixtureDir を DI して動作を検証するテスト */
+||||||| parent of d9bf5f4d (test(helpers/find-fixture-dirs): add defaultIsFixtureDir tests)
+=======
+// ─────────────────────────────────────────────
+// defaultIsFixtureDir — ユニットテスト
+// ─────────────────────────────────────────────
+
+describe('Given: defaultIsFixtureDir', () => {
+  let _tempDir: string;
+
+  beforeEach(async () => {
+    _tempDir = await Deno.makeTempDir({ prefix: 'find-fixture-dirs-' });
+  });
+
+  afterEach(async () => {
+    await Deno.remove(_tempDir, { recursive: true });
+  });
+
+  describe('When: input.md があるディレクトリを渡す', () => {
+    it('Then: [正常] - true を返す', async () => {
+      // arrange
+      await Deno.writeTextFile(`${_tempDir}/input.md`, '');
+
+      // act
+      const _result = await defaultIsFixtureDir(_tempDir);
+
+      // assert
+      assertEquals(_result, true);
+    });
+  });
+
+  describe('When: input.md がないディレクトリを渡す', () => {
+    it('Then: [正常] - false を返す', async () => {
+      // act
+      const _result = await defaultIsFixtureDir(_tempDir);
+
+      // assert
+      assertEquals(_result, false);
+    });
+  });
+
+  describe('When: 存在しないディレクトリを渡す', () => {
+    it('Then: [エッジケース] - 例外をスローせず false を返す', async () => {
+      // arrange
+      const _dir = `${_tempDir}/__nonexistent__`;
+
+      // act
+      const _result = await defaultIsFixtureDir(_dir);
+
+      // assert
+      assertEquals(_result, false);
+    });
+  });
+});
+
+// ─────────────────────────────────────────────
+// findFixtureDirs — ユニットテスト
+// ─────────────────────────────────────────────
+
+describe('Given: findFixtureDirs (デフォルト isFixtureDir)', () => {
+  describe('When: isFixtureDir 引数を省略して呼び出す', () => {
+    it('Then: [正常] - input.md を持つディレクトリのみ収集される', async () => {
+      // arrange
+      const _expected = ['edge-01-minimal', 'normal-01-basic-keep', 'normal-02-basic-discard'];
+
+      // act
+      const _result = await findFixtureDirs(FILTER_FIXTURES_ROOT);
+
+      // assert
+      assertEquals(_result, _expected);
+    });
+  });
+});
+
+>>>>>>> d9bf5f4d (test(helpers/find-fixture-dirs): add defaultIsFixtureDir tests)
 describe('Given: findFixtureDirs', () => {
   let _tempDir: string;
 
@@ -150,7 +241,13 @@ describe('Given: findFixtureDirs', () => {
     it('Then: [正常] - 多階層の相対パスが正しく収集される', async () => {
       // arrange
       const _target = 'edge/whitespace/crlf-input';
+<<<<<<< HEAD
       await Deno.mkdir(`${_tempDir}/${_target}`, { recursive: true });
+||||||| parent of d9bf5f4d (test(helpers/find-fixture-dirs): add defaultIsFixtureDir tests)
+      const _isFixtureDir: IsFixtureDirProvider = (dir) =>
+        Promise.resolve(normalizePath(dir).endsWith('crlf-input'));
+=======
+>>>>>>> d9bf5f4d (test(helpers/find-fixture-dirs): add defaultIsFixtureDir tests)
       const _isFixtureDir: IsFixtureDirProvider = (dir) => Promise.resolve(normalizePath(dir).endsWith('crlf-input'));
 
       // act
@@ -166,8 +263,14 @@ describe('Given: findFixtureDirs', () => {
     it('Then: [正常] - false を返すディレクトリは除外される', async () => {
       // arrange
       const _excluded = 're-normal-02-array-fields';
+<<<<<<< HEAD
       await Deno.mkdir(`${_tempDir}/re-normal-01-basic-entry`);
       await Deno.mkdir(`${_tempDir}/${_excluded}`);
+||||||| parent of d9bf5f4d (test(helpers/find-fixture-dirs): add defaultIsFixtureDir tests)
+      const _isFixtureDir: IsFixtureDirProvider = (dir) =>
+        Promise.resolve(!normalizePath(dir).endsWith(_excluded));
+=======
+>>>>>>> d9bf5f4d (test(helpers/find-fixture-dirs): add defaultIsFixtureDir tests)
       const _isFixtureDir: IsFixtureDirProvider = (dir) => Promise.resolve(!normalizePath(dir).endsWith(_excluded));
 
       // act
