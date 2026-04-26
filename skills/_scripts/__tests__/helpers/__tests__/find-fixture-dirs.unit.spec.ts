@@ -306,6 +306,28 @@ describe('Given: findFixtureDirs', () => {
     });
   });
 
+  /**
+   * isFixtureDir が true を返したディレクトリの内部は走査しない仕様（再帰打ち切り）。
+   * fixture のネストは想定しない。
+   */
+  describe('When: isFixtureDir が true を返したディレクトリの内部にサブディレクトリがある', () => {
+    it('Then: [仕様] - 内部のサブディレクトリは収集されない', async () => {
+      // arrange
+      const _parent = 'edge-nested-parent';
+      const _child = `${_parent}/child`;
+      await Deno.mkdir(`${_tempDir}/${_child}`, { recursive: true });
+      const _isFixtureDir: IsFixtureDirProvider = (dir) =>
+        Promise.resolve(normalizePath(dir).endsWith(_parent) || normalizePath(dir).endsWith('child'));
+
+      // act
+      const _result = await findFixtureDirs(_tempDir, _isFixtureDir);
+
+      // assert: _parent は収集されるが child は収集されない
+      assertEquals(_result.includes(_parent), true);
+      assertEquals(_result.includes(_child), false);
+    });
+  });
+
   /** rootDir が存在しないパスを指す場合（エッジケース） */
   describe('When: rootDir が存在しないディレクトリを指す', () => {
     it('Then: [エッジケース] - エラーを投げず空配列を返す', async () => {
