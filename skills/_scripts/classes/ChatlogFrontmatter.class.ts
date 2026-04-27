@@ -93,6 +93,9 @@ export class ChatlogFrontmatter {
   }
 
   toFrontmatter(fieldOrder: string[] = _DEFAULT_FIELD_ORDER): string {
+    if (fieldOrder.length === 0) {
+      throw new ChatlogError('InvalidArgs', 'fieldOrder must not be empty');
+    }
     const _lines: string[] = [FRONTMATTER_DELIMITER];
     const _seen = new Set<string>();
     for (const field of fieldOrder) {
