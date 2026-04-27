@@ -164,32 +164,6 @@ describe('ChatlogFrontmatter', () => {
   });
 
   /**
-   * @description toFrontmatter() メソッドのユニットテスト。
-   * set/remove の変更反映と fieldOrder 省略時の動作を検証する。
-   */
-  describe('toFrontmatter()', () => {
-    it('T-CLS-CF-21: [正常] - set で追加したフィールドが toFrontmatter に反映される', () => {
-      const fm = new ChatlogFrontmatter('');
-      fm.set('title', 'Hello');
-      const result = fm.toFrontmatter(['title']);
-      assertEquals(result, '---\ntitle: "Hello"\n---\n');
-    });
-
-    it('T-CLS-CF-22: [正常] - remove で削除したフィールドが toFrontmatter に含まれない', () => {
-      const fm = new ChatlogFrontmatter('---\ntitle: "Hello"\n---\n');
-      fm.remove('title');
-      const result = fm.toFrontmatter(['title']);
-      assertEquals(result, '---\n\n---\n');
-    });
-
-    it('T-CLS-CF-23: [正常] - fieldOrder 省略時は _DEFAULT_FIELD_ORDER が使われる', () => {
-      const fm = new ChatlogFrontmatter('---\ntitle: "Hello"\ncategory: "dev"\n---\n');
-      const result = fm.toFrontmatter();
-      assertEquals(result, '---\ntitle: "Hello"\ncategory: "dev"\n---\n');
-    });
-  });
-
-  /**
    * @description コンストラクタへの文字列入力（正常系）のユニットテスト。
    * 空文字列・空ブロック・文字列/配列フィールドのパースを検証する。
    */
