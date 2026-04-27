@@ -27,33 +27,41 @@ const _DEFAULT_FIELD_ORDER: string[] = [
 export class ChatlogFrontmatter {
   private _entries: Record<string, string | string[]>;
 
-  constructor(input: string | Record<string, string | string[]>) {
-    if (typeof input !== 'string') {
-      this._entries = { ...input };
-      return;
+  constructor(input: string) {
+    this._entries = this._parseFrontmatter(input);
+  }
+
+  private _parseFrontmatter(input: string): Record<string, string | string[]> {
+    if (input === '') {
+      return {};
     }
-    const _lines = input.split('\n');
-    if (_lines[0] !== FRONTMATTER_DELIMITER) {
-      this._entries = {};
-      return;
-    }
-    const _closeIdx = _lines.indexOf(FRONTMATTER_DELIMITER, 1);
-    if (_closeIdx === -1) {
-      this._entries = {};
-      return;
+    const _body = this._extractBody(input);
+    if (_body.trim() === '') {
+      return {};
     }
     let _parsed: unknown;
     try {
-      _parsed = parseYaml(_lines.slice(1, _closeIdx).join('\n'));
+      _parsed = parseYaml(_body);
     } catch (e) {
       const detail = e instanceof Error ? e.message : String(e);
       throw new ChatlogError('InvalidYaml', detail);
     }
     if (_parsed === null || _parsed === undefined || typeof _parsed !== 'object' || Array.isArray(_parsed)) {
-      this._entries = {};
-      return;
+      throw new ChatlogError('InvalidFormat', 'frontmatter yaml is not a mapping');
     }
-    this._entries = this._toEntries(_parsed as Record<string, unknown>);
+    return this._toEntries(_parsed as Record<string, unknown>);
+  }
+
+  private _extractBody(input: string): string {
+    const _lines = input.split('\n');
+    if (_lines[0] !== FRONTMATTER_DELIMITER) {
+      throw new ChatlogError('InvalidFormat', 'frontmatter does not start with delimiter');
+    }
+    const _closeIdx = _lines.indexOf(FRONTMATTER_DELIMITER, 1);
+    if (_closeIdx === -1) {
+      throw new ChatlogError('InvalidFormat', 'frontmatter block is not closed');
+    }
+    return _lines.slice(1, _closeIdx).join('\n');
   }
 
   private _toStringOrArray(v: unknown): string | string[] {
