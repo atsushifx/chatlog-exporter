@@ -12,7 +12,7 @@ issue_prefix: "cle"
 # Use no-db mode: JSONL-only, no Dolt database
 # When true, bd will use .beads/issues.jsonl as the source of truth
 # no-db: false
-no-db: false
+no-db: true
 
 # Enable JSON output by default
 # json: fals
