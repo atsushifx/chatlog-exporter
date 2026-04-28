@@ -1,0 +1,19 @@
+# chatlog-exporter グローバルデフォルト設定
+# このファイルを編集することで、全スクリプトのデフォルト値を上書きできます。
+# --config <path> オプションで別ファイルを指定することも可能です。
+
+# エージェント
+agent: claude
+
+# AI 実行系
+aiModel: "sonnet"
+timeoutMs: 120_000 # 2分(ms)
+
+# ハッシュ生成系
+hashLength: 8
+minRandomLength: 4
+maxRandomLength: 16
+
+# 並列処理・バッチ処理系
+chunkSize: 10
+concurrency: 4
