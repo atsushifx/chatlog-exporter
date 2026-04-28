@@ -2,7 +2,7 @@
 {
   //  chatlog dictionary files
   "files.associations": {
-    "*.dic": "yaml"
+    "*.dic": "yaml",
   },
   // deno settings
   "deno.enable": true,
@@ -10,13 +10,11 @@
   // trusted JSON schema hosts
   "json.schemaDownload.enable": true,
   "json.schemaDownload.trustedDomains": {
-    "https://schemastore.azurewebsites.net/": true,
     "https://raw.githubusercontent.com/microsoft/vscode/": true,
     "https://raw.githubusercontent.com/devcontainers/spec/": true,
-    "https://www.schemastore.org/": true,
-    "https://json.schemastore.org/": true,
-    "https://json-schema.org/": true,
+    "https://raw.githubusercontent.com/streetsidesoftware/cspell/": true,
     "https://developer.microsoft.com/json-schemas/": true,
-    "https://raw.githubusercontent.com/denoland/": true
+    "https://raw.githubusercontent.com/denoland/": true,
+    "https://dprint.dev/schemas/": true,
   }
 }
