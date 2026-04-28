@@ -2,7 +2,7 @@
 {
   //  chatlog dictionary files
   "files.associations": {
-    "*.dic": "yaml",
+    "*.dic": "yaml"
   },
   // deno settings
   "deno.enable": true,
@@ -15,6 +15,6 @@
     "https://raw.githubusercontent.com/streetsidesoftware/cspell/": true,
     "https://developer.microsoft.com/json-schemas/": true,
     "https://raw.githubusercontent.com/denoland/": true,
-    "https://dprint.dev/schemas/": true,
+    "https://dprint.dev/schemas/": true
   }
 }
