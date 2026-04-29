@@ -11,7 +11,14 @@ import { assertEquals, assertThrows } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // -- test target --
-import { escapeString, quoteString, toStringArrayWithNull, toStringWithNull } from '../../string-utils.ts';
+import {
+  escapeString,
+  parseNumber,
+  parseString,
+  quoteString,
+  toStringArrayWithNull,
+  toStringWithNull,
+} from '../../string-utils.ts';
 
 // ─────────────────────────────────────────────
 // toStringWithNull
@@ -374,5 +381,100 @@ describe('quoteString', () => {
         });
       });
     });
+  });
+});
+
+// ─────────────────────────────────────────────
+// parseString
+// ─────────────────────────────────────────────
+
+describe('parseString', () => {
+  describe('正常系', () => {
+    const cases: ReadonlyArray<{ id: string; label: string; input: unknown; expected: string }> = [
+      { id: 'T-TXT-PS-03', label: '文字列はそのまま返す', input: 'hello', expected: 'hello' },
+    ];
+    for (const { id, label, input, expected } of cases) {
+      it(`${id}: ${label}`, () => {
+        assertEquals(parseString(input), expected);
+      });
+    }
+  });
+
+  describe('エッジケース', () => {
+    const cases: ReadonlyArray<{ id: string; label: string; input: unknown; expected: string | undefined }> = [
+      { id: 'T-TXT-PS-01', label: 'undefined は undefined を返す', input: undefined, expected: undefined },
+      { id: 'T-TXT-PS-02', label: 'null は空文字列を返す', input: null, expected: '' },
+      { id: 'T-TXT-PS-04', label: '空文字列はそのまま返す', input: '', expected: '' },
+    ];
+    for (const { id, label, input, expected } of cases) {
+      it(`${id}: ${label}`, () => {
+        assertEquals(parseString(input), expected);
+      });
+    }
+  });
+
+  describe('異常系', () => {
+    const cases: ReadonlyArray<{ id: string; label: string; input: unknown }> = [
+      { id: 'T-TXT-PS-05', label: '数値は TypeError をスローする', input: 42 },
+      { id: 'T-TXT-PS-06', label: 'boolean は TypeError をスローする', input: true },
+      { id: 'T-TXT-PS-07', label: 'オブジェクトは TypeError をスローする', input: { a: 1 } },
+      { id: 'T-TXT-PS-08', label: '配列は TypeError をスローする', input: [1, 2] },
+      { id: 'T-TXT-PS-09', label: '関数は TypeError をスローする', input: () => {} },
+    ];
+    for (const { id, label, input } of cases) {
+      it(`${id}: ${label}`, () => {
+        assertThrows(() => parseString(input), TypeError);
+      });
+    }
+  });
+});
+
+// ─────────────────────────────────────────────
+// parseNumber
+// ─────────────────────────────────────────────
+
+describe('parseNumber', () => {
+  describe('正常系', () => {
+    const cases: ReadonlyArray<{ id: string; label: string; input: unknown; expected: number }> = [
+      { id: 'T-TXT-PN-01', label: 'number 型の値はそのまま返す', input: 42, expected: 42 },
+      { id: 'T-TXT-PN-02', label: '数値文字列は数値に変換して返す', input: '123', expected: 123 },
+      {
+        id: 'T-TXT-PN-03',
+        label: 'アンダースコア区切り数値文字列は数値に変換して返す',
+        input: '1_000',
+        expected: 1000,
+      },
+    ];
+    for (const { id, label, input, expected } of cases) {
+      it(`${id}: ${label}`, () => {
+        assertEquals(parseNumber(input), expected);
+      });
+    }
+  });
+
+  describe('エッジケース', () => {
+    const cases: ReadonlyArray<{ id: string; label: string; input: unknown }> = [
+      { id: 'T-TXT-PN-04', label: '空文字列は undefined を返す', input: '' },
+      { id: 'T-TXT-PN-05', label: 'undefined は undefined を返す', input: undefined },
+      { id: 'T-TXT-PN-06', label: 'null は undefined を返す', input: null },
+      { id: 'T-TXT-PN-09', label: 'アンダースコアのみの文字列は undefined を返す', input: '_' },
+    ];
+    for (const { id, label, input } of cases) {
+      it(`${id}: ${label}`, () => {
+        assertEquals(parseNumber(input), undefined);
+      });
+    }
+  });
+
+  describe('異常系', () => {
+    const cases: ReadonlyArray<{ id: string; label: string; input: unknown }> = [
+      { id: 'T-TXT-PN-07', label: '数値変換できない文字列は TypeError をスローする', input: 'abc' },
+      { id: 'T-TXT-PN-08', label: 'boolean 型は TypeError をスローする', input: true },
+    ];
+    for (const { id, label, input } of cases) {
+      it(`${id}: ${label}`, () => {
+        assertThrows(() => parseNumber(input), TypeError);
+      });
+    }
   });
 });
