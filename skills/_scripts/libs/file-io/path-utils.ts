@@ -6,20 +6,33 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
-import type { EnvProvider } from '../../types/providers.types.ts';
+// utils
+import { getProjectRootDir } from './dir-utils.ts';
+// types
+import type { ResolveConfigPathOptions } from '../../types/file-io.types.ts';
+import type { CommandProvider, StatProvider } from '../../types/providers.types.ts';
+// error class
+import { ChatlogError } from '../../classes/ChatlogError.class.ts';
 
-/** パス区切り文字をスラッシュに統一する（Windows バックスラッシュ → `/`）。 */
+// ─────────────────────────────────────────────
+// 内部定数
+// ─────────────────────────────────────────────
+
+/** Windowsパスの絶対パス正規表現 */
+const _WIN_ABS = /^[A-Za-z]:\//;
+
+/** コマンドプロバイダのデフォルト実装 */
+const _DEFAULT_COMMAND_PROVIDER = Deno.Command as unknown as CommandProvider;
+/** ファイル情報取得プロバイダのデフォルト実装 */
+const _DEFAULT_STAT_PROVIDER: StatProvider = (path: string) => Deno.stat(path);
+
+// ─────────────────────────────────────────────
+// パス正規化
+// ─────────────────────────────────────────────
+
+/** パス区切り文字をスラッシュに統一し、URL pathname 形式（/C:/...）を修正する。 */
 export const normalizePath = (path: string): string => {
-  return path.replaceAll('\\', '/');
-};
-
-/** ホームディレクトリを表す文字列を返す。 */
-export const homeDir = (env: EnvProvider = Deno.env.get): string => {
-  const _home = env('HOME');
-  if (_home !== undefined) { return normalizePath(_home); }
-  const _profile = env('USERPROFILE');
-  if (_profile !== undefined) { return normalizePath(_profile); }
-  return '~';
+  return path.replaceAll('\\', '/').replace(/^\/([A-Za-z]:)/, '$1');
 };
 
 /** ファイルパスからディレクトリ部分を返す（末尾スラッシュなし）。 */
@@ -30,4 +43,52 @@ export const getDirectory = (path: string): string => {
 /** ファイルパスからファイル名部分を返す。 */
 export const getFileName = (path: string): string => {
   return normalizePath(path).split('/').pop() ?? '';
+};
+
+// ─────────────────────────────────────────────
+// パス判定
+// ─────────────────────────────────────────────
+
+/** パスが絶対パスかどうかを返す。 */
+export const isAbsolutePath = (path: string): boolean => {
+  if (path === '') { return false; }
+  const _normalized = normalizePath(path);
+  if (_WIN_ABS.test(_normalized)) { return true; }
+  if (_normalized.startsWith('/')) { return true; }
+  return false;
+};
+
+// ─────────────────────────────────────────────
+// パス解決
+// ─────────────────────────────────────────────
+
+/**
+ * configPath が絶対パスなら正規化して返す。
+ * 相対パスなら getProjectRootDir() と結合して正規化して返す。
+ * configPath が未指定のときは defaultPath を使用する。
+ * 解決したパスが存在しない場合は ChatlogError(InputNotFound) をスローする。
+ */
+export const resolveConfigPath = async ({
+  configPath,
+  defaultPath,
+  commandProvider = _DEFAULT_COMMAND_PROVIDER,
+  statProvider = _DEFAULT_STAT_PROVIDER,
+}: ResolveConfigPathOptions): Promise<string> => {
+  const _path = configPath ?? defaultPath;
+  let _resolved: string;
+  if (isAbsolutePath(_path)) {
+    _resolved = normalizePath(_path);
+  } else {
+    const _root = await getProjectRootDir(commandProvider);
+    _resolved = normalizePath(`${_root}/${_path}`);
+  }
+
+  try {
+    await statProvider(_resolved);
+  } catch (e) {
+    if (e instanceof ChatlogError) { throw e; }
+    throw new ChatlogError('FileDirNotFound', `設定ファイル/ディレクトリが見つかりません: ${_resolved}`);
+  }
+
+  return _resolved;
 };
