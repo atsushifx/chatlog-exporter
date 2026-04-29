@@ -13,6 +13,7 @@ export type DenoCommandLike = new(cmd: string, opts: { args: string[] }) => {
     stdin: { getWriter(): { write(d: Uint8Array): Promise<void>; close(): Promise<void> } };
     output(): Promise<{ success: boolean; code: number; stdout: Uint8Array }>;
   };
+  output(): Promise<{ success: boolean; code: number; stdout: Uint8Array }>;
 };
 
 // ─── 抽象基底クラス ────────────────────────────────────────────────────────────
@@ -41,6 +42,11 @@ export abstract class BaseMockCommand {
       stdin: BaseMockCommand.makeStdin(),
       output: () => this.makeOutput(),
     };
+  }
+
+  /** CommandProvider 向け直接呼び出し用。makeOutput() に委譲する。 */
+  output() {
+    return this.makeOutput();
   }
 
   /** サブクラスごとに success/code/stdout を返す抽象メソッド。 */
@@ -98,8 +104,12 @@ export class NotFoundMockCommand extends BaseMockCommand {
     throw new Deno.errors.NotFound('claude');
   }
 
+  override output(): never {
+    throw new Deno.errors.NotFound('git');
+  }
+
   protected makeOutput(): Promise<{ success: boolean; code: number; stdout: Uint8Array }> {
-    // 到達しない（spawn がスローする）
+    // 到達しない（spawn / output がスローする）
     return Promise.resolve({ success: false, code: 1, stdout: new Uint8Array() });
   }
 }

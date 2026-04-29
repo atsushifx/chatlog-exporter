@@ -8,6 +8,9 @@ export const ERROR_KIND_LABELS = {
   ForbiddenOutput: 'Forbidden Output',
   InvalidArgs: 'Invalid Args',
   InputNotFound: 'Input Not Found',
+  FileDirNotFound: 'File Or Dir Not Found',
   InvalidFormat: 'Invalid Format',
   InvalidYaml: 'Invalid Yaml',
+  NotInGitRepo: 'Not In Git Repository',
+  GitNotFound: 'Git Not Found',
 } as const;

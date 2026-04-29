@@ -23,6 +23,9 @@ export type ListDirProvider = (dir: string) => Promise<string[]>;
 /** glob パターンでファイルパス一覧を返す関数の型。テスト用インジェクションに利用する。 */
 export type GlobProvider = (pattern: string) => Promise<string[]>;
 
+/** Deno.stat 互換の関数型。テスト用インジェクションに利用する。 */
+export type StatProvider = (path: string) => Promise<Deno.FileInfo>;
+
 // ─────────────────────────────────────────────
 // ハッシュ生成系
 // ─────────────────────────────────────────────
@@ -32,3 +35,15 @@ export type GlobProvider = (pattern: string) => Promise<string[]>;
  * テスト時のインジェクタブルな依存として利用する。
  */
 export type HashProvider = () => string;
+
+// ─────────────────────────────────────────────
+// コマンド実行系
+// ─────────────────────────────────────────────
+
+/** git rev-parse 等の短命コマンド向け CommandProvider 型。 */
+export type CommandProvider = new(
+  cmd: string,
+  opts: { args: string[] },
+) => {
+  output(): Promise<{ success: boolean; code: number; stdout: Uint8Array }>;
+};

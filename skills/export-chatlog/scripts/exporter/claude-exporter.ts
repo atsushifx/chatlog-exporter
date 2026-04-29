@@ -7,8 +7,9 @@
 // https://opensource.org/licenses/MIT
 
 // -- external --
+import { homeDir } from '../../../_scripts/libs/file-io/dir-utils.ts';
 import { findDirectories, findEntries } from '../../../_scripts/libs/file-io/find-entries.ts';
-import { homeDir, normalizePath } from '../../../_scripts/libs/file-io/path-utils.ts';
+import { normalizePath } from '../../../_scripts/libs/file-io/path-utils.ts';
 import { isoToDate } from '../../../_scripts/libs/text/date-utils.ts';
 
 // -- internal --
