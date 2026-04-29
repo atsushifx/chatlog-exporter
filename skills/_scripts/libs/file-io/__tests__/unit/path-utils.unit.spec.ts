@@ -7,70 +7,28 @@
 // https://opensource.org/licenses/MIT
 
 // -- BDD modules --
-import { assertEquals } from '@std/assert';
+import { assertEquals, assertRejects } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // -- test target --
-import { getDirectory, getFileName, homeDir, normalizePath } from '../../path-utils.ts';
+import { getDirectory, getFileName, isAbsolutePath, normalizePath, resolveConfigPath } from '../../path-utils.ts';
+
+// -- test helpers --
+import {
+  makeNotFoundMock,
+  makeSuccessMock,
+} from '../../../../__tests__/helpers/deno-command-mock.ts';
+// providers for
+import type { CommandProvider, StatProvider } from '../../../../types/providers.types.ts';
+// error class
+import { ChatlogError } from '../../../../classes/ChatlogError.class.ts';
 
 // ─────────────────────────────────────────────
-// homeDir
+// shared mocks
 // ─────────────────────────────────────────────
 
-describe('homeDir', () => {
-  describe('Given: HOME 環境変数が設定されている', () => {
-    describe('When: homeDir を実行する', () => {
-      describe('Then: T-LIB-U-06-01 - HOME の値が返る', () => {
-        it('T-LIB-U-06-01: HOME が設定されている場合はその値を返す', () => {
-          const _env = (name: string): string | undefined => {
-            if (name === 'HOME') { return '/home/testuser'; }
-            return undefined;
-          };
-          assertEquals(homeDir(_env), '/home/testuser');
-        });
-      });
-    });
-  });
-
-  describe('Given: HOME 未設定・USERPROFILE が設定されている', () => {
-    describe('When: homeDir を実行する', () => {
-      describe('Then: T-LIB-U-06-02 - USERPROFILE の値が返る', () => {
-        it('T-LIB-U-06-02: HOME 未設定で USERPROFILE が設定されている場合はその値を返す', () => {
-          const _env = (name: string): string | undefined => {
-            if (name === 'USERPROFILE') { return 'C:/Users/testuser'; }
-            return undefined;
-          };
-          assertEquals(homeDir(_env), 'C:/Users/testuser');
-        });
-      });
-    });
-  });
-
-  describe('Given: HOME・USERPROFILE ともに未設定', () => {
-    describe('When: homeDir を実行する', () => {
-      describe('Then: T-LIB-U-06-03 - "~" が返る', () => {
-        it('T-LIB-U-06-03: どちらも未設定の場合は "~" を返す', () => {
-          const _env = (_name: string): string | undefined => undefined;
-          assertEquals(homeDir(_env), '~');
-        });
-      });
-    });
-  });
-
-  describe('Given: HOME 未設定・USERPROFILE がバックスラッシュパス', () => {
-    describe('When: homeDir を実行する', () => {
-      describe('Then: T-LIB-U-06-04 - バックスラッシュがスラッシュに正規化される', () => {
-        it('T-LIB-U-06-04: USERPROFILE が Windows バックスラッシュパスの場合はスラッシュに変換して返す', () => {
-          const _env = (name: string): string | undefined => {
-            if (name === 'USERPROFILE') { return 'C:\\Users\\testuser'; }
-            return undefined;
-          };
-          assertEquals(homeDir(_env), 'C:/Users/testuser');
-        });
-      });
-    });
-  });
-});
+const _existsStat: StatProvider = (_path: string) =>
+  Promise.resolve({ isFile: true, isDirectory: false } as Deno.FileInfo);
 
 // ─────────────────────────────────────────────
 // normalizePath
@@ -122,6 +80,16 @@ describe('normalizePath', () => {
       describe('Then: T-LIB-U-05 - ドライブレターを保持しスラッシュに変換される', () => {
         it('T-LIB-U-05-01: C:\\Users\\foo が C:/Users/foo に変換される', () => {
           assertEquals(normalizePath('C:\\Users\\foo'), 'C:/Users/foo');
+        });
+      });
+    });
+  });
+
+  describe('Given: URL pathname 形式のパス（/C:/...）', () => {
+    describe('When: normalizePath を実行する', () => {
+      describe('Then: T-LIB-U-07-01 - /C:/Users/foo が C:/Users/foo に変換される', () => {
+        it('T-LIB-U-07-01: /C:/Users/foo が C:/Users/foo に変換される（URL pathname 形式の修正）', () => {
+          assertEquals(normalizePath('/C:/Users/foo'), 'C:/Users/foo');
         });
       });
     });
@@ -234,6 +202,418 @@ describe('getFileName', () => {
       describe('Then: T-LIB-U-09-05 - 空文字列が返る', () => {
         it('T-LIB-U-09-05: 空文字列から空文字列が返る', () => {
           assertEquals(getFileName(''), '');
+        });
+      });
+    });
+  });
+});
+
+// ─────────────────────────────────────────────
+// isAbsolutePath
+// ─────────────────────────────────────────────
+
+describe('isAbsolutePath', () => {
+  describe('Given: Unix スタイルの絶対パス', () => {
+    describe('When: isAbsolutePath を実行する', () => {
+      describe('Then: T-LIB-U-12-01 - true が返る', () => {
+        it('T-LIB-U-12-01: /home/user は絶対パスと判定される', () => {
+          assertEquals(isAbsolutePath('/home/user'), true);
+        });
+      });
+      describe('Then: T-LIB-U-12-02 - true が返る', () => {
+        it('T-LIB-U-12-02: /etc/config は絶対パスと判定される', () => {
+          assertEquals(isAbsolutePath('/etc/config'), true);
+        });
+      });
+      describe('Then: T-LIB-U-12-03 - true が返る', () => {
+        it('T-LIB-U-12-03: / は絶対パスと判定される', () => {
+          assertEquals(isAbsolutePath('/'), true);
+        });
+      });
+    });
+  });
+
+  describe('Given: 相対パス', () => {
+    describe('When: isAbsolutePath を実行する', () => {
+      describe('Then: T-LIB-U-12-04 - false が返る', () => {
+        it('T-LIB-U-12-04: relative/path は絶対パスではないと判定される', () => {
+          assertEquals(isAbsolutePath('relative/path'), false);
+        });
+      });
+      describe('Then: T-LIB-U-12-05 - false が返る', () => {
+        it('T-LIB-U-12-05: ./relative は絶対パスではないと判定される', () => {
+          assertEquals(isAbsolutePath('./relative'), false);
+        });
+      });
+      describe('Then: T-LIB-U-12-06 - false が返る', () => {
+        it('T-LIB-U-12-06: ../parent は絶対パスではないと判定される', () => {
+          assertEquals(isAbsolutePath('../parent'), false);
+        });
+      });
+    });
+  });
+
+  describe('Given: 空文字列', () => {
+    describe('When: isAbsolutePath を実行する', () => {
+      describe('Then: T-LIB-U-12-07 - false が返る', () => {
+        it('T-LIB-U-12-07: 空文字列は絶対パスではないと判定される', () => {
+          assertEquals(isAbsolutePath(''), false);
+        });
+      });
+    });
+  });
+
+  describe('Given: Windows バックスラッシュ絶対パス', () => {
+    describe('When: isAbsolutePath を実行する', () => {
+      describe('Then: T-LIB-U-12-08 - true が返る', () => {
+        it('T-LIB-U-12-08: C:\\Users\\foo は絶対パスと判定される', () => {
+          assertEquals(isAbsolutePath('C:\\Users\\foo'), true);
+        });
+      });
+      describe('Then: T-LIB-U-12-09 - true が返る', () => {
+        it('T-LIB-U-12-09: D:/data は絶対パスと判定される', () => {
+          assertEquals(isAbsolutePath('D:/data'), true);
+        });
+      });
+      describe('Then: T-LIB-U-12-10 - true が返る', () => {
+        it('T-LIB-U-12-10: c:/path は絶対パスと判定される（小文字ドライブレター）', () => {
+          assertEquals(isAbsolutePath('c:/path'), true);
+        });
+      });
+    });
+  });
+
+  describe('Given: Windows ドライブレター付き相対パス', () => {
+    describe('When: isAbsolutePath を実行する', () => {
+      describe('Then: T-LIB-U-12-11 - false が返る', () => {
+        it('T-LIB-U-12-11: C:foo は絶対パスではないと判定される', () => {
+          assertEquals(isAbsolutePath('C:foo'), false);
+        });
+      });
+    });
+  });
+
+  describe('Given: UNC パス（バックスラッシュ）', () => {
+    describe('When: isAbsolutePath を実行する', () => {
+      describe('Then: T-LIB-U-12-12 - true が返る', () => {
+        it('T-LIB-U-12-12: \\\\server\\share は絶対パスと判定される', () => {
+          assertEquals(isAbsolutePath('\\\\server\\share'), true);
+        });
+      });
+      describe('Then: T-LIB-U-12-13 - true が返る', () => {
+        it('T-LIB-U-12-13: //server/share は絶対パスと判定される', () => {
+          assertEquals(isAbsolutePath('//server/share'), true);
+        });
+      });
+    });
+  });
+
+  describe('Given: 拡張子付き相対ファイル名', () => {
+    describe('When: isAbsolutePath を実行する', () => {
+      describe('Then: T-LIB-U-12-14 - false が返る', () => {
+        it('T-LIB-U-12-14: file.md は絶対パスではないと判定される', () => {
+          assertEquals(isAbsolutePath('file.md'), false);
+        });
+      });
+    });
+  });
+
+  describe('Given: URL pathname 形式の Windows パス（/C:/...）', () => {
+    describe('When: isAbsolutePath を実行する', () => {
+      describe('Then: T-LIB-U-12-15 - true が返る', () => {
+        it('T-LIB-U-12-15: /C:/Users/foo は絶対パスと判定される（URL pathname 形式が正しく処理される）', () => {
+          assertEquals(isAbsolutePath('/C:/Users/foo'), true);
+        });
+      });
+    });
+  });
+});
+
+// ─────────────────────────────────────────────
+// resolveConfigPath
+// ─────────────────────────────────────────────
+
+describe('resolveConfigPath', () => {
+  describe('Given: configPath に Unix 絶対パスを指定する', () => {
+    describe('When: resolveConfigPath を実行する', () => {
+      describe('Then: T-LIB-U-14-01 - 絶対パスが正規化されて返る', () => {
+        it('T-LIB-U-14-01: Unix 絶対パスはそのまま正規化されて返る', async () => {
+          assertEquals(
+            await resolveConfigPath({
+              defaultPath: 'default.yaml',
+              configPath: '/home/user/config.yaml',
+              statProvider: _existsStat,
+            }),
+            '/home/user/config.yaml',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: configPath に Windows バックスラッシュ絶対パスを指定する', () => {
+    describe('When: resolveConfigPath を実行する', () => {
+      describe('Then: T-LIB-U-14-02 - バックスラッシュがスラッシュに正規化されて返る', () => {
+        it('T-LIB-U-14-02: Windows バックスラッシュ絶対パスはスラッシュに正規化されて返る', async () => {
+          assertEquals(
+            await resolveConfigPath({
+              defaultPath: 'default.yaml',
+              configPath: 'C:\\Users\\foo\\config.yaml',
+              statProvider: _existsStat,
+            }),
+            'C:/Users/foo/config.yaml',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: configPath に相対パスを指定する', () => {
+    describe('When: resolveConfigPath を実行する（root=/home/user/project）', () => {
+      describe('Then: T-LIB-U-14-03 - プロジェクトルートと結合して正規化されて返る', () => {
+        it('T-LIB-U-14-03: 相対パスはプロジェクトルートと結合されて返る', async () => {
+          const _enc = new TextEncoder();
+          const _mock = makeSuccessMock(_enc.encode('/home/user/project\n'));
+          assertEquals(
+            await resolveConfigPath({
+              defaultPath: 'default.yaml',
+              configPath: 'config/settings.yaml',
+              commandProvider: _mock as unknown as CommandProvider,
+              statProvider: _existsStat,
+            }),
+            '/home/user/project/config/settings.yaml',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: configPath が未指定で defaultPath が絶対パス', () => {
+    describe('When: resolveConfigPath を実行する', () => {
+      describe('Then: T-LIB-U-14-04 - defaultPath が正規化されて返る', () => {
+        it('T-LIB-U-14-04: configPath 省略のとき defaultPath 絶対パスが返る', async () => {
+          assertEquals(
+            await resolveConfigPath({
+              defaultPath: '/home/user/project/default.yaml',
+              statProvider: _existsStat,
+            }),
+            '/home/user/project/default.yaml',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: configPath が未指定で defaultPath が相対パス', () => {
+    describe('When: resolveConfigPath を実行する（root=/home/user/project）', () => {
+      describe('Then: T-LIB-U-14-05 - defaultPath がプロジェクトルートと結合されて返る', () => {
+        it('T-LIB-U-14-05: configPath 省略のとき defaultPath 相対パスがルートと結合されて返る', async () => {
+          const _enc = new TextEncoder();
+          const _mock = makeSuccessMock(_enc.encode('/home/user/project\n'));
+          assertEquals(
+            await resolveConfigPath({
+              defaultPath: 'config/default.yaml',
+              commandProvider: _mock as unknown as CommandProvider,
+              statProvider: _existsStat,
+            }),
+            '/home/user/project/config/default.yaml',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: 相対パスで git コマンドが見つからない', () => {
+    describe('When: resolveConfigPath を実行する（makeNotFoundMock）', () => {
+      describe('Then: T-LIB-U-14-06 - ChatlogError(GitNotFound) で reject する', () => {
+        it('T-LIB-U-14-06: makeNotFoundMock() → ChatlogError(GitNotFound) で reject される', async () => {
+          await assertRejects(
+            () =>
+              resolveConfigPath({
+                defaultPath: 'default.yaml',
+                configPath: 'config/settings.yaml',
+                commandProvider: makeNotFoundMock() as unknown as CommandProvider,
+              }),
+            ChatlogError,
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: configPath が空文字列', () => {
+    describe('When: resolveConfigPath を実行する（root=/home/user/project）', () => {
+      describe('Then: T-LIB-U-14-07 - プロジェクトルートにスラッシュを付けて返る', () => {
+        it('T-LIB-U-14-07: configPath="" のとき /home/user/project/ が返る', async () => {
+          const _enc = new TextEncoder();
+          const _mock = makeSuccessMock(_enc.encode('/home/user/project\n'));
+          assertEquals(
+            await resolveConfigPath({
+              defaultPath: 'default.yaml',
+              configPath: '',
+              commandProvider: _mock as unknown as CommandProvider,
+              statProvider: _existsStat,
+            }),
+            '/home/user/project/',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: configPath に相対ディレクトリパスを指定する', () => {
+    describe('When: resolveConfigPath を実行する（root=/home/user/project）', () => {
+      describe('Then: T-LIB-U-14-08 - プロジェクトルートと結合されて返る', () => {
+        it('T-LIB-U-14-08: 相対ディレクトリパスはプロジェクトルートと結合されて返る', async () => {
+          const _enc = new TextEncoder();
+          const _mock = makeSuccessMock(_enc.encode('/home/user/project\n'));
+          assertEquals(
+            await resolveConfigPath({
+              defaultPath: 'default.yaml',
+              configPath: 'assets/dics',
+              commandProvider: _mock as unknown as CommandProvider,
+              statProvider: _existsStat,
+            }),
+            '/home/user/project/assets/dics',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: configPath に Unix 絶対ディレクトリパスを指定する', () => {
+    describe('When: resolveConfigPath を実行する', () => {
+      describe('Then: T-LIB-U-14-09 - 絶対ディレクトリパスが正規化されて返る', () => {
+        it('T-LIB-U-14-09: Unix 絶対ディレクトリパスはそのまま返る', async () => {
+          assertEquals(
+            await resolveConfigPath({
+              defaultPath: 'default.yaml',
+              configPath: '/home/user/data',
+              statProvider: _existsStat,
+            }),
+            '/home/user/data',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: configPath に末尾スラッシュ付き相対ディレクトリパスを指定する', () => {
+    describe('When: resolveConfigPath を実行する（root=/home/user/project）', () => {
+      describe('Then: T-LIB-U-14-10 - 末尾スラッシュを保持してプロジェクトルートと結合されて返る', () => {
+        it('T-LIB-U-14-10: 末尾スラッシュ付き相対ディレクトリパスは末尾スラッシュを保持して返る', async () => {
+          const _enc = new TextEncoder();
+          const _mock = makeSuccessMock(_enc.encode('/home/user/project\n'));
+          assertEquals(
+            await resolveConfigPath({
+              defaultPath: 'default.yaml',
+              configPath: 'assets/dics/',
+              commandProvider: _mock as unknown as CommandProvider,
+              statProvider: _existsStat,
+            }),
+            '/home/user/project/assets/dics/',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: configPath が未指定で defaultPath が相対ディレクトリパス', () => {
+    describe('When: resolveConfigPath を実行する（root=/home/user/project）', () => {
+      describe('Then: T-LIB-U-14-11 - defaultPath がプロジェクトルートと結合されて返る', () => {
+        it('T-LIB-U-14-11: configPath 省略のとき defaultPath 相対ディレクトリがルートと結合されて返る', async () => {
+          const _enc = new TextEncoder();
+          const _mock = makeSuccessMock(_enc.encode('/home/user/project\n'));
+          assertEquals(
+            await resolveConfigPath({
+              defaultPath: 'assets/dics',
+              commandProvider: _mock as unknown as CommandProvider,
+              statProvider: _existsStat,
+            }),
+            '/home/user/project/assets/dics',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: configPath の絶対パスが存在しない', () => {
+    describe('When: resolveConfigPath を実行する（statProvider が NotFound を返す）', () => {
+      describe('Then: T-LIB-U-14-12 - ChatlogError(InputNotFound) で reject する', () => {
+        it('T-LIB-U-14-12: 絶対パスが存在しない場合 ChatlogError(InputNotFound) が throw される', async () => {
+          const _notFoundStat = () => Promise.reject(new Deno.errors.NotFound('no such file'));
+          await assertRejects(
+            () =>
+              resolveConfigPath({
+                defaultPath: 'default.yaml',
+                configPath: '/nonexistent/config.yaml',
+                statProvider: _notFoundStat,
+              }),
+            ChatlogError,
+            'File Or Dir Not Found',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: 相対パスを解決した結果のパスが存在しない', () => {
+    describe('When: resolveConfigPath を実行する（statProvider が NotFound を返す）', () => {
+      describe('Then: T-LIB-U-14-13 - ChatlogError(InputNotFound) で reject する', () => {
+        it('T-LIB-U-14-13: 相対パス解決後のパスが存在しない場合 ChatlogError(InputNotFound) が throw される', async () => {
+          const _enc = new TextEncoder();
+          const _mock = makeSuccessMock(_enc.encode('/home/user/project\n'));
+          const _notFoundStat = () => Promise.reject(new Deno.errors.NotFound('no such file'));
+          await assertRejects(
+            () =>
+              resolveConfigPath({
+                defaultPath: 'default.yaml',
+                configPath: 'config/missing.yaml',
+                commandProvider: _mock as unknown as CommandProvider,
+                statProvider: _notFoundStat,
+              }),
+            ChatlogError,
+            'File Or Dir Not Found',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: configPath 未指定で defaultPath 解決後のパスが存在しない', () => {
+    describe('When: resolveConfigPath を実行する（statProvider が NotFound を返す）', () => {
+      describe('Then: T-LIB-U-14-14 - ChatlogError(InputNotFound) で reject する', () => {
+        it('T-LIB-U-14-14: defaultPath 解決後のパスが存在しない場合 ChatlogError(InputNotFound) が throw される', async () => {
+          const _enc = new TextEncoder();
+          const _mock = makeSuccessMock(_enc.encode('/home/user/project\n'));
+          const _notFoundStat = () => Promise.reject(new Deno.errors.NotFound('no such file'));
+          await assertRejects(
+            () =>
+              resolveConfigPath({
+                defaultPath: 'config/default.yaml',
+                commandProvider: _mock as unknown as CommandProvider,
+                statProvider: _notFoundStat,
+              }),
+            ChatlogError,
+            'File Or Dir Not Found',
+          );
+        });
+      });
+    });
+  });
+
+  describe('Given: configPath の絶対パスが存在する', () => {
+    describe('When: resolveConfigPath を実行する（statProvider が成功を返す）', () => {
+      describe('Then: T-LIB-U-14-15 - 正規化されたパスが返る', () => {
+        it('T-LIB-U-14-15: statProvider が成功を返す場合、正規化されたパスが返る', async () => {
+          assertEquals(
+            await resolveConfigPath({
+              defaultPath: 'default.yaml',
+              configPath: '/existing/config.yaml',
+              statProvider: _existsStat,
+            }),
+            '/existing/config.yaml',
+          );
         });
       });
     });
