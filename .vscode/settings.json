@@ -6,15 +6,5 @@
   },
   // deno settings
   "deno.enable": true,
-  "deno.config": "deno.json",
-  // trusted JSON schema hosts
-  "json.schemaDownload.enable": true,
-  "json.schemaDownload.trustedDomains": {
-    "https://raw.githubusercontent.com/microsoft/vscode/": true,
-    "https://raw.githubusercontent.com/devcontainers/spec/": true,
-    "https://raw.githubusercontent.com/streetsidesoftware/cspell/": true,
-    "https://developer.microsoft.com/json-schemas/": true,
-    "https://raw.githubusercontent.com/denoland/": true,
-    "https://dprint.dev/schemas/": true
-  }
+  "deno.config": "deno.json"
 }
