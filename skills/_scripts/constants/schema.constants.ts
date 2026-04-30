@@ -1,0 +1,58 @@
+// src: skills/_scripts/constants/schema.constants.ts
+// @(#): GlobalConfig スキーマ定数
+//
+// Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
+//
+// This software is released under the MIT License.
+// https://opensource.org/licenses/MIT
+
+export type SchemaValueType = string | number;
+export type SchemaValueTypeName = 'string' | 'number';
+
+/** GlobalConfig のデフォルトスキーマ。登録済みキーと型を定義する。 */
+export const DEFAULT_SCHEMA: Record<string, SchemaValueTypeName> = {
+  /** 使用する AI エージェント識別子。例: "claude", "chatgpt" */
+  agent: 'string',
+  /** 使用するモデル名またはエイリアス。例: "sonnet", "opus" */
+  aiModel: 'string',
+  /** AI 実行タイムアウト (ms)。0 = タイムアウトなし。 */
+  timeoutMs: 'number',
+  /** generateHash が返す16進数文字列の長さ。 */
+  hashLength: 'number',
+  /** ランダム文字列生成の最小長。 */
+  minRandomLength: 'number',
+  /** ランダム文字列生成の最大長。 */
+  maxRandomLength: 'number',
+  /** バッチリクエスト1回あたりの最大ファイル数。 */
+  chunkSize: 'number',
+  /** 同時実行する並列タスク数の上限。 */
+  concurrency: 'number',
+};
+
+/** DEFAULT_SCHEMA のキーのユニオン型。 */
+export type DefaultSchemaKey = keyof typeof DEFAULT_SCHEMA;
+
+/** GlobalConfig のスキーマ型。 */
+export type ConfigSchema = Record<DefaultSchemaKey, SchemaValueTypeName>;
+
+export type ConfigValues = Record<DefaultSchemaKey, SchemaValueType>;
+
+/** GlobalConfig のデフォルト値。DEFAULT_SCHEMA のすべてのキーに対する初期値を持つ。 */
+export const DEFAULT_VALUES: ConfigValues = {
+  /** デフォルトエージェントは "claude" */
+  agent: 'claude',
+  /** デフォルトモデルは "sonnet" */
+  aiModel: 'sonnet',
+  /** デフォルトタイムアウトは 120,000 ms（2分） */
+  timeoutMs: 120_000,
+  /** デフォルトハッシュ長は 8 文字 */
+  hashLength: 8,
+  /** ランダム文字列の最小長は 4 文字 */
+  minRandomLength: 4,
+  /** ランダム文字列の最大長は 16 文字 */
+  maxRandomLength: 16,
+  /** デフォルトチャンクサイズは 10 ファイル */
+  chunkSize: 10,
+  /** デフォルト並列数は 4 タスク */
+  concurrency: 4,
+} as const;
