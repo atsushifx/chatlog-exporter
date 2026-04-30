@@ -8,7 +8,7 @@
 
 // -- BDD modules --
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import { assertSpyCalls, spy } from '@std/testing/mock';
+import { assertSpyCalls, stub, type Stub } from '@std/testing/mock';
 
 // -- test target --
 import { logger } from '../../logger.ts';
@@ -23,14 +23,12 @@ import { logger } from '../../logger.ts';
  * 各メソッドの出力先（stdout / stderr）と prefix の有無をカバーする。
  */
 describe('logger', () => {
-  // deno-lint-ignore no-explicit-any
-  let logSpy: any;
-  // deno-lint-ignore no-explicit-any
-  let errorSpy: any;
+  let logSpy: Stub;
+  let errorSpy: Stub;
 
   beforeEach(() => {
-    logSpy = spy(console, 'log');
-    errorSpy = spy(console, 'error');
+    logSpy = stub(console, 'log', () => {});
+    errorSpy = stub(console, 'error', () => {});
   });
 
   afterEach(() => {
