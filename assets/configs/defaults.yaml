@@ -6,7 +6,7 @@
 agent: claude
 
 # AI 実行系
-aiModel: "sonnet"
+model: "sonnet"
 timeoutMs: 120_000 # 2分(ms)
 
 # ハッシュ生成系
