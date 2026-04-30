@@ -14,7 +14,7 @@ export const DEFAULT_SCHEMA: Record<string, SchemaValueTypeName> = {
   /** 使用する AI エージェント識別子。例: "claude", "chatgpt" */
   agent: 'string',
   /** 使用するモデル名またはエイリアス。例: "sonnet", "opus" */
-  aiModel: 'string',
+  model: 'string',
   /** AI 実行タイムアウト (ms)。0 = タイムアウトなし。 */
   timeoutMs: 'number',
   /** generateHash が返す16進数文字列の長さ。 */
@@ -42,7 +42,7 @@ export const DEFAULT_VALUES: ConfigValues = {
   /** デフォルトエージェントは "claude" */
   agent: 'claude',
   /** デフォルトモデルは "sonnet" */
-  aiModel: 'sonnet',
+  model: 'sonnet',
   /** デフォルトタイムアウトは 120,000 ms（2分） */
   timeoutMs: 120_000,
   /** デフォルトハッシュ長は 8 文字 */
