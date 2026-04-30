@@ -141,7 +141,7 @@ describe('GlobalConfig', () => {
   describe('get', () => {
     it('T-CLS-GC-03: 設定済みキーの値を返す', async () => {
       const _config = await GlobalConfig.getInstance();
-      assertEquals(_config.get('aiModel'), 'sonnet');
+      assertEquals(_config.get('model'), 'sonnet');
     });
 
     it('T-CLS-GC-04: 存在しないキーは undefined を返す', async () => {
