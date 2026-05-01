@@ -60,7 +60,6 @@ import type {
 /** `--option value` 形式のオプションと ParsedConfig キーのマッピング。 */
 const _OPT_KEYS: Record<string, keyof ParsedConfig> = {
   '--input': 'inputDir',
-  '--dics': 'dicsDir',
   '--model': 'model',
   '--config': 'configFile',
 };
@@ -82,6 +81,32 @@ export const parseArgs = (args: string[]): ParsedConfig => {
   }
   return _parsed;
 };
+
+// ─────────────────────────────────────────────
+// 設定構築
+// ─────────────────────────────────────────────
+
+/**
+ * ParsedConfig・GlobalConfig・デフォルト値から完全な ClassifyConfig を構築する。
+ * - model 優先順位: `parsed.model` > `globalConfig.get('model')` > `defaults.model`
+ * - dicsDir 優先順位: `globalConfig.get('dicsDir')` > `defaults.dicsDir`
+ * - 不正なモデル名は `ChatlogError('InvalidArgs')` をスローする。
+ * - `configFile` は ClassifyConfig に存在しないため結果に含まれない。
+ */
+export function buildConfig(
+  parsed: ParsedConfig,
+  globalConfig: GlobalConfig,
+  defaults?: ClassifyConfig,
+): ClassifyConfig {
+  const _defaults = defaults ?? DEFAULT_CLASSIFY_CONFIG;
+  const _model = parsed.model ?? (globalConfig.get('model') as string | undefined) ?? _defaults.model;
+  if (!isValidModel(_model)) {
+    throw new ChatlogError('InvalidArgs', `不正なモデル名: ${_model}`);
+  }
+  const _dicsDir = (globalConfig.get('dicsDir') as string | undefined) ?? _defaults.dicsDir;
+  const { configFile: _cf, ...rest } = parsed;
+  return { ..._defaults, ...rest, model: _model, dicsDir: _dicsDir };
+}
 
 // ─────────────────────────────────────────────
 // フロントマター操作
@@ -311,11 +336,7 @@ export const main = async (argv?: string[]): Promise<void> => {
   try {
     const _parsed = parseArgs(argv ?? Deno.args);
     const _globalConfig = await GlobalConfig.getInstance({ configFile: _parsed.configFile });
-    const _model = _parsed.model ?? (_globalConfig.get('model') as string) ?? DEFAULT_CLASSIFY_CONFIG.model;
-    if (!isValidModel(_model)) {
-      throw new ChatlogError('InvalidArgs', `不正なモデル名: ${_model}`);
-    }
-    const _config: ClassifyConfig = { ...DEFAULT_CLASSIFY_CONFIG, ..._parsed, model: _model };
+    const _config = buildConfig(_parsed, _globalConfig);
 
     // 入力ディレクトリ確認
     const agentDir = `${_config.inputDir}/${_config.agent}`;
