@@ -27,6 +27,10 @@ export const DEFAULT_SCHEMA: Record<string, SchemaValueTypeName> = {
   chunkSize: 'number',
   /** 同時実行する並列タスク数の上限。 */
   concurrency: 'number',
+  /** 辞書ファイルが置かれたディレクトリのパス。 */
+  dicsDir: 'string',
+  /** プロンプトテンプレートが置かれたディレクトリのパス。 */
+  promptsDir: 'string',
 };
 
 /** DEFAULT_SCHEMA のキーのユニオン型。 */
@@ -55,4 +59,8 @@ export const DEFAULT_VALUES: ConfigValues = {
   chunkSize: 10,
   /** デフォルト並列数は 4 タスク */
   concurrency: 4,
+  /** デフォルト辞書ディレクトリ */
+  dicsDir: './assets/dics',
+  /** デフォルトプロンプトディレクトリ */
+  promptsDir: './assets/prompts',
 } as const;

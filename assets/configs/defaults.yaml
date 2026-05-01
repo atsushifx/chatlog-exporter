@@ -17,3 +17,7 @@ maxRandomLength: 16
 # 並列処理・バッチ処理系
 chunkSize: 10
 concurrency: 4
+
+# アセットディレクトリ
+dicsDir: "./assets/dics"
+promptsDir: "./assets/prompts"
