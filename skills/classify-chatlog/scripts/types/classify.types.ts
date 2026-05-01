@@ -7,6 +7,13 @@
 // https://opensource.org/licenses/MIT
 
 // ─────────────────────────────────────────────
+// プロジェクトエントリ型
+// ─────────────────────────────────────────────
+
+/** projects.dic 全体。プロジェクト名をキー、プロパティ（string→string マップ）を値とする辞書。 */
+export type ProjectDicEntry = Record<string, Record<string, string>>;
+
+// ─────────────────────────────────────────────
 // 分類結果型
 // ─────────────────────────────────────────────
 
@@ -76,6 +83,8 @@ export interface ClassifyConfig {
   inputDir: string;
   /** `projects.dic` が置かれた辞書ディレクトリのパス。 */
   dicsDir: string;
+  /** プロジェクト辞書ファイルのパス。省略時は DEFAULT_PROJECTS_DIC_PATH。 */
+  projectsDic?: string;
   /** claude CLI に渡すモデル名。 */
   model: string;
 }

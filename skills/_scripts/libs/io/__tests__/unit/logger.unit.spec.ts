@@ -8,7 +8,9 @@
 
 // -- BDD modules --
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import { assertSpyCalls, stub, type Stub } from '@std/testing/mock';
+import { assertSpyCalls, stub } from '@std/testing/mock';
+// types
+import type { Stub } from '@std/testing/mock';
 
 // -- test target --
 import { logger } from '../../logger.ts';

@@ -1,6 +1,21 @@
 # プロジェクト一覧 (file-ops integration test 専用)
-app1
-app2
-infra
-dev-tools
-misc
+
+app1:
+  def: Test project 1
+  category: development
+
+app2:
+  def: Test project 2
+  category: development
+
+infra:
+  def: Infrastructure project
+  category: infrastructure
+
+dev-tools:
+  def: Development tools project
+  category: tooling
+
+misc:
+  def: Miscellaneous
+  category: casual

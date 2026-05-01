@@ -24,7 +24,7 @@ export const VALID_TYPES = [
 ] as const;
 
 // --allow-run が必要なテストタイプ
-export const TYPES_REQUIRING_RUN = new Set<string>(['system', 'fixtures']);
+export const TYPES_REQUIRING_RUN = new Set<string>(['integration', 'system', 'fixtures']);
 
 // --allow-env が必要なテストタイプ
 export const TYPES_REQUIRING_ENV = new Set<string>(['system', 'fixtures']);

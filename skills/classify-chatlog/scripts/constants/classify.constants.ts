@@ -16,6 +16,9 @@ import type { ClassifyConfig } from '../types/classify.types.ts';
 /** プロジェクトが特定できなかった場合に割り当てるフォールバックプロジェクト名。 */
 export const FALLBACK_PROJECT = 'misc';
 
+/** プロジェクト辞書ファイルのデフォルトパス。 */
+export const DEFAULT_PROJECTS_DIC_PATH = './assets/configs/projects.dic';
+
 /** フロントマターなし時に分類を試みる最低本文長（文字数）。これ未満は misc に直接分類する。 */
 export const MIN_CLASSIFIABLE_LENGTH = 50;
 

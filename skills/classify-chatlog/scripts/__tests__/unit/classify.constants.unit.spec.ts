@@ -15,7 +15,21 @@ import { describe, it } from '@std/testing/bdd';
 import { DEFAULT_AGENT, DEFAULT_AI_MODEL } from '../../../../_scripts/constants/defaults.constants.ts';
 
 // -- test target --
-import { DEFAULT_CLASSIFY_CONFIG } from '../../constants/classify.constants.ts';
+import { DEFAULT_CLASSIFY_CONFIG, DEFAULT_PROJECTS_DIC_PATH } from '../../constants/classify.constants.ts';
+
+// ─── DEFAULT_PROJECTS_DIC_PATH の検証 ────────────────────────────────────────
+
+describe('classify.constants', () => {
+  describe('Given: DEFAULT_PROJECTS_DIC_PATH', () => {
+    describe('When: 値を参照する', () => {
+      describe('Then: T-CL-CONST-02 - 期待するデフォルトパスを持つ', () => {
+        it('T-CL-CONST-02-01: DEFAULT_PROJECTS_DIC_PATH が "./assets/configs/projects.dic" になる', () => {
+          assertEquals(DEFAULT_PROJECTS_DIC_PATH, './assets/configs/projects.dic');
+        });
+      });
+    });
+  });
+});
 
 // ─── DEFAULT_CLASSIFY_CONFIG の各フィールド検証 ────────────────────────────────
 
