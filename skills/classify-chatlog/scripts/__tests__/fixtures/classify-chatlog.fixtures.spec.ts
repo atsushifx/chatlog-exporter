@@ -14,24 +14,29 @@ import { parse as parseYaml } from '@std/yaml';
 // test target
 import { processChunk } from '../../classify-chatlog.ts';
 
+// utils
+import { findDirectories } from '../../../../_scripts/libs/file-io/find-entries.ts';
+import { parseFrontmatterEntries } from '../../../../_scripts/libs/text/frontmatter-utils.ts';
 // constants
 import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/defaults.constants.ts';
 // types
-import type { ClassifyFileMeta, ClassifyStats } from '../../types/classify.types.ts';
+import type { ClassifyFileMeta, ClassifyStats, ProjectDicEntry } from '../../types/classify.types.ts';
 
 // helpers
+import { findFixtureDirs } from '../../../../_scripts/__tests__/helpers/find-fixture-dirs.ts';
 import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
 import { makeLoggerStub } from '../../../../_scripts/__tests__/helpers/logger-stub.ts';
-import { normalizeLine } from '../../../../_scripts/libs/text/line-utils.ts';
+import { loadProjectDic } from '../../libs/load-project-dic.ts';
 
 // ─── フィクスチャパス ──────────────────────────────────────────────────────────
-
+/** フィクスチャディレクトリ */
 const FIXTURES_DIR = new URL('./fixtures-data', import.meta.url)
   .pathname
   .replace(/^\/([A-Z]:)/, '$1'); // Windows: /C:/... → C:/...
 
 // ─── 型定義 ───────────────────────────────────────────────────────────────────
 
+/**FixtureOutput */
 interface FixtureOutput {
   expected_project?: string;
   known_projects: string[];
@@ -39,7 +44,7 @@ interface FixtureOutput {
 }
 
 // ─── claude CLI テストの opt-in 制御 ──────────────────────────────────────────
-
+/** claude CLI を実行フラグ */
 const _shouldRunAI = Deno.env.get('RUN_AI') === '1';
 
 // ─── ヘルパー ─────────────────────────────────────────────────────────────────
@@ -50,38 +55,10 @@ async function _loadOutput(dir: string): Promise<FixtureOutput> {
   return parseYaml(content) as FixtureOutput;
 }
 
-/** projects.dic からプロジェクトリストを読み込む */
-async function _loadProjectsDic(): Promise<string[]> {
-  const content = await Deno.readTextFile(`${FIXTURES_DIR}/projects.dic`);
-  return content
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('#') && line !== 'misc');
-}
-
-/**
- * FIXTURES_DIR 直下のサブディレクトリを収集する。
- * input.md を持つディレクトリのみを対象とする。
- */
-async function _collectFixtureDirs(rootDir: string): Promise<string[]> {
-  const dirs: string[] = [];
-  for await (const entry of Deno.readDir(rootDir)) {
-    if (!entry.isDirectory) { continue; }
-    const childAbs = `${rootDir}/${entry.name}`;
-    try {
-      await Deno.stat(`${childAbs}/input.md`);
-      dirs.push(entry.name);
-    } catch {
-      // input.md がなければスキップ
-    }
-  }
-  return dirs.sort();
-}
-
 // ─── ファイル駆動 fixtures tests ──────────────────────────────────────────────
 
-const _fixtureDirs = await _collectFixtureDirs(FIXTURES_DIR);
-const _projects = await _loadProjectsDic();
+const _fixtureDirs = await findFixtureDirs(FIXTURES_DIR);
+const _projects: ProjectDicEntry = await loadProjectDic(`${FIXTURES_DIR}/projects.dic`);
 
 for (const _relPath of _fixtureDirs) {
   const _fixtureDir = `${FIXTURES_DIR}/${_relPath}`;
@@ -125,12 +102,12 @@ for (const _relPath of _fixtureDirs) {
               fullText: _inputContent,
             };
 
-            // フロントマターからメタデータを取得（簡易パース）
-            const _fm = _extractFrontmatterFields(_inputContent);
-            _fileMeta.title = _fm.title;
-            _fileMeta.category = _fm.category;
-            _fileMeta.topics = _fm.topics;
-            _fileMeta.tags = _fm.tags;
+            // フロントマターからメタデータを取得
+            const { meta: _fm } = parseFrontmatterEntries(_inputContent);
+            _fileMeta.title = (_fm.title as string) ?? '';
+            _fileMeta.category = (_fm.category as string) ?? '';
+            _fileMeta.topics = (_fm.topics as string[]) ?? [];
+            _fileMeta.tags = (_fm.tags as string[]) ?? [];
 
             await processChunk([_fileMeta], _projects, false, _stats, DEFAULT_AI_MODEL);
 
@@ -147,7 +124,8 @@ for (const _relPath of _fixtureDirs) {
             );
 
             // 移動先ディレクトリを確認してプロジェクト名を取得
-            const _movedProject = await _findMovedProject(_tempDir);
+            const _dirs = await findDirectories(_tempDir);
+            const _movedProject = _dirs.length > 0 ? _dirs[0].slice(_tempDir.length + 1) : 'misc';
 
             if (_expectedOutput.expected_project !== undefined) {
               assertEquals(
@@ -167,54 +145,4 @@ for (const _relPath of _fixtureDirs) {
       });
     });
   });
-}
-
-// ─── 内部ヘルパー ─────────────────────────────────────────────────────────────
-
-/** フロントマターから title/category/topics/tags を簡易抽出する */
-function _extractFrontmatterFields(text: string): {
-  title: string;
-  category: string;
-  topics: string[];
-  tags: string[];
-} {
-  const result = { title: '', category: '', topics: [] as string[], tags: [] as string[] };
-  const normalized = normalizeLine(text);
-  if (!normalized.startsWith('---\n')) { return result; }
-  const end = normalized.indexOf('\n---\n', 4);
-  if (end === -1) { return result; }
-
-  const fmLines = normalized.slice(4, end).split('\n');
-  let currentList: string[] | null = null;
-
-  for (const line of fmLines) {
-    const listMatch = line.match(/^\s{2}- (.+)$/);
-    if (listMatch && currentList) {
-      currentList.push(listMatch[1].trim());
-      continue;
-    }
-    currentList = null;
-    if (line.startsWith('title:')) { result.title = line.slice('title:'.length).trim(); }
-    else if (line.startsWith('category:')) { result.category = line.slice('category:'.length).trim(); }
-    else if (line === 'topics:') { currentList = result.topics; }
-    else if (line === 'tags:') { currentList = result.tags; }
-  }
-  return result;
-}
-
-/**
- * tempDir 内に作成されたサブディレクトリを探し、移動先プロジェクト名を返す。
- * ファイルが移動されていない場合は "misc" を返す。
- */
-async function _findMovedProject(tempDir: string): Promise<string> {
-  try {
-    for await (const entry of Deno.readDir(tempDir)) {
-      if (entry.isDirectory) {
-        return entry.name;
-      }
-    }
-  } catch {
-    // エラー時はフォールバック
-  }
-  return 'misc';
 }

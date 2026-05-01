@@ -90,4 +90,7 @@ export interface ClassifyConfig {
 }
 
 /** `parseArgs` の戻り値型。引数で指定されたフィールドのみ含む。 */
-export type ParsedConfig = Partial<ClassifyConfig>;
+export type ParsedConfig = Partial<ClassifyConfig> & {
+  /** `--config` で指定された設定ファイルのパス。省略時は `undefined`。 */
+  configFile?: string;
+};

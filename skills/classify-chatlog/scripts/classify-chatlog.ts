@@ -11,7 +11,7 @@
  *
  * 使い方:
  *   deno run --allow-read --allow-run --allow-write classify_chatlog.ts \
- *     [agent] [YYYY-MM] [--dry-run] --input DIR --dics DIR
+ *     [agent] [YYYY-MM] [--dry-run] [--config FILE] --input DIR --dics DIR
  */
 
 // -- external --
@@ -32,44 +32,67 @@ import { logger } from '../../_scripts/libs/io/logger.ts';
 import { DEFAULT_CHUNK_SIZE, DEFAULT_CONCURRENCY } from '../../_scripts/constants/defaults.constants.ts';
 // classes
 import { ChatlogError } from '../../_scripts/classes/ChatlogError.class.ts';
+import { GlobalConfig } from '../../_scripts/classes/GlobalConfig.class.ts';
 
 // -- internal --
+// functions
+import { loadProjectDic } from './libs/load-project-dic.ts';
+// constants
 import {
   DEFAULT_CLASSIFY_CONFIG,
   FALLBACK_PROJECT,
   MIN_CLASSIFIABLE_LENGTH,
 } from './constants/classify.constants.ts';
+// types
 import type {
   ClassifyConfig,
   ClassifyFileMeta,
   ClassifyResult,
   ClassifyStats,
   ParsedConfig,
+  ProjectDicEntry,
 } from './types/classify.types.ts';
 
 // ─────────────────────────────────────────────
-// 辞書読み込み
+// 引数解析
 // ─────────────────────────────────────────────
 
-export const loadProjects = async (dicsDir: string): Promise<string[]> => {
-  const dicPath = `${dicsDir}/projects.dic`;
-  let text: string;
-  try {
-    text = await readTextFile(dicPath);
-  } catch {
-    logger.warn(`projects.dic が見つかりません: ${dicPath}`);
-    return [];
+/** `--option value` 形式のオプションと ParsedConfig キーのマッピング。 */
+const _OPT_KEYS: Record<string, keyof ParsedConfig> = {
+  '--input': 'inputDir',
+  '--dics': 'dicsDir',
+  '--model': 'model',
+  '--config': 'configFile',
+};
+
+/** `--flag` 形式（値なし）のオプションと ParsedConfig キーのマッピング。 */
+const _OPT_FLAGS: Record<string, keyof ParsedConfig> = {
+  '--dry-run': 'dryRun',
+};
+
+/**
+ * コマンドライン引数を解析して ParsedConfig を返す。
+ * - `--model` が指定された場合はバリデーションを行い、不正なら `ChatlogError('InvalidArgs')` をスローする。
+ * - モデルのデフォルト値解決は `main()` で GlobalConfig を取得した後に行う。
+ */
+export const parseArgs = (args: string[]): ParsedConfig => {
+  const _parsed = parseArgsToConfig<ParsedConfig>(args, _OPT_KEYS, _OPT_FLAGS) as ParsedConfig;
+  if (_parsed.model !== undefined && !isValidModel(_parsed.model)) {
+    throw new ChatlogError('InvalidArgs', `不正なモデル名: ${_parsed.model}`);
   }
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('#') && line !== FALLBACK_PROJECT);
+  return _parsed;
 };
 
 // ─────────────────────────────────────────────
-// フロントマターへ project フィールドを追加
+// フロントマター操作
 // ─────────────────────────────────────────────
 
+/**
+ * Markdown テキストのフロントマターに `project:` フィールドを挿入して返す。
+ * - `date:` 行が存在する場合はその直後に挿入する。
+ * - `date:` 行がない場合はフロントマターの先頭に挿入する。
+ * - フロントマターがない、または閉じ `---` がない場合は `text` をそのまま返す。
+ */
 export const insertProjectField = (text: string, project: string): string => {
   const _normalized = normalizeLine(text);
   const _lines = _normalized.split('\n');
@@ -95,9 +118,14 @@ export const insertProjectField = (text: string, project: string): string => {
 };
 
 // ─────────────────────────────────────────────
-// ファイルメタデータ読み込み
+// メタデータ読み込み
 // ─────────────────────────────────────────────
 
+/**
+ * ファイルを読み込み、分類処理に必要なメタデータを返す。
+ * - 読み込みに失敗した場合は `null` を返す（エラーをスローしない）。
+ * - フロントマターがない場合、各フィールドは空文字列または空配列になる。
+ */
 export const loadClassifyFileMeta = async (filePath: string): Promise<ClassifyFileMeta | null> => {
   let text: string;
   try {
@@ -122,11 +150,56 @@ export const loadClassifyFileMeta = async (filePath: string): Promise<ClassifyFi
 };
 
 // ─────────────────────────────────────────────
-// バッチプロンプト構築
+// ファイル分類・移動
 // ─────────────────────────────────────────────
 
-export const buildClassifyPrompt = (files: ClassifyFileMeta[], projects: string[]): string => {
-  const _projectList = [...projects, FALLBACK_PROJECT].join(', ');
+/**
+ * 1ファイルを指定プロジェクトのサブディレクトリへ移動し、フロントマターを更新する。
+ * - `dryRun` が `true` の場合は移動せずログのみ出力して `stats.moved` をインクリメントする。
+ * - 移動エラーは `stats.error` をインクリメントしてログに記録する（スローしない）。
+ */
+export const classifyFile = async (
+  fileMeta: ClassifyFileMeta,
+  project: string,
+  dryRun: boolean,
+  stats: ClassifyStats,
+): Promise<void> => {
+  const srcPath = fileMeta.filePath;
+  const srcDir = getDirectory(srcPath);
+  const dstDir = `${srcDir}/${project}`;
+  const dstPath = `${dstDir}/${fileMeta.filename}`;
+
+  if (dryRun) {
+    logger.info(`[dry-run] ${fileMeta.filename} → ${project}/`);
+    stats.moved++;
+    return;
+  }
+
+  try {
+    await Deno.mkdir(dstDir, { recursive: true });
+    await Deno.rename(srcPath, dstPath);
+
+    const newText = insertProjectField(fileMeta.fullText, project);
+    await Deno.writeTextFile(dstPath, normalizeLine(newText));
+
+    logger.info(`moved: ${fileMeta.filename} → ${project}/`);
+    stats.moved++;
+  } catch (e) {
+    logger.error(`  移動失敗: ${fileMeta.filename}: ${e}`);
+    stats.error++;
+  }
+};
+
+// ─────────────────────────────────────────────
+// AI プロンプト構築
+// ─────────────────────────────────────────────
+
+/**
+ * AI へ渡すバッチ分類プロンプトを構築する。
+ * - メタデータ（title/category/topics/tags）がすべて空のファイルは、本文先頭 500 文字を `body:` として付加する。
+ */
+export const buildClassifyPrompt = (files: ClassifyFileMeta[], projects: ProjectDicEntry): string => {
+  const _projectList = Object.keys(projects).join(', ');
   const header = `Projects: ${_projectList}\n\n`;
 
   const _parts = files.map((f, i) => {
@@ -150,8 +223,9 @@ export const buildClassifyPrompt = (files: ClassifyFileMeta[], projects: string[
   return header + _parts.join('\n\n');
 };
 
-export const buildSystemPrompt = (projects: string[]): string => {
-  const _projectList = [...projects, FALLBACK_PROJECT].join(', ');
+/** AI へ渡すシステムプロンプトを構築する。JSON 配列のみを出力するよう指示する。 */
+export const buildSystemPrompt = (projects: ProjectDicEntry): string => {
+  const _projectList = Object.keys(projects).join(', ');
   return `Output ONLY a JSON array. No markdown, no explanation, no text before or after the array.
 [{"file":"<filename>","project":"<project_name>","confidence":0.0,"reason":"..."},...]
 
@@ -162,54 +236,22 @@ Base your decision on: title, category, topics, tags.`;
 };
 
 // ─────────────────────────────────────────────
-// ファイル移動とフロントマター更新
-// ─────────────────────────────────────────────
-
-export const classifyFile = async (
-  fileMeta: ClassifyFileMeta,
-  project: string,
-  dryRun: boolean,
-  stats: ClassifyStats,
-): Promise<void> => {
-  const srcPath = fileMeta.filePath;
-  const srcDir = getDirectory(srcPath);
-  const dstDir = `${srcDir}/${project}`;
-  const dstPath = `${dstDir}/${fileMeta.filename}`;
-
-  if (dryRun) {
-    logger.info(`[dry-run] ${fileMeta.filename} → ${project}/`);
-    stats.moved++;
-    return;
-  }
-
-  try {
-    await Deno.mkdir(dstDir, { recursive: true });
-    await Deno.rename(srcPath, dstPath);
-
-    // フロントマターに project フィールドを追加
-    const newText = insertProjectField(fileMeta.fullText, project);
-    await Deno.writeTextFile(dstPath, normalizeLine(newText));
-
-    logger.info(`moved: ${fileMeta.filename} → ${project}/`);
-    stats.moved++;
-  } catch (e) {
-    logger.error(`  移動失敗: ${fileMeta.filename}: ${e}`);
-    stats.error++;
-  }
-};
-
-// ─────────────────────────────────────────────
 // チャンク処理
 // ─────────────────────────────────────────────
 
+/**
+ * 1チャンク分のファイルを AI で一括分類し、結果に応じてファイルを移動する。
+ * - メタデータなし かつ 本文が `MIN_CLASSIFIABLE_LENGTH` 未満のファイルは AI をスキップして `FALLBACK_PROJECT` に直接分類する。
+ * - AI 呼び出し失敗・JSON パース失敗のどちらもチャンク全件を `FALLBACK_PROJECT` に分類する（エラーをスローしない）。
+ * - AI の返答でファイル名が一致しない場合も `FALLBACK_PROJECT` を使用する。
+ */
 export const processChunk = async (
   chunkMetas: ClassifyFileMeta[],
-  projects: string[],
+  projects: ProjectDicEntry,
   dryRun: boolean,
   stats: ClassifyStats,
   model: string,
 ): Promise<void> => {
-  // フロントマターなし かつ 本文が短すぎるファイルは Claude に渡さず misc に直接分類
   const classifiable: ClassifyFileMeta[] = [];
   for (const f of chunkMetas) {
     const hasMeta = f.title || f.category || f.topics.length > 0 || f.tags.length > 0;
@@ -257,36 +299,23 @@ export const processChunk = async (
 };
 
 // ─────────────────────────────────────────────
-// 引数解析
-// ─────────────────────────────────────────────
-
-const _OPT_KEYS: Record<string, keyof ClassifyConfig> = {
-  '--input': 'inputDir',
-  '--dics': 'dicsDir',
-  '--model': 'model',
-};
-
-const _OPT_FLAGS: Record<string, keyof ClassifyConfig> = {
-  '--dry-run': 'dryRun',
-};
-
-export const parseArgs = (args: string[]): ParsedConfig => {
-  const _parsed = parseArgsToConfig<ClassifyConfig>(args, _OPT_KEYS, _OPT_FLAGS) as ParsedConfig;
-  _parsed.model = _parsed.model ?? DEFAULT_CLASSIFY_CONFIG.model;
-  if (!isValidModel(_parsed.model)) {
-    throw new ChatlogError('InvalidArgs', `不正なモデル名: ${_parsed.model}`);
-  }
-  return _parsed;
-};
-
-// ─────────────────────────────────────────────
 // メイン
 // ─────────────────────────────────────────────
 
+/**
+ * classify-chatlog スクリプトのエントリポイント。
+ * - `--config` で指定された YAML を GlobalConfig に読み込み、model/chunkSize/concurrency のデフォルト値を解決する。
+ * - `ChatlogError` はログに出力して `exit(1)` する。その他の例外は再スローする。
+ */
 export const main = async (argv?: string[]): Promise<void> => {
   try {
     const _parsed = parseArgs(argv ?? Deno.args);
-    const _config: ClassifyConfig = { ...DEFAULT_CLASSIFY_CONFIG, ..._parsed };
+    const _globalConfig = await GlobalConfig.getInstance({ configFile: _parsed.configFile });
+    const _model = _parsed.model ?? (_globalConfig.get('model') as string) ?? DEFAULT_CLASSIFY_CONFIG.model;
+    if (!isValidModel(_model)) {
+      throw new ChatlogError('InvalidArgs', `不正なモデル名: ${_model}`);
+    }
+    const _config: ClassifyConfig = { ...DEFAULT_CLASSIFY_CONFIG, ..._parsed, model: _model };
 
     // 入力ディレクトリ確認
     const agentDir = `${_config.inputDir}/${_config.agent}`;
@@ -301,15 +330,16 @@ export const main = async (argv?: string[]): Promise<void> => {
     }
 
     // プロジェクト辞書読み込み
-    const projects = await loadProjects(_config.dicsDir);
-    if (projects.length === 0) {
+    const projects = await loadProjectDic(_config.projectsDic);
+    const _projectNames = Object.keys(projects);
+    if (_projectNames.every((name) => name === FALLBACK_PROJECT)) {
       logger.warn('projects.dic にプロジェクトが定義されていません。すべて misc に分類されます。');
     }
 
     logger.info(`対象 agent: ${_config.agent}`);
     if (_config.period) { logger.info(`対象期間: ${_config.period}`); }
     if (_config.dryRun) { logger.info('dry-run モード: ファイルは移動しません'); }
-    logger.info(`プロジェクト候補: ${projects.join(', ')}`);
+    logger.info(`プロジェクト候補: ${_projectNames.join(', ')}`);
 
     // ファイル列挙
     const allFiles = await findEntries(
@@ -349,11 +379,13 @@ export const main = async (argv?: string[]): Promise<void> => {
     }
 
     // チャンク分割して並列処理
+    const _chunkSize = (_globalConfig.get('chunkSize') as number) ?? DEFAULT_CHUNK_SIZE;
+    const _concurrency = (_globalConfig.get('concurrency') as number) ?? DEFAULT_CONCURRENCY;
     await runChunked(
       targetMetas,
-      DEFAULT_CHUNK_SIZE,
+      _chunkSize,
       (chunk) => processChunk(chunk, projects, _config.dryRun, stats, _config.model),
-      DEFAULT_CONCURRENCY,
+      _concurrency,
     );
 
     // サマリー
