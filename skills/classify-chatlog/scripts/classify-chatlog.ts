@@ -263,7 +263,7 @@ export const processChunk = async (
       || (Array.isArray(_tags) && _tags.length > 0);
     const fullLength = (f.frontmatterText + '\n' + f.content).trim().length;
     if (!hasMeta && fullLength < MIN_CLASSIFIABLE_LENGTH) {
-      logger.warn(`[skip-ai: too-short] ${f.filename} (content is too short.`);
+      logger.warn(`[skip-ai: too-short] ${f.filename} (content is too short)`);
       logger.info(`  classify: ${f.filename} → fallback:${FALLBACK_PROJECT}`);
       await classifyFile(f, FALLBACK_PROJECT, dryRun, stats);
     } else {
@@ -368,8 +368,14 @@ export const main = async (argv?: string[]): Promise<void> => {
       }
       const _existingProject = meta.frontmatter.get('project');
       if (typeof _existingProject === 'string' && _existingProject) {
-        logger.info(`  skipped (既にプロジェクト設定済み: ${_existingProject}): ${meta.filename}`);
-        stats.skipped++;
+        const _srcDir = getDirectory(filePath);
+        const _inSubDir = _srcDir.endsWith('/' + _existingProject) || _srcDir.endsWith('\\' + _existingProject);
+        if (_inSubDir) {
+          logger.info(`  skipped (分類済み: ${_existingProject}): ${meta.filename}`);
+          stats.skipped++;
+        } else {
+          await classifyFile(meta, _existingProject, _config.dryRun, stats);
+        }
         continue;
       }
       targetMetas.push(meta);
