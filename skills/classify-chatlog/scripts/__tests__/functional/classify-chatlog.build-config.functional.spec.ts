@@ -19,11 +19,20 @@ import { GlobalConfig } from '../../../../_scripts/classes/GlobalConfig.class.ts
 import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/defaults.constants.ts';
 import { DEFAULT_CLASSIFY_CONFIG } from '../../constants/classify.constants.ts';
 // types
+import type { CommandProvider } from '../../../../_scripts/types/providers.types.ts';
 import type { ParsedConfig } from '../../types/classify.types.ts';
 
 // ─── ヘルパー ──────────────────────────────────────────────────────────────────
 
 const _existsStat = (_path: string) => Promise.resolve({ isFile: true } as Deno.FileInfo);
+
+/** git コマンドを実行しない CommandProvider モック。 */
+class _NoopCommandProvider {
+  constructor(_cmd: string, _opts: { args: string[] }) {}
+  output(): Promise<{ success: boolean; code: number; stdout: Uint8Array }> {
+    return Promise.resolve({ success: true, code: 0, stdout: new Uint8Array() });
+  }
+}
 
 /** テスト用 GlobalConfig を作成する（YAML 文字列から）。 */
 async function _makeGlobalConfig(yaml: string): Promise<GlobalConfig> {
@@ -31,6 +40,7 @@ async function _makeGlobalConfig(yaml: string): Promise<GlobalConfig> {
   return await GlobalConfig.getInstance({
     readTextFileProvider: () => Promise.resolve(yaml),
     statProvider: _existsStat,
+    commandProvider: _NoopCommandProvider as unknown as CommandProvider,
     configFile: 'dummy.yaml',
   });
 }
@@ -172,6 +182,182 @@ describe('buildConfig', () => {
         it('T-CL-BC-08-01: parsed.configFile → result に configFile が含まれない', () => {
           const result = buildConfig({ ..._EMPTY_PARSED, configFile: 'custom.yaml' }, globalConfig);
           assertEquals('configFile' in result, false);
+        });
+      });
+    });
+  });
+
+  // ─── agent 優先順位 ─────────────────────────────────────────────────────────
+
+  describe('Given: parsed.agent が指定されている', () => {
+    describe('When: GlobalConfig にも agent が設定されている', () => {
+      describe('Then: T-CL-BC-09 - parsed.agent が優先される', () => {
+        let globalConfig: GlobalConfig;
+        beforeEach(async () => {
+          globalConfig = await _makeGlobalConfig('agent: chatgpt');
+        });
+        it('T-CL-BC-09-01: parsed.agent=codex → result.agent === codex', () => {
+          const result = buildConfig({ ..._EMPTY_PARSED, agent: 'codex' }, globalConfig);
+          assertEquals(result.agent, 'codex');
+        });
+      });
+    });
+  });
+
+  describe('Given: parsed.agent が未指定', () => {
+    describe('When: GlobalConfig に agent が設定されている', () => {
+      describe('Then: T-CL-BC-10 - GlobalConfig の agent が使われる', () => {
+        let globalConfig: GlobalConfig;
+        beforeEach(async () => {
+          globalConfig = await _makeGlobalConfig('agent: chatgpt');
+        });
+        it('T-CL-BC-10-01: globalConfig.agent=chatgpt → result.agent === chatgpt', () => {
+          const result = buildConfig(_EMPTY_PARSED, globalConfig);
+          assertEquals(result.agent, 'chatgpt');
+        });
+      });
+    });
+
+    describe('When: GlobalConfig にも agent が設定されていない', () => {
+      describe('Then: T-CL-BC-11 - DEFAULT_CLASSIFY_CONFIG.agent が使われる', () => {
+        let globalConfig: GlobalConfig;
+        beforeEach(async () => {
+          globalConfig = await _makeGlobalConfig('model: sonnet');
+        });
+        it('T-CL-BC-11-01: agent 未設定 → result.agent === DEFAULT_CLASSIFY_CONFIG.agent', () => {
+          const result = buildConfig(_EMPTY_PARSED, globalConfig);
+          assertEquals(result.agent, DEFAULT_CLASSIFY_CONFIG.agent);
+        });
+      });
+    });
+  });
+
+  // ─── dryRun 優先順位 ─────────────────────────────────────────────────────────
+
+  describe('Given: parsed.dryRun=true が指定されている', () => {
+    describe('When: buildConfig を呼び出す', () => {
+      describe('Then: T-CL-BC-12 - result.dryRun === true', () => {
+        let globalConfig: GlobalConfig;
+        beforeEach(async () => {
+          globalConfig = await GlobalConfig.getInstance();
+        });
+        it('T-CL-BC-12-01: parsed.dryRun=true → result.dryRun === true', () => {
+          const result = buildConfig({ ..._EMPTY_PARSED, dryRun: true }, globalConfig);
+          assertEquals(result.dryRun, true);
+        });
+      });
+    });
+  });
+
+  describe('Given: parsed.dryRun が未指定', () => {
+    describe('When: buildConfig を呼び出す', () => {
+      describe('Then: T-CL-BC-13 - DEFAULT_CLASSIFY_CONFIG.dryRun が使われる', () => {
+        let globalConfig: GlobalConfig;
+        beforeEach(async () => {
+          globalConfig = await GlobalConfig.getInstance();
+        });
+        it('T-CL-BC-13-01: dryRun 未指定 → result.dryRun === DEFAULT_CLASSIFY_CONFIG.dryRun', () => {
+          const result = buildConfig(_EMPTY_PARSED, globalConfig);
+          assertEquals(result.dryRun, DEFAULT_CLASSIFY_CONFIG.dryRun);
+        });
+      });
+    });
+  });
+
+  // ─── inputDir 優先順位 ───────────────────────────────────────────────────────
+
+  describe('Given: parsed.inputDir が指定されている', () => {
+    describe('When: buildConfig を呼び出す', () => {
+      describe('Then: T-CL-BC-14 - result.inputDir === parsed.inputDir', () => {
+        let globalConfig: GlobalConfig;
+        beforeEach(async () => {
+          globalConfig = await GlobalConfig.getInstance();
+        });
+        it('T-CL-BC-14-01: parsed.inputDir=/custom/input → result.inputDir === /custom/input', () => {
+          const result = buildConfig({ ..._EMPTY_PARSED, inputDir: '/custom/input' }, globalConfig);
+          assertEquals(result.inputDir, '/custom/input');
+        });
+      });
+    });
+  });
+
+  describe('Given: parsed.inputDir が未指定', () => {
+    describe('When: buildConfig を呼び出す', () => {
+      describe('Then: T-CL-BC-15 - DEFAULT_CLASSIFY_CONFIG.inputDir が使われる', () => {
+        let globalConfig: GlobalConfig;
+        beforeEach(async () => {
+          globalConfig = await GlobalConfig.getInstance();
+        });
+        it('T-CL-BC-15-01: inputDir 未指定 → result.inputDir === DEFAULT_CLASSIFY_CONFIG.inputDir', () => {
+          const result = buildConfig(_EMPTY_PARSED, globalConfig);
+          assertEquals(result.inputDir, DEFAULT_CLASSIFY_CONFIG.inputDir);
+        });
+      });
+    });
+  });
+
+  // ─── period フィールド（parsedのみ） ─────────────────────────────────────────
+
+  describe('Given: parsed.period が指定されている', () => {
+    describe('When: buildConfig を呼び出す', () => {
+      describe('Then: T-CL-BC-16 - result.period === parsed.period', () => {
+        let globalConfig: GlobalConfig;
+        beforeEach(async () => {
+          globalConfig = await GlobalConfig.getInstance();
+        });
+        it('T-CL-BC-16-01: parsed.period=2026-01 → result.period === 2026-01', () => {
+          const result = buildConfig({ ..._EMPTY_PARSED, period: '2026-01' }, globalConfig);
+          assertEquals(result.period, '2026-01');
+        });
+      });
+    });
+  });
+
+  describe('Given: parsed.period が未指定', () => {
+    describe('When: buildConfig を呼び出す', () => {
+      describe('Then: T-CL-BC-17 - result.period === undefined', () => {
+        let globalConfig: GlobalConfig;
+        beforeEach(async () => {
+          globalConfig = await GlobalConfig.getInstance();
+        });
+        it('T-CL-BC-17-01: period 未指定 → result.period === undefined', () => {
+          const result = buildConfig(_EMPTY_PARSED, globalConfig);
+          assertEquals(result.period, undefined);
+        });
+      });
+    });
+  });
+
+  // ─── projectsDic 導出 ────────────────────────────────────────────────────────
+
+  describe('Given: parsed.configFile が指定されている', () => {
+    describe('When: buildConfig を呼び出す', () => {
+      describe('Then: T-CL-BC-18 - configFile のディレクトリ + /projects.dic が使われる', () => {
+        let globalConfig: GlobalConfig;
+        beforeEach(async () => {
+          globalConfig = await GlobalConfig.getInstance();
+        });
+        it('T-CL-BC-18-01: configFile=/custom/config/defaults.yaml → projectsDic === /custom/config/projects.dic', () => {
+          const result = buildConfig(
+            { ..._EMPTY_PARSED, configFile: '/custom/config/defaults.yaml' },
+            globalConfig,
+          );
+          assertEquals(result.projectsDic, '/custom/config/projects.dic');
+        });
+      });
+    });
+  });
+
+  describe('Given: parsed.configFile が未指定', () => {
+    describe('When: buildConfig を呼び出す', () => {
+      describe('Then: T-CL-BC-19 - DEFAULT_CLASSIFY_CONFIG.projectsDic が使われる', () => {
+        let globalConfig: GlobalConfig;
+        beforeEach(async () => {
+          globalConfig = await GlobalConfig.getInstance();
+        });
+        it('T-CL-BC-19-01: configFile 未指定 → result.projectsDic === DEFAULT_CLASSIFY_CONFIG.projectsDic', () => {
+          const result = buildConfig(_EMPTY_PARSED, globalConfig);
+          assertEquals(result.projectsDic, DEFAULT_CLASSIFY_CONFIG.projectsDic);
         });
       });
     });
