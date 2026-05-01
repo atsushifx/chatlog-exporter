@@ -18,14 +18,12 @@
 import { isValidModel } from '../../_scripts/libs/ai/model-utils.ts';
 import { runAI } from '../../_scripts/libs/ai/run-ai.ts';
 import { findEntries } from '../../_scripts/libs/file-io/find-entries.ts';
-import { getDirectory, normalizePath } from '../../_scripts/libs/file-io/path-utils.ts';
+import { getDirectory } from '../../_scripts/libs/file-io/path-utils.ts';
 import { readTextFile } from '../../_scripts/libs/file-io/read-utils.ts';
 import { parseArgsToConfig } from '../../_scripts/libs/io/parse-args.ts';
 import { runChunked } from '../../_scripts/libs/parallel/concurrency.ts';
-import { parseFrontmatterEntries } from '../../_scripts/libs/text/frontmatter-utils.ts';
 import { parseJsonArray } from '../../_scripts/libs/text/json-utils.ts';
 import { normalizeLine } from '../../_scripts/libs/text/line-utils.ts';
-import { quoteString } from '../../_scripts/libs/text/string-utils.ts';
 // instances
 import { logger } from '../../_scripts/libs/io/logger.ts';
 // constants
@@ -43,10 +41,11 @@ import {
   FALLBACK_PROJECT,
   MIN_CLASSIFIABLE_LENGTH,
 } from './constants/classify.constants.ts';
+// classes
+import { ClassifyChatlogEntry } from './classes/ClassifyChatlogEntry.class.ts';
 // types
 import type {
   ClassifyConfig,
-  ClassifyFileMeta,
   ClassifyResult,
   ClassifyStats,
   ParsedConfig,
@@ -115,69 +114,21 @@ export function buildConfig(
 }
 
 // ─────────────────────────────────────────────
-// フロントマター操作
-// ─────────────────────────────────────────────
-
-/**
- * Markdown テキストのフロントマターに `project:` フィールドを挿入して返す。
- * - `date:` 行が存在する場合はその直後に挿入する。
- * - `date:` 行がない場合はフロントマターの先頭に挿入する。
- * - フロントマターがない、または閉じ `---` がない場合は `text` をそのまま返す。
- */
-export const insertProjectField = (text: string, project: string): string => {
-  const _normalized = normalizeLine(text);
-  const _lines = _normalized.split('\n');
-  if (_lines[0] !== '---') { return text; }
-
-  const _closeIdx = _lines.indexOf('---', 1);
-  if (_closeIdx === -1) { return text; }
-
-  const _fmLines = _lines.slice(1, _closeIdx);
-  const _newFmLines: string[] = [];
-  let _inserted = false;
-  for (const line of _fmLines) {
-    _newFmLines.push(line);
-    if (!_inserted && line.startsWith('date:')) {
-      _newFmLines.push(`project: ${quoteString(project)}`);
-      _inserted = true;
-    }
-  }
-  if (!_inserted) { _newFmLines.unshift(`project: ${quoteString(project)}`); }
-
-  const _bodyLines = _lines.slice(_closeIdx + 1);
-  return ['---', ..._newFmLines, '---', ..._bodyLines].join('\n');
-};
-
-// ─────────────────────────────────────────────
 // メタデータ読み込み
 // ─────────────────────────────────────────────
 
 /**
  * ファイルを読み込み、分類処理に必要なメタデータを返す。
  * - 読み込みに失敗した場合は `null` を返す（エラーをスローしない）。
- * - フロントマターがない場合、各フィールドは空文字列または空配列になる。
+ * - フロントマターへのアクセスは `entry.frontmatter.get()` を使用する。
  */
-export const loadClassifyFileMeta = async (filePath: string): Promise<ClassifyFileMeta | null> => {
-  let text: string;
+export const loadClassifyFileMeta = async (filePath: string): Promise<ClassifyChatlogEntry | null> => {
   try {
-    text = await readTextFile(filePath);
+    const text = await readTextFile(filePath);
+    return new ClassifyChatlogEntry(text, filePath);
   } catch {
     return null;
   }
-
-  const filename = normalizePath(filePath).split('/').pop()!;
-  const { meta } = parseFrontmatterEntries(text);
-
-  return {
-    filePath,
-    filename,
-    existingProject: typeof meta['project'] === 'string' ? meta['project'] : '',
-    title: typeof meta['title'] === 'string' ? meta['title'] : '',
-    category: typeof meta['category'] === 'string' ? meta['category'] : '',
-    topics: Array.isArray(meta['topics']) ? meta['topics'] as string[] : [],
-    tags: Array.isArray(meta['tags']) ? meta['tags'] as string[] : [],
-    fullText: text,
-  };
 };
 
 // ─────────────────────────────────────────────
@@ -190,7 +141,7 @@ export const loadClassifyFileMeta = async (filePath: string): Promise<ClassifyFi
  * - 移動エラーは `stats.error` をインクリメントしてログに記録する（スローしない）。
  */
 export const classifyFile = async (
-  fileMeta: ClassifyFileMeta,
+  fileMeta: ClassifyChatlogEntry,
   project: string,
   dryRun: boolean,
   stats: ClassifyStats,
@@ -210,7 +161,8 @@ export const classifyFile = async (
     await Deno.mkdir(dstDir, { recursive: true });
     await Deno.rename(srcPath, dstPath);
 
-    const newText = insertProjectField(fileMeta.fullText, project);
+    fileMeta.frontmatter.set('project', project);
+    const newText = fileMeta.renderEntry();
     await Deno.writeTextFile(dstPath, normalizeLine(newText));
 
     logger.info(`moved: ${fileMeta.filename} → ${project}/`);
@@ -229,23 +181,38 @@ export const classifyFile = async (
  * AI へ渡すバッチ分類プロンプトを構築する。
  * - メタデータ（title/category/topics/tags）がすべて空のファイルは、本文先頭 500 文字を `body:` として付加する。
  */
-export const buildClassifyPrompt = (files: ClassifyFileMeta[], projects: ProjectDicEntry): string => {
+export const buildClassifyPrompt = (files: ClassifyChatlogEntry[], projects: ProjectDicEntry): string => {
   const _projectList = Object.keys(projects).join(', ');
   const header = `Projects: ${_projectList}\n\n`;
 
   const _parts = files.map((f, i) => {
-    const topicsStr = f.topics.length > 0 ? f.topics.join(', ') : '(none)';
-    const tagsStr = f.tags.length > 0 ? f.tags.join(', ') : '(none)';
-    const hasMeta = f.title || f.category || f.topics.length > 0 || f.tags.length > 0;
+    const _fm = f.frontmatter;
+    const _title = _fm.get('title');
+    const _category = _fm.get('category');
+    const _topics = _fm.get('topics');
+    const _tags = _fm.get('tags');
+
+    const title = typeof _title === 'string' ? _title : '';
+    const category = typeof _category === 'string' ? _category : '';
+    const topics = Array.isArray(_topics) ? _topics as string[] : [];
+    const tags = Array.isArray(_tags) ? _tags as string[] : [];
+
+    const topicsStr = topics.length > 0 ? topics.join(', ') : '(none)';
+    const tagsStr = tags.length > 0 ? tags.join(', ') : '(none)';
+    const hasMeta = (typeof _title === 'string' && _title)
+      || (typeof _category === 'string' && _category)
+      || (Array.isArray(_topics) && _topics.length > 0)
+      || (Array.isArray(_tags) && _tags.length > 0);
+
     const _lines = [
       `=== FILE ${i + 1}: ${f.filename} ===`,
-      `title: ${f.title || '(no title)'}`,
-      `category: ${f.category || '(none)'}`,
+      `title: ${title || '(no title)'}`,
+      `category: ${category || '(none)'}`,
       `topics: ${topicsStr}`,
       `tags: ${tagsStr}`,
     ];
     if (!hasMeta) {
-      const snippet = f.fullText.slice(0, 500).trim();
+      const snippet = f.content.slice(0, 500).trim();
       _lines.push(`body: ${snippet}`);
     }
     return _lines.join('\n');
@@ -277,16 +244,25 @@ Base your decision on: title, category, topics, tags.`;
  * - AI の返答でファイル名が一致しない場合も `FALLBACK_PROJECT` を使用する。
  */
 export const processChunk = async (
-  chunkMetas: ClassifyFileMeta[],
+  chunkMetas: ClassifyChatlogEntry[],
   projects: ProjectDicEntry,
   dryRun: boolean,
   stats: ClassifyStats,
   model: string,
 ): Promise<void> => {
-  const classifiable: ClassifyFileMeta[] = [];
+  const classifiable: ClassifyChatlogEntry[] = [];
   for (const f of chunkMetas) {
-    const hasMeta = f.title || f.category || f.topics.length > 0 || f.tags.length > 0;
-    if (!hasMeta && f.fullText.trim().length < MIN_CLASSIFIABLE_LENGTH) {
+    const _fm = f.frontmatter;
+    const _title = _fm.get('title');
+    const _category = _fm.get('category');
+    const _topics = _fm.get('topics');
+    const _tags = _fm.get('tags');
+    const hasMeta = (typeof _title === 'string' && _title)
+      || (typeof _category === 'string' && _category)
+      || (Array.isArray(_topics) && _topics.length > 0)
+      || (Array.isArray(_tags) && _tags.length > 0);
+    const fullLength = (f.frontmatterText + '\n' + f.content).trim().length;
+    if (!hasMeta && fullLength < MIN_CLASSIFIABLE_LENGTH) {
       logger.warn(`[skip-ai: too-short] ${f.filename} (content is too short.`);
       logger.info(`  classify: ${f.filename} → fallback:${FALLBACK_PROJECT}`);
       await classifyFile(f, FALLBACK_PROJECT, dryRun, stats);
@@ -381,7 +357,7 @@ export const main = async (argv?: string[]): Promise<void> => {
     }
 
     // メタデータ読み込みとスキップ判定
-    const targetMetas: ClassifyFileMeta[] = [];
+    const targetMetas: ClassifyChatlogEntry[] = [];
     const stats: ClassifyStats = { moved: 0, skipped: 0, error: 0 };
 
     for (const filePath of allFiles) {
@@ -390,8 +366,9 @@ export const main = async (argv?: string[]): Promise<void> => {
         stats.error++;
         continue;
       }
-      if (meta.existingProject) {
-        logger.info(`  skipped (既にプロジェクト設定済み: ${meta.existingProject}): ${meta.filename}`);
+      const _existingProject = meta.frontmatter.get('project');
+      if (typeof _existingProject === 'string' && _existingProject) {
+        logger.info(`  skipped (既にプロジェクト設定済み: ${_existingProject}): ${meta.filename}`);
         stats.skipped++;
         continue;
       }

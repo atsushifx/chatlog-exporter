@@ -155,11 +155,11 @@ describe('main - 正常分類', () => {
           assertEquals(stat.isFile, true);
         });
 
-        it('T-CL-E2E-02-02: 移動先ファイルに "project: \'app1\'" が含まれる', async () => {
+        it('T-CL-E2E-02-02: 移動先ファイルに "project: \\"app1\\"" が含まれる', async () => {
           await main(['claude', '2026-03', '--input', inputDir, '--config', configFile]);
 
           const content = await Deno.readTextFile(`${monthDir}/app1/chat.md`);
-          assertStringIncludes(content, "project: 'app1'");
+          assertStringIncludes(content, 'project: "app1"');
         });
       });
     });

@@ -16,11 +16,12 @@ import { processChunk } from '../../classify-chatlog.ts';
 
 // utils
 import { findDirectories } from '../../../../_scripts/libs/file-io/find-entries.ts';
-import { parseFrontmatterEntries } from '../../../../_scripts/libs/text/frontmatter-utils.ts';
 // constants
 import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/defaults.constants.ts';
+// classes
+import { ClassifyChatlogEntry } from '../../classes/ClassifyChatlogEntry.class.ts';
 // types
-import type { ClassifyFileMeta, ClassifyStats, ProjectDicEntry } from '../../types/classify.types.ts';
+import type { ClassifyStats, ProjectDicEntry } from '../../types/classify.types.ts';
 
 // helpers
 import { findFixtureDirs } from '../../../../_scripts/__tests__/helpers/find-fixture-dirs.ts';
@@ -91,23 +92,7 @@ for (const _relPath of _fixtureDirs) {
         it(
           `SF-CL-${_relPath}-project: 分類結果が known_projects に含まれる`,
           async () => {
-            const _fileMeta: ClassifyFileMeta = {
-              filePath: `${_tempDir}/input.md`,
-              filename: 'input.md',
-              existingProject: '',
-              title: '',
-              category: '',
-              topics: [],
-              tags: [],
-              fullText: _inputContent,
-            };
-
-            // フロントマターからメタデータを取得
-            const { meta: _fm } = parseFrontmatterEntries(_inputContent);
-            _fileMeta.title = (_fm.title as string) ?? '';
-            _fileMeta.category = (_fm.category as string) ?? '';
-            _fileMeta.topics = (_fm.topics as string[]) ?? [];
-            _fileMeta.tags = (_fm.tags as string[]) ?? [];
+            const _fileMeta = new ClassifyChatlogEntry(_inputContent, `${_tempDir}/input.md`);
 
             await processChunk([_fileMeta], _projects, false, _stats, DEFAULT_AI_MODEL);
 
