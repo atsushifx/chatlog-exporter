@@ -16,7 +16,7 @@ import { processChunk } from '../../classify-chatlog.ts';
 import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/defaults.constants.ts';
 import { FALLBACK_PROJECT } from '../../constants/classify.constants.ts';
 // types
-import type { ClassifyFileMeta, ClassifyStats } from '../../types/classify.types.ts';
+import type { ClassifyFileMeta, ClassifyStats, ProjectDicEntry } from '../../types/classify.types.ts';
 
 // helpers
 import {
@@ -77,8 +77,9 @@ describe('processChunk', () => {
         it('T-CL-PC-01-01: stats.moved が 1 になる', async () => {
           const metas = [_makeClassifyFileMeta('a.md')];
           const stats = _makeStats();
+          const projects: ProjectDicEntry = { app1: {}, app2: {}, misc: {} };
 
-          await processChunk(metas, ['app1', 'app2'], true, stats, model);
+          await processChunk(metas, projects, true, stats, model);
 
           assertEquals(stats.moved, 1);
         });
@@ -86,8 +87,9 @@ describe('processChunk', () => {
         it('T-CL-PC-01-02: stats.error が 0 のまま', async () => {
           const metas = [_makeClassifyFileMeta('a.md')];
           const stats = _makeStats();
+          const projects: ProjectDicEntry = { app1: {}, app2: {}, misc: {} };
 
-          await processChunk(metas, ['app1', 'app2'], true, stats, model);
+          await processChunk(metas, projects, true, stats, model);
 
           assertEquals(stats.error, 0);
         });
@@ -95,8 +97,9 @@ describe('processChunk', () => {
         it('T-CL-PC-01-03: classify ログが infoLogs に記録される', async () => {
           const metas = [_makeClassifyFileMeta('a.md')];
           const stats = _makeStats();
+          const projects: ProjectDicEntry = { app1: {}, app2: {}, misc: {} };
 
-          await processChunk(metas, ['app1', 'app2'], true, stats, model);
+          await processChunk(metas, projects, true, stats, model);
 
           assertEquals(
             loggerStub.infoLogs.some((l) => l.includes('classify:')),
@@ -108,8 +111,9 @@ describe('processChunk', () => {
         it('T-CL-PC-01-04: [dry-run] ログが infoLogs に記録される', async () => {
           const metas = [_makeClassifyFileMeta('a.md')];
           const stats = _makeStats();
+          const projects: ProjectDicEntry = { app1: {}, app2: {}, misc: {} };
 
-          await processChunk(metas, ['app1', 'app2'], true, stats, model);
+          await processChunk(metas, projects, true, stats, model);
 
           assertEquals(
             loggerStub.infoLogs.some((l) => l.includes('[dry-run]')),
@@ -144,8 +148,9 @@ describe('processChunk', () => {
         it('T-CL-PC-02-01: stats.moved が ファイル数（2）になる', async () => {
           const metas = [_makeClassifyFileMeta('a.md'), _makeClassifyFileMeta('b.md')];
           const stats = _makeStats();
+          const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
-          await processChunk(metas, ['app1'], true, stats, model);
+          await processChunk(metas, projects, true, stats, model);
 
           assertEquals(stats.moved, 2);
         });
@@ -153,8 +158,9 @@ describe('processChunk', () => {
         it('T-CL-PC-02-02: stats.error が 0 のまま（fallback 処理成功）', async () => {
           const metas = [_makeClassifyFileMeta('a.md'), _makeClassifyFileMeta('b.md')];
           const stats = _makeStats();
+          const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
-          await processChunk(metas, ['app1'], true, stats, model);
+          await processChunk(metas, projects, true, stats, model);
 
           assertEquals(stats.error, 0);
         });
@@ -162,8 +168,9 @@ describe('processChunk', () => {
         it('T-CL-PC-02-03: warn ログが warnLogs に記録される', async () => {
           const metas = [_makeClassifyFileMeta('a.md'), _makeClassifyFileMeta('b.md')];
           const stats = _makeStats();
+          const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
-          await processChunk(metas, ['app1'], true, stats, model);
+          await processChunk(metas, projects, true, stats, model);
 
           assertEquals(
             loggerStub.warnLogs.some((l) => l.includes('claude CLI 実行失敗')),
@@ -200,8 +207,9 @@ describe('processChunk', () => {
         it('T-CL-PC-03-01: stats.moved が 1 になる', async () => {
           const metas = [_makeClassifyFileMeta('a.md')];
           const stats = _makeStats();
+          const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
-          await processChunk(metas, ['app1'], true, stats, model);
+          await processChunk(metas, projects, true, stats, model);
 
           assertEquals(stats.moved, 1);
         });
@@ -209,8 +217,9 @@ describe('processChunk', () => {
         it('T-CL-PC-03-02: stats.error が 0 のまま', async () => {
           const metas = [_makeClassifyFileMeta('a.md')];
           const stats = _makeStats();
+          const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
-          await processChunk(metas, ['app1'], true, stats, model);
+          await processChunk(metas, projects, true, stats, model);
 
           assertEquals(stats.error, 0);
         });
@@ -218,8 +227,9 @@ describe('processChunk', () => {
         it('T-CL-PC-03-03: warn ログが warnLogs に記録される', async () => {
           const metas = [_makeClassifyFileMeta('a.md')];
           const stats = _makeStats();
+          const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
-          await processChunk(metas, ['app1'], true, stats, model);
+          await processChunk(metas, projects, true, stats, model);
 
           assertEquals(
             loggerStub.warnLogs.some((l) => l.includes('JSON パース失敗')),
@@ -260,8 +270,9 @@ describe('processChunk', () => {
         it('T-CL-PC-04-01: stats.moved が 1 になる（FALLBACK_PROJECT で移動）', async () => {
           const metas = [_makeClassifyFileMeta('a.md')];
           const stats = _makeStats();
+          const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
-          await processChunk(metas, ['app1'], true, stats, model);
+          await processChunk(metas, projects, true, stats, model);
 
           assertEquals(stats.moved, 1);
         });
@@ -269,8 +280,9 @@ describe('processChunk', () => {
         it('T-CL-PC-04-02: [dry-run] ログが infoLogs に記録される', async () => {
           const metas = [_makeClassifyFileMeta('a.md')];
           const stats = _makeStats();
+          const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
-          await processChunk(metas, ['app1'], true, stats, model);
+          await processChunk(metas, projects, true, stats, model);
 
           assertEquals(
             loggerStub.infoLogs.some((l) => l.includes('[dry-run]')),
