@@ -12,8 +12,14 @@
 - 使用可能な type: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 - 例: `feat(export): add noise filter for system logs`
 
+## Git 操作ルール
+
+- `git add` / `git commit` / `git push` はユーザーが行う
+- Claude はコードの編集・テスト・フォーマット確認までを担当する
+- コミットが必要な状態になったら、その旨をユーザーに伝えて止まる
+
 ## タスク完了時チェックリスト
 
 1. `dprint fmt --check` でフォーマット確認（問題あれば `dprint fmt` を実行）
 2. `deno task test:unit` でユニットテスト実行
-3. Conventional Commits 形式でコミット
+3. ユーザーに完了を伝え、コミットはユーザーに委ねる
