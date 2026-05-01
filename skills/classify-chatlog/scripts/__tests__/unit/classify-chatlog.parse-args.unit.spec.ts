@@ -8,16 +8,13 @@
 
 // -- BDD modules --
 import { assertEquals, assertThrows } from '@std/assert';
-import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
-import type { Stub } from '@std/testing/mock';
-import { stub } from '@std/testing/mock';
+import { describe, it } from '@std/testing/bdd';
 
 // -- modules for test --
 // test target
 import { parseArgs } from '../../classify-chatlog.ts';
 // classes
 import { ChatlogError } from '../../../../_scripts/classes/ChatlogError.class.ts';
-import { globalConfig } from '../../../../_scripts/classes/GlobalConfig.class.ts';
 
 describe('parseArgs', () => {
   // ─── 異常系: 不正なモデル名 ───────────────────────────────────────────────
@@ -36,28 +33,17 @@ describe('parseArgs', () => {
     });
   });
 
-  // ─── 正常系: globalConfig からのデフォルトモデル読み込み ─────────────────
+  // ─── 正常系: --model 未指定時は undefined（globalConfig 解決は main() で行う） ─────
 
-  describe('Given: --model 未指定, globalConfig.get("model") が "opus" を返す', () => {
+  describe('Given: --model 未指定', () => {
     describe('When: parseArgs([]) を呼び出す', () => {
-      describe('Then: T-CL-PA-13 - model が globalConfig 値になる', () => {
-        let gcStub: Stub;
-
-        beforeEach(() => {
-          gcStub = stub(globalConfig, 'get', (key: string): string | number | undefined => {
-            if (key === 'model') { return 'opus'; }
-            return undefined;
-          });
-        });
-
-        afterEach(() => gcStub.restore());
-
-        it('T-CL-PA-13-01: model が globalConfig.get("model") の値 "opus" になる', () => {
+      describe('Then: T-CL-PA-13 - model が undefined になる（globalConfig 解決は main() で行う）', () => {
+        it('T-CL-PA-13-01: --model 未指定時、model は undefined になる', () => {
           const result = parseArgs([]);
-          assertEquals(result.model, 'opus');
+          assertEquals(result.model, undefined);
         });
 
-        it('T-CL-PA-13-02: --model 明示指定は globalConfig より優先される', () => {
+        it('T-CL-PA-13-02: --model 明示指定は優先される', () => {
           const result = parseArgs(['--model', 'sonnet']);
           assertEquals(result.model, 'sonnet');
         });
