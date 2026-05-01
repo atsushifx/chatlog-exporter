@@ -11,7 +11,7 @@
  *
  * 使い方:
  *   deno run --allow-read --allow-run --allow-write classify_chatlog.ts \
- *     [agent] [YYYY-MM] [--dry-run] [--config FILE] --input DIR --dics DIR
+ *     [agent] [YYYY-MM] [--dry-run] [--config FILE] --input DIR
  */
 
 // -- external --
@@ -88,8 +88,10 @@ export const parseArgs = (args: string[]): ParsedConfig => {
 
 /**
  * ParsedConfig・GlobalConfig・デフォルト値から完全な ClassifyConfig を構築する。
+ * - agent 優先順位: `parsed.agent` > `globalConfig.get('agent')` > `defaults.agent`
  * - model 優先順位: `parsed.model` > `globalConfig.get('model')` > `defaults.model`
  * - dicsDir 優先順位: `globalConfig.get('dicsDir')` > `defaults.dicsDir`
+ * - projectsDic: `parsed.configFile` のディレクトリ + `/projects.dic`。未指定時は `defaults.projectsDic`。
  * - 不正なモデル名は `ChatlogError('InvalidArgs')` をスローする。
  * - `configFile` は ClassifyConfig に存在しないため結果に含まれない。
  */
@@ -103,9 +105,13 @@ export function buildConfig(
   if (!isValidModel(_model)) {
     throw new ChatlogError('InvalidArgs', `不正なモデル名: ${_model}`);
   }
+  const _agent = parsed.agent ?? (globalConfig.get('agent') as string | undefined) ?? _defaults.agent;
   const _dicsDir = (globalConfig.get('dicsDir') as string | undefined) ?? _defaults.dicsDir;
+  const _projectsDic = parsed.configFile
+    ? `${getDirectory(parsed.configFile)}/projects.dic`
+    : _defaults.projectsDic;
   const { configFile: _cf, ...rest } = parsed;
-  return { ..._defaults, ...rest, model: _model, dicsDir: _dicsDir };
+  return { ..._defaults, ...rest, agent: _agent, model: _model, dicsDir: _dicsDir, projectsDic: _projectsDic };
 }
 
 // ─────────────────────────────────────────────
