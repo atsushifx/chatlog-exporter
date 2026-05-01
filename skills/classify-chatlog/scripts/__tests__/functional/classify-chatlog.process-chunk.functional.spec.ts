@@ -15,8 +15,10 @@ import { processChunk } from '../../classify-chatlog.ts';
 // constants
 import { DEFAULT_AI_MODEL } from '../../../../_scripts/constants/defaults.constants.ts';
 import { FALLBACK_PROJECT } from '../../constants/classify.constants.ts';
+// classes
+import { ClassifyChatlogEntry } from '../../classes/ClassifyChatlogEntry.class.ts';
 // types
-import type { ClassifyFileMeta, ClassifyStats, ProjectDicEntry } from '../../types/classify.types.ts';
+import type { ClassifyStats, ProjectDicEntry } from '../../types/classify.types.ts';
 
 // helpers
 import {
@@ -30,18 +32,10 @@ import type { LoggerStub } from '../../../../_scripts/__tests__/helpers/logger-s
 
 // ─── テスト用ヘルパー ──────────────────────────────────────────────────────────
 
-function _makeClassifyFileMeta(filename: string, overrides: Partial<ClassifyFileMeta> = {}): ClassifyFileMeta {
-  return {
-    filePath: `/tmp/input/${filename}`,
-    filename,
-    existingProject: '',
-    title: 'Test Title',
-    category: 'development',
-    topics: ['API'],
-    tags: ['typescript'],
-    fullText: `---\ntitle: Test Title\ncategory: development\n---\n本文`,
-    ...overrides,
-  };
+function _makeClassifyChatlogEntry(filename: string, entryText?: string): ClassifyChatlogEntry {
+  const text = entryText
+    ?? `---\ntitle: Test Title\ncategory: development\ntopics:\n  - API\ntags:\n  - typescript\n---\n本文`;
+  return new ClassifyChatlogEntry(text, `/tmp/input/${filename}`);
 }
 
 function _makeStats(): ClassifyStats {
@@ -75,7 +69,7 @@ describe('processChunk', () => {
         });
 
         it('T-CL-PC-01-01: stats.moved が 1 になる', async () => {
-          const metas = [_makeClassifyFileMeta('a.md')];
+          const metas = [_makeClassifyChatlogEntry('a.md')];
           const stats = _makeStats();
           const projects: ProjectDicEntry = { app1: {}, app2: {}, misc: {} };
 
@@ -85,7 +79,7 @@ describe('processChunk', () => {
         });
 
         it('T-CL-PC-01-02: stats.error が 0 のまま', async () => {
-          const metas = [_makeClassifyFileMeta('a.md')];
+          const metas = [_makeClassifyChatlogEntry('a.md')];
           const stats = _makeStats();
           const projects: ProjectDicEntry = { app1: {}, app2: {}, misc: {} };
 
@@ -95,7 +89,7 @@ describe('processChunk', () => {
         });
 
         it('T-CL-PC-01-03: classify ログが infoLogs に記録される', async () => {
-          const metas = [_makeClassifyFileMeta('a.md')];
+          const metas = [_makeClassifyChatlogEntry('a.md')];
           const stats = _makeStats();
           const projects: ProjectDicEntry = { app1: {}, app2: {}, misc: {} };
 
@@ -109,7 +103,7 @@ describe('processChunk', () => {
         });
 
         it('T-CL-PC-01-04: [dry-run] ログが infoLogs に記録される', async () => {
-          const metas = [_makeClassifyFileMeta('a.md')];
+          const metas = [_makeClassifyChatlogEntry('a.md')];
           const stats = _makeStats();
           const projects: ProjectDicEntry = { app1: {}, app2: {}, misc: {} };
 
@@ -146,7 +140,7 @@ describe('processChunk', () => {
         });
 
         it('T-CL-PC-02-01: stats.moved が ファイル数（2）になる', async () => {
-          const metas = [_makeClassifyFileMeta('a.md'), _makeClassifyFileMeta('b.md')];
+          const metas = [_makeClassifyChatlogEntry('a.md'), _makeClassifyChatlogEntry('b.md')];
           const stats = _makeStats();
           const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
@@ -156,7 +150,7 @@ describe('processChunk', () => {
         });
 
         it('T-CL-PC-02-02: stats.error が 0 のまま（fallback 処理成功）', async () => {
-          const metas = [_makeClassifyFileMeta('a.md'), _makeClassifyFileMeta('b.md')];
+          const metas = [_makeClassifyChatlogEntry('a.md'), _makeClassifyChatlogEntry('b.md')];
           const stats = _makeStats();
           const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
@@ -166,7 +160,7 @@ describe('processChunk', () => {
         });
 
         it('T-CL-PC-02-03: warn ログが warnLogs に記録される', async () => {
-          const metas = [_makeClassifyFileMeta('a.md'), _makeClassifyFileMeta('b.md')];
+          const metas = [_makeClassifyChatlogEntry('a.md'), _makeClassifyChatlogEntry('b.md')];
           const stats = _makeStats();
           const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
@@ -205,7 +199,7 @@ describe('processChunk', () => {
         });
 
         it('T-CL-PC-03-01: stats.moved が 1 になる', async () => {
-          const metas = [_makeClassifyFileMeta('a.md')];
+          const metas = [_makeClassifyChatlogEntry('a.md')];
           const stats = _makeStats();
           const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
@@ -215,7 +209,7 @@ describe('processChunk', () => {
         });
 
         it('T-CL-PC-03-02: stats.error が 0 のまま', async () => {
-          const metas = [_makeClassifyFileMeta('a.md')];
+          const metas = [_makeClassifyChatlogEntry('a.md')];
           const stats = _makeStats();
           const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
@@ -225,7 +219,7 @@ describe('processChunk', () => {
         });
 
         it('T-CL-PC-03-03: warn ログが warnLogs に記録される', async () => {
-          const metas = [_makeClassifyFileMeta('a.md')];
+          const metas = [_makeClassifyChatlogEntry('a.md')];
           const stats = _makeStats();
           const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
@@ -268,7 +262,7 @@ describe('processChunk', () => {
         });
 
         it('T-CL-PC-04-01: stats.moved が 1 になる（FALLBACK_PROJECT で移動）', async () => {
-          const metas = [_makeClassifyFileMeta('a.md')];
+          const metas = [_makeClassifyChatlogEntry('a.md')];
           const stats = _makeStats();
           const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
@@ -278,7 +272,7 @@ describe('processChunk', () => {
         });
 
         it('T-CL-PC-04-02: [dry-run] ログが infoLogs に記録される', async () => {
-          const metas = [_makeClassifyFileMeta('a.md')];
+          const metas = [_makeClassifyChatlogEntry('a.md')];
           const stats = _makeStats();
           const projects: ProjectDicEntry = { app1: {}, misc: {} };
 
