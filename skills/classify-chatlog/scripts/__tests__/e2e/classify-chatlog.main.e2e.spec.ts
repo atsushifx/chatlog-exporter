@@ -24,6 +24,8 @@ import { GlobalConfig } from '../../../../_scripts/classes/GlobalConfig.class.ts
 // helpers
 import {
   installCommandMock,
+  makeCountingMock,
+  makeFailMock,
   makeSuccessMock,
 } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
 import type { CommandMockHandle } from '../../../../_scripts/__tests__/helpers/deno-command-mock.ts';
@@ -166,12 +168,12 @@ describe('main - 正常分類', () => {
   });
 });
 
-// ─── T-CL-E2E-03: project 設定済みファイル → スキップ ───────────────────────
+// ─── T-CL-E2E-03: project 設定済みファイル（フラット配置）→ サブディレクトリに移動 ─
 
-describe('main - スキップ', () => {
-  describe('Given: project が設定済みの .md ファイル', () => {
-    describe('When: main([...args]) を呼び出す', () => {
-      describe('Then: T-CL-E2E-03 - スキップされ skipped カウント増加', () => {
+describe('main - project 設定済みファイルの移動', () => {
+  describe('Given: project が設定済みの .md ファイル（月ディレクトリ直下）', () => {
+    describe('When: main([...args, "--dry-run"]) を呼び出す', () => {
+      describe('Then: T-CL-E2E-03 - AI 不使用でサブディレクトリに移動される', () => {
         let inputDir: string;
         let configsDir: string;
         let configFile: string;
@@ -187,7 +189,6 @@ describe('main - スキップ', () => {
             `${monthDir}/chat.md`,
             '---\ntitle: テスト\nproject: existing-project\n---\n本文',
           );
-          // project 設定済みファイルは Claude CLI を呼ばないが、念のため設定
           commandHandle = installCommandMock(
             makeSuccessMock(new TextEncoder().encode('[]')),
           );
@@ -195,7 +196,6 @@ describe('main - スキップ', () => {
           errStub = stub(console, 'error', (...args: unknown[]) => {
             errLogs.push(args.map(String).join(' '));
           });
-          // targetMetas が空になると Deno.exit(0) が呼ばれる
           exitStub = stub(Deno, 'exit');
           GlobalConfig.resetInstance();
         });
@@ -209,16 +209,183 @@ describe('main - スキップ', () => {
           await Deno.remove(configsDir, { recursive: true });
         });
 
-        it('T-CL-E2E-03-01: "skipped" メッセージがログに出力される', async () => {
+        it('T-CL-E2E-03-01: 完了ログに moved=1 が含まれる', async () => {
           await main(['claude', '2026-03', '--dry-run', '--input', inputDir, '--config', configFile]);
 
-          assertEquals(errLogs.some((l) => l.includes('skipped')), true);
+          assertEquals(errLogs.some((l) => l.includes('moved=1')), true);
         });
 
-        it('T-CL-E2E-03-02: 完了ログに skipped=1 が含まれる', async () => {
+        it('T-CL-E2E-03-02: 完了ログに skipped=0 が含まれる', async () => {
           await main(['claude', '2026-03', '--dry-run', '--input', inputDir, '--config', configFile]);
 
+          assertEquals(errLogs.some((l) => l.includes('skipped=0')), true);
+        });
+      });
+    });
+  });
+
+  describe('Given: project 設定済みファイル（CountingMockCommand で AI 呼び出し検証）', () => {
+    describe('When: main([...args, "--dry-run"]) を呼び出す', () => {
+      describe('Then: T-CL-E2E-03-03 - Deno.Command が呼ばれない', () => {
+        let inputDir: string;
+        let configsDir: string;
+        let configFile: string;
+        let monthDir: string;
+        let commandHandle: CommandMockHandle;
+        let counter: { calls: number };
+        let errStub: Stub;
+        let exitStub: Stub;
+
+        beforeEach(async () => {
+          ({ inputDir, configsDir, configFile, monthDir } = await _makeTestDirs());
+          await Deno.writeTextFile(
+            `${monthDir}/chat.md`,
+            '---\ntitle: テスト\nproject: existing-project\n---\n本文',
+          );
+          counter = { calls: 0 };
+          commandHandle = installCommandMock(makeCountingMock('[]', counter));
+          errStub = stub(console, 'error', () => {});
+          exitStub = stub(Deno, 'exit');
+          GlobalConfig.resetInstance();
+        });
+
+        afterEach(async () => {
+          commandHandle.restore();
+          errStub.restore();
+          exitStub.restore();
+          GlobalConfig.resetInstance();
+          await Deno.remove(inputDir, { recursive: true });
+          await Deno.remove(configsDir, { recursive: true });
+        });
+
+        it('T-CL-E2E-03-03: Deno.Command が一度も構築されない（counter.calls === 0）', async () => {
+          await main(['claude', '2026-03', '--dry-run', '--input', inputDir, '--config', configFile]);
+
+          assertEquals(counter.calls, 0);
+        });
+      });
+    });
+  });
+});
+
+// ─── T-CL-E2E-08: project 設定済みファイルを正しいサブディレクトリに実際に移動 ─
+
+describe('main - project 設定済みファイルの実移動', () => {
+  describe('Given: project が設定済みの .md ファイル（月ディレクトリ直下）', () => {
+    describe('When: main([...args]) を呼び出す（dryRun=false）', () => {
+      describe('Then: T-CL-E2E-08 - existing-project/ サブディレクトリに移動される', () => {
+        let inputDir: string;
+        let configsDir: string;
+        let configFile: string;
+        let monthDir: string;
+        let commandHandle: CommandMockHandle;
+        let errStub: Stub;
+
+        beforeEach(async () => {
+          ({ inputDir, configsDir, configFile, monthDir } = await _makeTestDirs());
+          await Deno.writeTextFile(
+            `${monthDir}/chat.md`,
+            '---\ntitle: テスト\nproject: existing-project\n---\n本文',
+          );
+          commandHandle = installCommandMock(
+            makeSuccessMock(new TextEncoder().encode('[]')),
+          );
+          errStub = stub(console, 'error', () => {});
+          GlobalConfig.resetInstance();
+        });
+
+        afterEach(async () => {
+          commandHandle.restore();
+          errStub.restore();
+          GlobalConfig.resetInstance();
+          await Deno.remove(inputDir, { recursive: true });
+          await Deno.remove(configsDir, { recursive: true });
+        });
+
+        it('T-CL-E2E-08-01: existing-project/ にファイルが移動している', async () => {
+          await main(['claude', '2026-03', '--input', inputDir, '--config', configFile]);
+
+          const stat = await Deno.stat(`${monthDir}/existing-project/chat.md`);
+          assertEquals(stat.isFile, true);
+        });
+
+        it('T-CL-E2E-08-02: 元のパスにファイルが存在しない', async () => {
+          await main(['claude', '2026-03', '--input', inputDir, '--config', configFile]);
+
+          let srcExists = false;
+          try {
+            await Deno.stat(`${monthDir}/chat.md`);
+            srcExists = true;
+          } catch (e) {
+            if (!(e instanceof Deno.errors.NotFound)) { throw e; }
+          }
+          assertEquals(srcExists, false);
+        });
+      });
+    });
+  });
+});
+
+// ─── T-CL-E2E-09: 既に正しいサブディレクトリにある → skipped ────────────────
+
+describe('main - 既に正しいサブディレクトリにあるファイル → skipped', () => {
+  describe('Given: project=app1 のファイルが月ディレクトリ/app1/ に存在', () => {
+    describe('When: main([...args]) を呼び出す', () => {
+      describe('Then: T-CL-E2E-09 - 二重ネストせず skipped になる', () => {
+        let inputDir: string;
+        let configsDir: string;
+        let configFile: string;
+        let commandHandle: CommandMockHandle;
+        let errLogs: string[];
+        let errStub: Stub;
+        let exitStub: Stub;
+
+        beforeEach(async () => {
+          ({ inputDir, configsDir, configFile } = await _makeTestDirs());
+          // 既に app1/ サブディレクトリに配置済み
+          const app1Dir = `${inputDir}/claude/2026-03/app1`;
+          await Deno.mkdir(app1Dir, { recursive: true });
+          await Deno.writeTextFile(
+            `${app1Dir}/chat.md`,
+            '---\ntitle: テスト\nproject: app1\n---\n本文',
+          );
+          commandHandle = installCommandMock(
+            makeSuccessMock(new TextEncoder().encode('[]')),
+          );
+          errLogs = [];
+          errStub = stub(console, 'error', (...args: unknown[]) => {
+            errLogs.push(args.map(String).join(' '));
+          });
+          exitStub = stub(Deno, 'exit');
+          GlobalConfig.resetInstance();
+        });
+
+        afterEach(async () => {
+          commandHandle.restore();
+          errStub.restore();
+          exitStub.restore();
+          GlobalConfig.resetInstance();
+          await Deno.remove(inputDir, { recursive: true });
+          await Deno.remove(configsDir, { recursive: true });
+        });
+
+        it('T-CL-E2E-09-01: 完了ログに skipped=1 が含まれる（二重ネストしない）', async () => {
+          await main(['claude', '2026-03', '--input', inputDir, '--config', configFile]);
+
           assertEquals(errLogs.some((l) => l.includes('skipped=1')), true);
+        });
+
+        it('T-CL-E2E-09-02: app1/app1/ ディレクトリが作成されない', async () => {
+          await main(['claude', '2026-03', '--input', inputDir, '--config', configFile]);
+
+          let doubleNestedExists = false;
+          try {
+            await Deno.stat(`${inputDir}/claude/2026-03/app1/app1`);
+            doubleNestedExists = true;
+          } catch (e) {
+            if (!(e instanceof Deno.errors.NotFound)) { throw e; }
+          }
+          assertEquals(doubleNestedExists, false);
         });
       });
     });
@@ -266,6 +433,190 @@ describe('main - 対象ファイルなし', () => {
           await main(['claude', '2026-03', '--input', inputDir, '--config', configFile]);
 
           assertEquals(errLogs.some((l) => l.includes('moved=0 skipped=0 error=0')), true);
+        });
+      });
+    });
+  });
+});
+
+// ─── T-CL-E2E-05: 存在しない inputDir → exit(1) ──────────────────────────────
+
+describe('main - InputNotFound エラー', () => {
+  describe('Given: 存在しない --input パス', () => {
+    describe('When: main([...args]) を呼び出す', () => {
+      describe('Then: T-CL-E2E-05 - InputNotFound → exit(1)', () => {
+        let configsDir: string;
+        let configFile: string;
+        let errLogs: string[];
+        let errStub: Stub;
+        let exitStub: Stub;
+
+        beforeEach(async () => {
+          configsDir = await Deno.makeTempDir();
+          configFile = `${configsDir}/defaults.yaml`;
+          await Deno.writeTextFile(configFile, '{}\n');
+          await Deno.writeTextFile(
+            `${configsDir}/projects.dic`,
+            'app1:\n  def: Test project 1\n',
+          );
+          errLogs = [];
+          errStub = stub(console, 'error', (...args: unknown[]) => {
+            errLogs.push(args.map(String).join(' '));
+          });
+          exitStub = stub(Deno, 'exit');
+          GlobalConfig.resetInstance();
+        });
+
+        afterEach(async () => {
+          errStub.restore();
+          exitStub.restore();
+          GlobalConfig.resetInstance();
+          await Deno.remove(configsDir, { recursive: true });
+        });
+
+        it('T-CL-E2E-05-01: Deno.exit が 1 で呼ばれる', async () => {
+          try {
+            await main(['claude', '2026-03', '--input', '/nonexistent/path/xyz', '--config', configFile]);
+          } catch { /* ChatlogError が漏れた場合も継続して検証する */ }
+
+          assertEquals(exitStub.calls.length >= 1, true, 'Deno.exit が呼ばれていない');
+          assertEquals(exitStub.calls[0].args[0], 1);
+        });
+
+        it('T-CL-E2E-05-02: errorLogs に "入力ディレクトリが見つかりません" が含まれる', async () => {
+          try {
+            await main(['claude', '2026-03', '--input', '/nonexistent/path/xyz', '--config', configFile]);
+          } catch { /* ChatlogError が漏れた場合も継続して検証する */ }
+
+          assertEquals(
+            errLogs.some((l) => l.includes('入力ディレクトリが見つかりません')),
+            true,
+            'errorLogs に 入力ディレクトリが見つかりません が含まれていない',
+          );
+        });
+      });
+    });
+  });
+});
+
+// ─── T-CL-E2E-06: AI 失敗 → 全ファイルが misc/ に移動 ───────────────────────
+
+describe('main - AI 失敗フォールバック', () => {
+  describe('Given: 1件の .md ファイルと CLI 失敗モック', () => {
+    describe('When: main([...args]) を呼び出す（dryRun=false）', () => {
+      describe('Then: T-CL-E2E-06 - AI 失敗 → misc/ にファイルが移動', () => {
+        let inputDir: string;
+        let configsDir: string;
+        let configFile: string;
+        let monthDir: string;
+        let commandHandle: CommandMockHandle;
+        let errLogs: string[];
+        let errStub: Stub;
+
+        beforeEach(async () => {
+          ({ inputDir, configsDir, configFile, monthDir } = await _makeTestDirs());
+          await Deno.writeTextFile(
+            `${monthDir}/chat.md`,
+            '---\ntitle: テスト\ncategory: development\n---\n本文',
+          );
+          commandHandle = installCommandMock(makeFailMock(1));
+          errLogs = [];
+          errStub = stub(console, 'error', (...args: unknown[]) => {
+            errLogs.push(args.map(String).join(' '));
+          });
+          GlobalConfig.resetInstance();
+        });
+
+        afterEach(async () => {
+          commandHandle.restore();
+          errStub.restore();
+          GlobalConfig.resetInstance();
+          await Deno.remove(inputDir, { recursive: true });
+          await Deno.remove(configsDir, { recursive: true });
+        });
+
+        it('T-CL-E2E-06-01: misc/ にファイルが移動している', async () => {
+          await main(['claude', '2026-03', '--input', inputDir, '--config', configFile]);
+
+          const stat = await Deno.stat(`${monthDir}/misc/chat.md`);
+          assertEquals(stat.isFile, true);
+        });
+
+        it('T-CL-E2E-06-02: 完了ログに moved=1 が含まれる', async () => {
+          await main(['claude', '2026-03', '--input', inputDir, '--config', configFile]);
+
+          assertEquals(
+            errLogs.some((l) => l.includes('moved=1')),
+            true,
+            '完了ログに moved=1 が含まれていない',
+          );
+        });
+      });
+    });
+  });
+});
+
+// ─── T-CL-E2E-07: 期間フィルタ ───────────────────────────────────────────────
+
+describe('main - 期間フィルタ', () => {
+  describe('Given: 2026-02 と 2026-03 の両方に .md ファイルが存在', () => {
+    describe('When: main(["claude", "2026-03", "--dry-run", ...]) を呼び出す', () => {
+      describe('Then: T-CL-E2E-07 - 2026-03 のみ処理される', () => {
+        let inputDir: string;
+        let configsDir: string;
+        let configFile: string;
+        let monthDir: string;
+        let commandHandle: CommandMockHandle;
+        let loggerStub: LoggerStub;
+        let errStub: Stub;
+
+        beforeEach(async () => {
+          ({ inputDir, configsDir, configFile, monthDir } = await _makeTestDirs('claude', '2026-03'));
+          // 2026-03 の対象ファイル
+          await Deno.writeTextFile(
+            `${monthDir}/in-scope.md`,
+            '---\ntitle: 対象\ncategory: dev\n---\n本文',
+          );
+          // 2026-02 の期間外ファイル
+          await Deno.mkdir(`${inputDir}/claude/2026-02`, { recursive: true });
+          await Deno.writeTextFile(
+            `${inputDir}/claude/2026-02/out-of-scope.md`,
+            '---\ntitle: 期間外\ncategory: dev\n---\n本文',
+          );
+          const response = JSON.stringify([
+            { file: 'in-scope.md', project: 'app1', confidence: 0.9, reason: 'matched' },
+          ]);
+          commandHandle = installCommandMock(
+            makeSuccessMock(new TextEncoder().encode(response)),
+          );
+          loggerStub = makeLoggerStub();
+          errStub = stub(console, 'error', () => {});
+          GlobalConfig.resetInstance();
+        });
+
+        afterEach(async () => {
+          commandHandle.restore();
+          loggerStub.restore();
+          errStub.restore();
+          GlobalConfig.resetInstance();
+          await Deno.remove(inputDir, { recursive: true });
+          await Deno.remove(configsDir, { recursive: true });
+        });
+
+        it('T-CL-E2E-07-01: 期間外ファイル（out-of-scope.md）がログに出力されない', async () => {
+          await main(['claude', '2026-03', '--dry-run', '--input', inputDir, '--config', configFile]);
+
+          const allInfoLogs = loggerStub.infoLogs.join('\n');
+          assertEquals(allInfoLogs.includes('out-of-scope.md'), false);
+        });
+
+        it('T-CL-E2E-07-02: 期間内ファイル（in-scope.md）の [dry-run] ログが出力される', async () => {
+          await main(['claude', '2026-03', '--dry-run', '--input', inputDir, '--config', configFile]);
+
+          assertEquals(
+            loggerStub.infoLogs.some((l) => l.includes('[dry-run]') && l.includes('in-scope.md')),
+            true,
+          );
         });
       });
     });
