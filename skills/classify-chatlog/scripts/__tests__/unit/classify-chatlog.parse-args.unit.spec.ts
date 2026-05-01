@@ -26,9 +26,8 @@ describe('parseArgs', () => {
       describe('Then: T-CL-PA-01 - 各フィールドが undefined になる', () => {
         const _cases: Array<[string, keyof ParsedConfig]> = [
           ['T-CL-PA-01-01: inputDir → undefined', 'inputDir'],
-          ['T-CL-PA-01-02: dicsDir → undefined', 'dicsDir'],
-          ['T-CL-PA-01-03: configFile → undefined', 'configFile'],
-          ['T-CL-PA-01-04: dryRun → undefined', 'dryRun'],
+          ['T-CL-PA-01-02: configFile → undefined', 'configFile'],
+          ['T-CL-PA-01-03: dryRun → undefined', 'dryRun'],
         ];
         for (const [id, key] of _cases) {
           it(id, () => {
@@ -53,25 +52,6 @@ describe('parseArgs', () => {
           it(id, () => {
             const result = parseArgs(args);
             assertEquals(result.inputDir, expected);
-          });
-        }
-      });
-    });
-  });
-
-  // ─── T-CL-PA-03: --dics オプション ─────────────────────────────────────────
-
-  describe('Given: --dics または --dics=VALUE', () => {
-    describe('When: parseArgs(args) を呼び出す', () => {
-      describe('Then: T-CL-PA-03 - dicsDir に値が設定される', () => {
-        const _cases: Array<[string, string[], string]> = [
-          ['T-CL-PA-03-01: --dics VALUE → dicsDir が設定される', ['--dics', '/assets/dics'], '/assets/dics'],
-          ['T-CL-PA-03-02: --dics=VALUE → dicsDir が設定される', ['--dics=/assets/dics'], '/assets/dics'],
-        ];
-        for (const [id, args, expected] of _cases) {
-          it(id, () => {
-            const result = parseArgs(args);
-            assertEquals(result.dicsDir, expected);
           });
         }
       });
