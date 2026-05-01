@@ -41,7 +41,33 @@ describe('loadClassifyFileMeta', () => {
           assertEquals(meta?.filename, 'test.md');
         });
 
-        it('T-CL-LFM-01-02: title が正しく設定される', async () => {
+        it('T-CL-LFM-01-02: frontmatter の title が正しく設定される', async () => {
+          const filePath = `${tempDir}/test.md`;
+          await Deno.writeTextFile(
+            filePath,
+            '---\ntitle: テストタイトル\ncategory: development\n---\n本文',
+          );
+
+          const meta = await loadClassifyFileMeta(filePath);
+          const _title = meta?.frontmatter.get('title');
+
+          assertEquals(typeof _title === 'string' ? _title : '', 'テストタイトル');
+        });
+
+        it('T-CL-LFM-01-03: frontmatter の category が正しく設定される', async () => {
+          const filePath = `${tempDir}/test.md`;
+          await Deno.writeTextFile(
+            filePath,
+            '---\ntitle: テストタイトル\ncategory: development\n---\n本文',
+          );
+
+          const meta = await loadClassifyFileMeta(filePath);
+          const _category = meta?.frontmatter.get('category');
+
+          assertEquals(typeof _category === 'string' ? _category : '', 'development');
+        });
+
+        it('T-CL-LFM-01-04: frontmatterText と content が正しく設定される', async () => {
           const filePath = `${tempDir}/test.md`;
           await Deno.writeTextFile(
             filePath,
@@ -50,29 +76,11 @@ describe('loadClassifyFileMeta', () => {
 
           const meta = await loadClassifyFileMeta(filePath);
 
-          assertEquals(meta?.title, 'テストタイトル');
-        });
-
-        it('T-CL-LFM-01-03: category が正しく設定される', async () => {
-          const filePath = `${tempDir}/test.md`;
-          await Deno.writeTextFile(
-            filePath,
-            '---\ntitle: テストタイトル\ncategory: development\n---\n本文',
+          assertEquals(
+            meta?.frontmatterText,
+            '---\ntitle: テストタイトル\ncategory: development\n---\n',
           );
-
-          const meta = await loadClassifyFileMeta(filePath);
-
-          assertEquals(meta?.category, 'development');
-        });
-
-        it('T-CL-LFM-01-04: fullText が正しく設定される', async () => {
-          const content = '---\ntitle: テストタイトル\ncategory: development\n---\n本文';
-          const filePath = `${tempDir}/test.md`;
-          await Deno.writeTextFile(filePath, content);
-
-          const meta = await loadClassifyFileMeta(filePath);
-
-          assertEquals(meta?.fullText, content);
+          assertEquals(meta?.content, '本文\n');
         });
       });
     });
@@ -92,29 +100,30 @@ describe('loadClassifyFileMeta', () => {
     });
   });
 
-  // ─── T-CL-LFM-03: project なし → existingProject = "" ────────────────────
+  // ─── T-CL-LFM-03: project なし → frontmatter.get('project') が undefined ────
 
   describe('Given: project フィールドのない frontmatter の .md ファイル', () => {
     describe('When: loadClassifyFileMeta(filePath) を呼び出す', () => {
-      describe('Then: T-CL-LFM-03 - existingProject が空文字列（分類対象）', () => {
-        it('T-CL-LFM-03-01: existingProject が "" である', async () => {
+      describe('Then: T-CL-LFM-03 - frontmatter.get("project") が undefined（分類対象）', () => {
+        it('T-CL-LFM-03-01: frontmatter.get("project") が undefined である', async () => {
           const filePath = `${tempDir}/no-project.md`;
           await Deno.writeTextFile(filePath, '---\ntitle: テスト\n---\n本文');
 
           const meta = await loadClassifyFileMeta(filePath);
+          const _project = meta?.frontmatter.get('project');
 
-          assertEquals(meta?.existingProject, '');
+          assertEquals(_project, undefined);
         });
       });
     });
   });
 
-  // ─── T-CL-LFM-04: project 設定済み → existingProject = "my-app" ──────────
+  // ─── T-CL-LFM-04: project 設定済み → frontmatter.get('project') = "my-app" ──
 
   describe('Given: project: my-app を含む frontmatter の .md ファイル', () => {
     describe('When: loadClassifyFileMeta(filePath) を呼び出す', () => {
-      describe('Then: T-CL-LFM-04 - existingProject が "my-app"（スキップ対象）', () => {
-        it('T-CL-LFM-04-01: existingProject が "my-app" である', async () => {
+      describe('Then: T-CL-LFM-04 - frontmatter.get("project") が "my-app"（スキップ対象）', () => {
+        it('T-CL-LFM-04-01: frontmatter.get("project") が "my-app" である', async () => {
           const filePath = `${tempDir}/with-project.md`;
           await Deno.writeTextFile(
             filePath,
@@ -122,8 +131,51 @@ describe('loadClassifyFileMeta', () => {
           );
 
           const meta = await loadClassifyFileMeta(filePath);
+          const _project = meta?.frontmatter.get('project');
 
-          assertEquals(meta?.existingProject, 'my-app');
+          assertEquals(typeof _project === 'string' ? _project : '', 'my-app');
+        });
+      });
+    });
+  });
+
+  // ─── T-CL-LFM-05: topics 配列の取得 ─────────────────────────────────────
+
+  describe('Given: topics を含む frontmatter の .md ファイル', () => {
+    describe('When: loadClassifyFileMeta(filePath) を呼び出す', () => {
+      describe('Then: T-CL-LFM-05 - topics が正しく取得される', () => {
+        it('T-CL-LFM-05-01: frontmatter.get("topics") が ["TypeScript", "Deno"] である', async () => {
+          const filePath = `${tempDir}/with-topics.md`;
+          await Deno.writeTextFile(
+            filePath,
+            '---\ntopics:\n  - TypeScript\n  - Deno\n---\n本文',
+          );
+
+          const meta = await loadClassifyFileMeta(filePath);
+          const _topics = meta?.frontmatter.get('topics');
+
+          assertEquals(Array.isArray(_topics) ? _topics as string[] : [], ['TypeScript', 'Deno']);
+        });
+      });
+    });
+  });
+
+  // ─── T-CL-LFM-06: tags 配列の取得 ────────────────────────────────────────
+
+  describe('Given: tags を含む frontmatter の .md ファイル', () => {
+    describe('When: loadClassifyFileMeta(filePath) を呼び出す', () => {
+      describe('Then: T-CL-LFM-06 - tags が正しく取得される', () => {
+        it('T-CL-LFM-06-01: frontmatter.get("tags") が ["refactoring", "bdd"] である', async () => {
+          const filePath = `${tempDir}/with-tags.md`;
+          await Deno.writeTextFile(
+            filePath,
+            '---\ntags:\n  - refactoring\n  - bdd\n---\n本文',
+          );
+
+          const meta = await loadClassifyFileMeta(filePath);
+          const _tags = meta?.frontmatter.get('tags');
+
+          assertEquals(Array.isArray(_tags) ? _tags as string[] : [], ['refactoring', 'bdd']);
         });
       });
     });
