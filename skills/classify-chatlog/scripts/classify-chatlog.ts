@@ -89,6 +89,7 @@ export const parseArgs = (args: string[]): ParsedConfig => {
  * ParsedConfig・GlobalConfig・デフォルト値から完全な ClassifyConfig を構築する。
  * - agent 優先順位: `parsed.agent` > `globalConfig.get('agent')` > `defaults.agent`
  * - model 優先順位: `parsed.model` > `globalConfig.get('model')` > `defaults.model`
+ * - inputDir 優先順位: `parsed.inputDir` > `globalConfig.get('chatlogDir')` > `defaults.inputDir`
  * - dicsDir 優先順位: `globalConfig.get('dicsDir')` > `defaults.dicsDir`
  * - projectsDic: `parsed.configFile` のディレクトリ + `/projects.dic`。未指定時は `defaults.projectsDic`。
  * - 不正なモデル名は `ChatlogError('InvalidArgs')` をスローする。
@@ -106,11 +107,20 @@ export function buildConfig(
   }
   const _agent = parsed.agent ?? (globalConfig.get('agent') as string | undefined) ?? _defaults.agent;
   const _dicsDir = (globalConfig.get('dicsDir') as string | undefined) ?? _defaults.dicsDir;
+  const _inputDir = parsed.inputDir ?? (globalConfig.get('chatlogDir') as string | undefined) ?? _defaults.inputDir;
   const _projectsDic = parsed.configFile
     ? `${getDirectory(parsed.configFile)}/projects.dic`
     : _defaults.projectsDic;
   const { configFile: _cf, ...rest } = parsed;
-  return { ..._defaults, ...rest, agent: _agent, model: _model, dicsDir: _dicsDir, projectsDic: _projectsDic };
+  return {
+    ..._defaults,
+    ...rest,
+    agent: _agent,
+    model: _model,
+    dicsDir: _dicsDir,
+    projectsDic: _projectsDic,
+    inputDir: _inputDir,
+  };
 }
 
 // ─────────────────────────────────────────────
