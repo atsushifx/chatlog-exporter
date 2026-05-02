@@ -335,4 +335,41 @@ describe('GlobalConfig', () => {
       assertStrictEquals(_created, _got);
     });
   });
+
+  // ─── chatlogDir ────────────────────────────────────────────────────────────
+
+  describe('chatlogDir', () => {
+    const _existsStat: StatProvider = (_path) => Promise.resolve({ isFile: true } as Deno.FileInfo);
+    const _makeReadOk = (content: string): ReadTextFileProvider => (_path) => Promise.resolve(content);
+
+    it('T-CLS-GC-50: get("chatlogDir") がデフォルト値 "./chatlog" を返す', async () => {
+      const _config = await GlobalConfig.getInstance();
+      assertEquals(_config.get('chatlogDir'), './chatlog');
+    });
+
+    it('T-CLS-GC-51: parseYaml({ chatlogDir: "/custom/chatlog" }) が正しく返す', async () => {
+      const _config = await GlobalConfig.getInstance();
+      assertEquals(_config.parseYaml({ chatlogDir: '/custom/chatlog' }), { chatlogDir: '/custom/chatlog' });
+    });
+
+    it('T-CLS-GC-52: parseYaml({ chatlogDir: null }) が { chatlogDir: "" } を返す', async () => {
+      const _config = await GlobalConfig.getInstance();
+      assertEquals(_config.parseYaml({ chatlogDir: null }), { chatlogDir: '' });
+    });
+
+    it('T-CLS-GC-53: parseYaml({ chatlogDir: 42 }) が TypeError をスローする', async () => {
+      const _config = await GlobalConfig.getInstance();
+      assertThrows(() => _config.parseYaml({ chatlogDir: 42 }), TypeError);
+    });
+
+    it('T-CLS-GC-54: loadConfigFile で chatlogDir を含む YAML が正しく変換される', async () => {
+      const _config = await GlobalConfig.getInstance();
+      const _result = await _config.loadConfigFile({
+        configPath: '/mock/config.yaml',
+        readTextFileProvider: _makeReadOk('chatlogDir: /custom/chatlog\n'),
+        statProvider: _existsStat,
+      });
+      assertEquals(_result, { chatlogDir: '/custom/chatlog' });
+    });
+  });
 });
