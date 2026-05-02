@@ -31,6 +31,8 @@ export const DEFAULT_SCHEMA: Record<string, SchemaValueTypeName> = {
   dicsDir: 'string',
   /** プロンプトテンプレートが置かれたディレクトリのパス。 */
   promptsDir: 'string',
+  /** チャットログの入出力ディレクトリのパス。 */
+  chatlogDir: 'string',
 };
 
 /** DEFAULT_SCHEMA のキーのユニオン型。 */
@@ -63,4 +65,6 @@ export const DEFAULT_VALUES: ConfigValues = {
   dicsDir: './assets/dics',
   /** デフォルトプロンプトディレクトリ */
   promptsDir: './assets/prompts',
+  /** デフォルトチャットログディレクトリ */
+  chatlogDir: './chatlog',
 } as const;
