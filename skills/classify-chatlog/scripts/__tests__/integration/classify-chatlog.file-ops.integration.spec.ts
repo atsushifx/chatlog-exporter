@@ -180,4 +180,64 @@ describe('loadClassifyFileMeta', () => {
       });
     });
   });
+
+  // ─── T-CL-LFM-07: 閉じない frontmatter → null ────────────────────────────
+
+  describe('Given: 閉じない frontmatter の .md ファイル（終端 --- なし）', () => {
+    describe('When: loadClassifyFileMeta(filePath) を呼び出す', () => {
+      describe('Then: T-CL-LFM-07 - null が返される', () => {
+        it('T-CL-LFM-07-01: 閉じない frontmatter の場合 null が返される（例外なし）', async () => {
+          const filePath = `${tempDir}/unclosed-fm.md`;
+          await Deno.writeTextFile(filePath, '---\ntitle: テスト\n本文'); // 閉じる --- がない
+
+          const meta = await loadClassifyFileMeta(filePath);
+
+          assertEquals(meta, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-CL-LFM-08: 壊れた YAML → null ────────────────────────────────────
+
+  describe('Given: 壊れた YAML を含む frontmatter の .md ファイル', () => {
+    describe('When: loadClassifyFileMeta(filePath) を呼び出す', () => {
+      describe('Then: T-CL-LFM-08 - null が返される', () => {
+        it('T-CL-LFM-08-01: 壊れた YAML の場合 null が返される（例外なし）', async () => {
+          const filePath = `${tempDir}/bad-yaml.md`;
+          await Deno.writeTextFile(filePath, '---\ntitle: [unclosed\n---\n本文');
+
+          const meta = await loadClassifyFileMeta(filePath);
+
+          assertEquals(meta, null);
+        });
+      });
+    });
+  });
+
+  // ─── T-CL-LFM-09: frontmatter なし・空本文 → インスタンスあり ────────────
+
+  describe('Given: frontmatter なし・空本文（改行のみ）の .md ファイル', () => {
+    describe('When: loadClassifyFileMeta(filePath) を呼び出す', () => {
+      describe('Then: T-CL-LFM-09 - インスタンスが返され、project は undefined', () => {
+        it('T-CL-LFM-09-01: null ではなくインスタンスが返される（分類対象として扱われる）', async () => {
+          const filePath = `${tempDir}/empty-body.md`;
+          await Deno.writeTextFile(filePath, '\n');
+
+          const meta = await loadClassifyFileMeta(filePath);
+
+          assertEquals(meta !== null, true);
+        });
+
+        it('T-CL-LFM-09-02: frontmatter.get("project") が undefined（スキップされない）', async () => {
+          const filePath = `${tempDir}/empty-body.md`;
+          await Deno.writeTextFile(filePath, '\n');
+
+          const meta = await loadClassifyFileMeta(filePath);
+
+          assertEquals(meta?.frontmatter.get('project'), undefined);
+        });
+      });
+    });
+  });
 });
