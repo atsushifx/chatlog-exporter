@@ -2,7 +2,7 @@
 title: "Design Specification: 構造化出力の強制（llama バックエンド）"
 based-on: requirements.md v1.6.0
 status: Draft
-version: 2.1.2
+version: 2.2.0
 created: "2026-09-02"
 ---
 
@@ -374,14 +374,14 @@ DR-19 決定 1）は **復元先の文字列表現** を選ぶものであり、
 R-001 のスキーマ構築、R-003 の enum フォールバック、R-008 の必須キー検証は、
 いずれも契約タグと次表の **契約定義** の組を唯一の入力とする。
 
-| # | 呼び出し元                | 契約タグ        | 復元の起点                 | required keys と値の型                                                                                                                                    | enum フィールドと値域の取得元                                                                      | フォールバック値                                                                       |
-| - | ------------------------- | --------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| 1 | `phase-classify-ai.ts`    | `json-array`    | envelope `items`           | `items`: object の配列。要素は `ClassifyCache`（`classify-chatlogs/scripts/types/classify.types.ts`）の `file` / `project` / `confidence` / `reason`      | `project`: `projects.dic` のプロジェクト名                                                         | `FALLBACK_PROJECT`（`'misc'`）                                                         |
-| 2 | `filter/process-chunk.ts` | `json-array`    | envelope `items`           | `items`: object の配列。要素は `ClaudeResult`（`filter-chatlogs/scripts/types/filter.types.ts`）の `file` / `decision` / `confidence` / `reason`          | `decision`: `FILTER_DECISIONS`（`filter-decision.const.types.ts`）                                 | `FILTER_DECISIONS.ERROR`（`'ERROR'`）                                                  |
-| 3 | `segment-ai.ts`           | `json-array`    | envelope `items`           | `items`: object の配列。要素は `filePath`: string / `segments`: object の配列                                                                             | なし                                                                                               | —                                                                                      |
-| 4 | `setfm-frontmatter.ts`    | `yaml`          | firstField `title`         | `title`: string / `topics`: string の配列 / `tags`: string の配列                                                                                         | `topics`: `topics.dic` のキー（22 件）/ `tags`: `tags.dic` のキー（73 件）。いずれも配列要素の値域 | 空配列（下記「配列値の enum」を参照）                                                  |
-| 5 | `setfm-review.ts`         | `yaml`          | firstField `validity`      | `validity`: string / `errors`: string の配列 / `corrected_frontmatter`: object（`type` / `category` / `title`: string、`topics` / `tags`: string の配列） | `validity`: `pass` \| `fail`。`corrected_frontmatter` の `type` / `category` は #6 と同じ辞書      | `validity` は `pass`。`corrected_frontmatter` の単一値 enum は #6 に同じ。配列は空配列 |
-| 6 | `setfm-type-category.ts`  | `line-prefixed` | 行頭 `type:` / `category:` | `type`: string / `category`: string                                                                                                                       | `type`: `types.dic` のキー / `category`: `category.dic` のキー                                     | `DEFAULT_FALLBACK_TYPE` / `DEFAULT_FALLBACK_CATEGORY`                                  |
+| # | 呼び出し元                | 契約タグ        | 復元の起点                 | required keys と値の型                                                                                                                                                                                                                                             | enum フィールドと値域の取得元                                                                      | フォールバック値                                                                       |
+| - | ------------------------- | --------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 1 | `phase-classify-ai.ts`    | `json-array`    | envelope `items`           | `items`: object の配列。要素は `ClassifyCache`（`classify-chatlogs/scripts/types/classify.types.ts`）の `file` / `project` / `confidence` / `reason`                                                                                                               | `project`: `projects.dic` のプロジェクト名                                                         | `FALLBACK_PROJECT`（`'misc'`）                                                         |
+| 2 | `filter/process-chunk.ts` | `json-array`    | envelope `items`           | `items`: object の配列。要素は `ClaudeResult`（`filter-chatlogs/scripts/types/filter.types.ts`）の `file` / `decision` / `confidence` / `reason`                                                                                                                   | `decision`: `FILTER_DECISIONS`（`filter-decision.const.types.ts`）                                 | `FILTER_DECISIONS.ERROR`（`'ERROR'`）                                                  |
+| 3 | `segment-ai.ts`           | `json-array`    | envelope `items`           | `items`: object の配列。要素は `filePath`: string / `segments`: object の配列。`segments` の要素は `title`: string / `summary`: string / `startLine`: integer / `endLine`: integer の 4 キーすべてを required とする（下記「ネストした object の必須キー」を参照） | なし                                                                                               | —                                                                                      |
+| 4 | `setfm-frontmatter.ts`    | `yaml`          | firstField `title`         | `title`: string / `topics`: string の配列 / `tags`: string の配列                                                                                                                                                                                                  | `topics`: `topics.dic` のキー（22 件）/ `tags`: `tags.dic` のキー（73 件）。いずれも配列要素の値域 | 空配列（下記「配列値の enum」を参照）                                                  |
+| 5 | `setfm-review.ts`         | `yaml`          | firstField `validity`      | `validity`: string / `errors`: string の配列 / `corrected_frontmatter`: object（`type` / `category` / `title`: string、`topics` / `tags`: string の配列）                                                                                                          | `validity`: `pass` \| `fail`。`corrected_frontmatter` の `type` / `category` は #6 と同じ辞書      | `validity` は `pass`。`corrected_frontmatter` の単一値 enum は #6 に同じ。配列は空配列 |
+| 6 | `setfm-type-category.ts`  | `line-prefixed` | 行頭 `type:` / `category:` | `type`: string / `category`: string                                                                                                                                                                                                                                | `type`: `types.dic` のキー / `category`: `category.dic` のキー                                     | `DEFAULT_FALLBACK_TYPE` / `DEFAULT_FALLBACK_CATEGORY`                                  |
 
 **辞書由来 enum の扱い**: #1・#4・#5・#6 の値域は定数ではなく `.config/chatlog-exporter/dics/`
 配下の辞書から実行時に読み込まれる。したがってスキーマ構築関数は値域を引数として受け取り、
@@ -403,6 +403,22 @@ R-001 のスキーマ構築、R-003 の enum フォールバック、R-008 の�
 分類語彙へ持ち込むことになる。R-002 により `minItems` を置かないため、空配列はスキーマ上
 つねに許容される。R-003 が求めるフォールバック値の必須化は、`type` / `category` / `project` /
 `decision` のような **単一値の enum** に対する要求とする。
+
+**ネストした object の必須キー**: 契約定義は配列要素・入れ子 object の **内部キーまで** 定める。
+「object の配列」で止めた定義をスキーマへ落とすと `{"type": "object"}` 相当となり、
+サーバが `{}` を返しても R-008 の検証を通過してしまう。とくに #3 の `segments` は
+`title` / `summary` / `startLine` / `endLine` の 4 キーを required とし、`startLine` / `endLine` は
+`integer` とする。この 4 キーは `segment-ai.ts` の system prompt が "exactly four fields" として
+既に要求している内容と一致する。
+
+`Segment` 型（`normalize-chatlogs/scripts/types/normalize.types.ts`）では `startLine` / `endLine` が
+optional だが、これは受信後の TypeScript 側の表現であってスキーマ側の要求ではない。
+required から外すと `phase-segment.ts` が境界欠落を検知して `status: 'retry'` を書き込み、
+不要なリトライを発生させる。`title` / `summary` は同ファイルにガードが無く、欠落すると
+`undefined` のままキャッシュへ永続化される。
+
+なお #3 に数量制約（`minItems`）は置かない（R-002）。「セグメントを 1 件以上返す」ことは
+引き続き system prompt の指示で担保する。
 
 ---
 
@@ -531,3 +547,4 @@ filter（`skills/filter-chatlogs/scripts/modules/filter/process-chunk.ts`）は�
 | 2026-09-05 | 2.1.0   | codex feasibility セカンドオピニオンの所見を反映: §4.3.1（呼び出し元ごとの契約定義）を新設し、契約タグ 3 種（DR-19 決定 1）は復元先の文字列表現を選ぶだけでスキーマを一意に決めないことを明記。`yaml` タグの 2 呼び出しで必須キーが異なる事実を §2.2 へ、required keys / 値の型 / enum 値域の取得元 / フォールバック値を §4.3.1 の表へ確定。§4.3 の「`extractYaml` が要求するキーと完全一致」（第 2 引数は起点キーであり必須キーの一覧ではないため実装不能）を §4.3.1 参照へ改め、§4.1 の検証表と §6 の REQ-F-018 行も同表を指すようにした。辞書由来 enum は実行時に引数で受け取ること、単一値 enum のフォールバックは値域内に含めること、配列要素の enum では「該当なし」を空配列で表すことを規定 |
 | 2026-09-06 | 2.1.1   | DR-28 を反映した明確化: R-004 の適用段を直接パース段に限定し、括弧マッチ段が空配列を受理しないことを明記。フェンス内が空配列でフェンス外に非空配列が続く入力を §5 Edge Cases に追加し、§5.1 と §2.6 の DR 参照表にも段限定を反映（実装義務の変更なし。implementation.md §Commit 1 が既に同内容を持つ）                                                                                                                                                                                                                                                                                                                                                                                             |
 | 2026-09-06 | 2.1.2   | §5.1 の非破壊判定を T-01 実装時の実測へ訂正: filter は戻り値と `stats` の内訳が変わるため不適合とし、R-004 が意図した挙動として REQ-C-002 の例外に記録。classify / normalize の適合判定は据え置き（cle-nnb）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 2026-09-06 | 2.2.0   | PR #436 の codex レビュー所見（P1）を反映: §4.3.1 の #3（`segment-ai.ts`）が `segments` を「object の配列」で止めており、スキーマが `{ type: "object" }` 相当となってサーバが `{}` を返しても R-008 を通過してしまう問題を修正。要素の必須キー（`title` / `summary`: string、`startLine` / `endLine`: integer）を確定し、「ネストした object の必須キー」節を新設して契約定義が入れ子の内部キーまで定めることを規定                                                                                                                                                                                                                                                                                |

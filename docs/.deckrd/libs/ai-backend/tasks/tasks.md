@@ -4,7 +4,7 @@ module: libs/ai-backend
 status: Active
 created: "2026-09-04 00:00:00"
 source: specifications-index.md
-based-on: implementation.md v1.4.0
+based-on: implementation.md v1.5.0
 ---
 
 <!-- cspell:words qwen llamacpp -->
@@ -103,17 +103,17 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 | T-03: `parseModel` / `getAiBackend` / `isValidModel` + llama 定数群 | 3      | 2     | —       | 7         | 11      | pending |
 | T-04: `GlobalConfig` (`llamaEndpoint`)                              | 4      | 2     | —       | 7         | 8       | pending |
 | T-05: `FetchProvider` 型 / llama 中断側判定関数                     | 5      | 2     | —       | 5         | 13      | pending |
-| T-06: 呼び出し元 catch の中断判定拡張 (4 スキル)                    | 6〜9   | 3     | —       | 12        | 12      | pending |
+| T-06: 呼び出し元 catch の中断判定拡張 (4 スキル)                    | 6〜9   | 3     | —       | 12        | 16      | pending |
 | T-07: `runAI` の 3 層分割                                           | 10     | 4     | —       | 8         | 16      | pending |
-| T-08: json_schema 構築関数                                          | 11     | 5     | Phase 0 | 9         | 13      | pending |
-| T-09: on-wire contract validation 関数と契約別復元関数              | 12     | 5     | Phase 0 | 13        | 14      | pending |
+| T-08: json_schema 構築関数                                          | 11     | 5     | Phase 0 | 9         | 14      | pending |
+| T-09: on-wire contract validation 関数と契約別復元関数              | 12     | 5     | Phase 0 | 13        | 15      | pending |
 | T-10: エンドポイント受理判定関数 / URL 正規化関数                   | 13     | 6     | Phase 0 | 3         | 13      | pending |
 | T-11: llama リクエストボディ構築                                    | 14     | 6     | Phase 0 | 3         | 7       | pending |
 | T-12: llama 応答解釈とエラー写像                                    | 15     | 6     | Phase 0 | 12        | 31      | pending |
 | T-13: 出力契約の指定 (6 呼び出し)                                   | 16〜19 | 7     | Phase 0 | 10        | 10      | pending |
 | T-14: `--allow-net` 付与範囲の静的検査                              | 20     | 8     | Phase 0 | 8         | 8       | pending |
 | T-15: `_runViaHttp` の結線                                          | 21     | 8     | Phase 0 | 9         | 16      | pending |
-| **合計**                                                            | —      | —     | —       | **113**   | **185** | —       |
+| **合計**                                                            | —      | —     | —       | **113**   | **191** | —       |
 
 <!-- Status may be: pending | in progress | done -->
 
@@ -582,7 +582,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 ## T-06: 呼び出し元 catch の中断判定拡張（4 スキル）
 
-> Commit: 6〜9 / 配置ファイル: `phase-classify-ai.ts`（Commit 6） / `process-chunk.ts`（Commit 7） / `segment-ai.ts`（Commit 8） / `setfm-type-category.ts`（Commit 9） / Phase: 3（着手条件: Commit 5 完了）/ Test ID prefix: `T-CL-LAB`（classify） / `T-FL-LAB`（filter） / `T-NC-LAB`（normalize） / `T-SF-LAB`（set-frontmatter）、各スキル 01 から
+> Commit: 6〜9 / 配置ファイル: `phase-classify-ai.ts`（Commit 6） / `process-chunk.ts`（Commit 7） / `segment-ai.ts`（Commit 8） / `setfm-type-category.ts` / `phase-frontmatter.ts` / `phase-review.ts`（Commit 9） / Phase: 3（着手条件: Commit 5 完了）/ Test ID prefix: `T-CL-LAB`（classify） / `T-FL-LAB`（filter） / `T-NC-LAB`（normalize） / `T-SF-LAB`（set-frontmatter）、各スキル 01 から
 
 ### [正常] Normal Cases
 
@@ -622,6 +622,20 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
   - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: ExitFailure)` を投げる, When set-frontmatter の type/category 判定がこれを catch する
   - Expected: Then 当該ファイルのみ `DEFAULT_FALLBACK_TYPE` / `DEFAULT_FALLBACK_CATEGORY` が書き込まれ、他ファイルの処理が続行すること
 
+- [ ] **T-06-04-02**: frontmatter 生成 phase の続行側 subindex では 1 ファイルの失敗として続行する
+  - Target: `phase-frontmatter.ts` の catch 第 1 分岐
+  - Test ID: `T-SF-LAB-01-02`
+  - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / REQ-C-002 / AC-023
+  - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: ExitFailure)` を投げる, When `runConcurrent` のワーカーがこれを catch する
+  - Expected: Then 従来どおり `logger.error` して `return` し、他ファイルの処理が続行すること
+
+- [ ] **T-06-04-03**: review phase の続行側 subindex では 1 ファイルの失敗として続行する
+  - Target: `phase-review.ts` の catch 第 1 分岐
+  - Test ID: `T-SF-LAB-01-03`
+  - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / REQ-C-002 / AC-023
+  - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: ExitFailure)` を投げる, When `runConcurrent` のワーカーがこれを catch する
+  - Expected: Then 従来どおり `logger.error` して `return` し、他ファイルの処理が続行すること
+
 ### [異常] Error Cases
 
 #### T-06-05: classify — 中断側 subindex
@@ -660,6 +674,20 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
   - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: InvalidEndpoint)` または `ChatlogError(kind: AiError, subindex: BackendUnavailable)` を投げる, When set-frontmatter の type/category 判定がこれを catch する
   - Expected: Then `DEFAULT_FALLBACK_TYPE` / `DEFAULT_FALLBACK_CATEGORY` が書き込まれずに処理が中断すること（DR-18 が解消する起点の不具合の再発防止）
 
+- [ ] **T-06-08-02**: frontmatter 生成 phase の中断側 subindex では例外が `runConcurrent` の外へ伝播する
+  - Target: `phase-frontmatter.ts` の catch 第 1 分岐
+  - Test ID: `T-SF-LAB-02-02`
+  - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / REQ-F-019 / AC-019 / AC-004
+  - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: InvalidEndpoint)` または `ChatlogError(kind: AiError, subindex: BackendUnavailable)` を投げる, When `runConcurrent` のワーカーがこれを catch する
+  - Expected: Then `logger.error` + `return` に落ちず例外が再 throw され、バッチが中断すること（1 ファイルの生成失敗に化けないこと）
+
+- [ ] **T-06-08-03**: review phase の中断側 subindex では例外が `runConcurrent` の外へ伝播する
+  - Target: `phase-review.ts` の catch 第 1 分岐
+  - Test ID: `T-SF-LAB-02-03`
+  - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / REQ-F-019 / AC-019 / AC-004
+  - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: InvalidEndpoint)` または `ChatlogError(kind: AiError, subindex: BackendUnavailable)` を投げる, When `runConcurrent` のワーカーがこれを catch する
+  - Expected: Then `logger.error` + `return` に落ちず例外が再 throw され、バッチが中断すること
+
 ### [エッジケース] Edge Cases
 
 #### T-06-09: classify — 既存挙動の非破壊
@@ -696,7 +724,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
   - Test ID: `T-SF-LAB-03-01`
   - Rule: REQ-C-002 / REQ-C-003 / AC-022
   - Scenario: Given `runAI` が転送エラー（`ChatlogError(kind: AiError, subindex: BackendUnavailable)` 等）を投げる, When `setfm-frontmatter.ts` または `setfm-review.ts` の `maxRetry` ループがこれを処理する
-  - Expected: Then `maxRetry` ループは YAML パース失敗のみを対象としたままであり、転送エラーはループの外へ即座に伝播すること（Commit 9 の catch 拡張がこの 2 箇所へ及ばないこと）
+  - Expected: Then `maxRetry` ループは YAML パース失敗のみを対象としたままであり、転送エラーはループの外へ即座に伝播すること（Commit 9 の catch 拡張は module 層のこの 2 ファイルへは及ばず、phase 層の catch を対象とすること）
 
 ---
 
@@ -926,6 +954,13 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
   - Scenario: Given 複数プロパティを持つ出力契約, When json_schema 構築関数を呼ぶ
   - Expected: Then `required` 配列が定義済みプロパティ全件を含み、省略可能なプロパティが存在しないこと
 
+- [ ] **T-08-05-02**: ネストした object の内部キーも定義され required に含まれる
+  - Target: `json_schema 構築関数`
+  - Test ID: `T-LIB-AI-JSB-05-02`
+  - Rule: structured-output §4.3 / §4.3.1（#3 / 「ネストした object の必須キー」）
+  - Scenario: Given §4.3.1 の #3（`segment-ai.ts`）の契約定義, When json_schema 構築関数を呼ぶ
+  - Expected: Then `segments` の要素スキーマが `{ type: "object" }` 止まりにならず、`title` / `summary` が `string`、`startLine` / `endLine` が `integer` として定義され、4 キーすべてが要素側の `required` に含まれること
+
 #### T-08-06: additionalProperties を false に固定する
 
 - [ ] **T-08-06-01**: 生成スキーマの `additionalProperties` が常に false である
@@ -1031,6 +1066,13 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
   - Rule: structured-output R-008 / §4.1（`json-array` 行） / DR-18
   - Scenario: Given root が object だが `items` フィールドが存在しない、または値が配列でない JSON 応答, When on-wire contract validation を呼ぶ
   - Expected: Then `ChatlogError(kind: AiError, subindex: ResponseSchemaViolation)` が throw されること（続行側）
+
+- [ ] **T-09-06-02**: json-array 契約で配列要素のネストしたキーが欠落・型不一致の場合は違反とする
+  - Target: `on-wire contract validation 関数`
+  - Test ID: `T-LIB-AI-OCV-06-02`
+  - Rule: structured-output R-008 / §4.3.1（#3 / 「ネストした object の必須キー」） / DR-18
+  - Scenario: Given `items` は配列だが `segments` の要素が `{}` である、または `startLine` / `endLine` が整数でない JSON 応答, When on-wire contract validation を呼ぶ
+  - Expected: Then `ChatlogError(kind: AiError, subindex: ResponseSchemaViolation)` が throw されること（続行側）。`phase-segment.ts` の `status: 'retry'` 書き込みや `undefined` の title/summary 永続化へ進まないこと
 
 #### T-09-07: yaml 契約で必須キーが欠落している場合は違反とする
 
@@ -2055,17 +2097,17 @@ Edge Cases 行には元来 ID がないため、各 spec §5 の表の出現順�
 | T-03        | 5      | 4      | 2      | 11      | [OK]  |
 | T-04        | 3      | 1      | 4      | 8       | [OK]  |
 | T-05        | 5      | [N/A]  | 8      | 13      | [N/A] |
-| T-06        | 4      | 4      | 4      | 12      | [OK]  |
+| T-06        | 6      | 6      | 4      | 16      | [OK]  |
 | T-07        | 2      | 9      | 5      | 16      | [OK]  |
-| T-08        | 10     | 1      | 2      | 13      | [OK]  |
-| T-09        | 5      | 4      | 5      | 14      | [OK]  |
+| T-08        | 11     | 1      | 2      | 14      | [OK]  |
+| T-09        | 5      | 5      | 5      | 15      | [OK]  |
 | T-10        | 5      | 7      | 1      | 13      | [OK]  |
 | T-11        | 5      | 1      | 1      | 7       | [OK]  |
 | T-12        | 3      | 23     | 5      | 31      | [OK]  |
 | T-13        | 6      | 3      | 1      | 10      | [OK]  |
 | T-14        | 3      | 2      | 3      | 8       | [OK]  |
 | T-15        | 8      | 1      | 7      | 16      | [OK]  |
-| **合計**    | **71** | **61** | **53** | **185** | —     |
+| **合計**    | **74** | **63** | **53** | **191** | —     |
 
 > **[N/A] T-02** — 定数 (`AI_PROVIDERS` / `AI_MODEL_TO_PROVIDER_MAP`) から案内文言を
 > 組み立てる純粋な関数であり、throw する経路を持たない。

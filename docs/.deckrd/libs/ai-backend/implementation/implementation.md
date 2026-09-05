@@ -2,7 +2,7 @@
 title: "Implementation Plan: LAN llama サーバの AI バックエンド化"
 based-on: specifications-index.md v1.2.0
 status: Draft
-version: 1.4.1
+version: 1.5.0
 created: "2026-09-03"
 ---
 
@@ -354,11 +354,18 @@ DR-02・DR-14 決定 3・DR-23
 
 **変更**:
 
-- 3 呼び出しのうち catch を持つのは `setfm-type-category.ts` だけである。同ファイルの catch に
-  新判定関数を加える
+- 3 呼び出しのうち module 層に catch を持つのは `setfm-type-category.ts` だけである。同ファイルの
+  catch に新判定関数を加える
 - `setfm-frontmatter.ts` と `setfm-review.ts` は `runAI` の例外を catch せず伝播させ、
   `maxRetry` ループは YAML パース失敗のみを対象とし転送エラーはループの外へ即座に抜ける。
-  この 2 箇所に拡張する catch 分岐は存在しない
+  この 2 ファイル自体に拡張する catch 分岐は存在しない
+- ただし伝播した例外は phase 層の `runConcurrent` ワーカーが握りつぶす。
+  `phase-frontmatter.ts:133-139` と `phase-review.ts:80-86` の catch は第 1 分岐が
+  `isRateLimitError(e) || ctl.signal.aborted` で、それ以外は `logger.error` して `return` する
+  (= 1 ファイルの失敗としてバッチを続行する)。この 2 箇所の第 1 分岐にも新判定関数を加える。
+  加えないと `InvalidEndpoint` / `BackendUnavailable` が「該当ファイルだけ生成失敗」に化け、
+  3 呼び出しのうち 2 つで REQ-F-006 のバッチ中断が成立しない
+- normalize の `phase-segment.ts` には対応する catch が無く、この拡張は不要 (Commit 8 で完結する)
 - `setfm-type-category.ts` は DR-18 の起点にあたる。現行の最終分岐 (非 AiError →
   `DEFAULT_FALLBACK_TYPE` / `DEFAULT_FALLBACK_CATEGORY` を全ファイルへ書き込む) へ設定漏れや
   サーバ未起動が落ちないことを、新判定関数の追加で担保する
@@ -370,6 +377,9 @@ DR-02・DR-14 決定 3・DR-23
 
 - `InvalidEndpoint` / `BackendUnavailable` を受けたとき `DEFAULT_FALLBACK_TYPE` /
   `DEFAULT_FALLBACK_CATEGORY` が書き込まれずに中断すること (AC-019 / AC-023)
+- frontmatter 生成・review の各 phase で、中断側 subindex の例外が `logger.error` + `return` に
+  落ちず `runConcurrent` の外へ伝播すること (AC-004 / AC-023)
+- 続行側 subindex では従来どおり 1 ファイルの失敗としてログされ、後続ファイルが処理されること
 - 既存の set-frontmatter テストが通ること (AC-022)
 
 ### Phase 4: `runAI` の 3 層分割 (AC-020 の土台)
@@ -934,3 +944,4 @@ R-004 は特定の commit に閉じない。§3.1 が対象 commit を列挙す�
 | 2026-09-04 | 1.3.2   | 構成の整理 (決定内容の変更なし): 着手条件を §1.4 の依存表へ集約、全 22 commit を参照／変更／テスト／Green の固定書式へ統一、重複記述を単一の所有箇所へ集約 (AC-020 の不適合条件・AC-008 の signal 検証・Phase 0 依存の未決) 、陳腐化した §6 Commit 番号対応表を削除し 1.1.0 行へ圧縮、旧 Open Items 表を各 commit 本文へ吸収、Commit 15 Step 5 の記述を実測後の恒久規則へ書き換え                                                                                                                                                                                                                                                                                                  |
 | 2026-09-05 | 1.4.0   | codex feasibility セカンドオピニオンの所見を反映: Commit 3 の Green を層ごとに分離し実 API と矛盾しない形へ訂正 (`parseModel` は provider prefix の照合のみで `llama/` を `{provider:'llama', model:''}` として解決する。空識別子の拒否は llama 限定の判定述語が担い、`ChatlogError` への写像は transport §4.1 Step 2 を担う Commit 10 前段が所有する)、対応する Green を Commit 10 へ追加。structured-output v2.1.0 §4.3.1 (呼び出し元ごとの契約定義) の新設を受けて Commit 11 / 12 の参照と本文を同表参照へ改め、辞書由来 enum の引数注入・単一値 enum のフォールバックの値域内包・配列要素 enum の空配列表現を Green へ追加、§3.2 の未決「`yaml` 契約の許容型」を解決済みとした |
 | 2026-09-06 | 1.4.1   | Commit 1 の非破壊判定を structured-output v2.1.2 §5.1 の訂正へ追随: 呼び出し元 3 箇所のうち filter は不適合であり、R-004 が意図した挙動として REQ-C-002 の例外に記録済みであることを明記（cle-nnb）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 2026-09-06 | 1.5.0   | PR #436 の codex レビュー所見（P1）を反映: Commit 9 が module 層の `setfm-type-category.ts` のみを対象としていたが、`setfm-frontmatter.ts` / `setfm-review.ts` から伝播した例外を phase 層の `runConcurrent` ワーカー（`phase-frontmatter.ts:133-139` / `phase-review.ts:80-86`）が `logger.error` + `return` で握りつぶすため、3 呼び出しのうち 2 つで REQ-F-006 のバッチ中断が成立しない。この 2 箇所の catch 第 1 分岐への新判定関数の追加を Commit 9 の変更対象へ加え、Green 条件を追加。normalize の `phase-segment.ts` には対応する catch が無く不要であることも明記                                                                                                         |
