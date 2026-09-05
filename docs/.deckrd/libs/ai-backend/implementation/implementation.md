@@ -2,7 +2,7 @@
 title: "Implementation Plan: LAN llama サーバの AI バックエンド化"
 based-on: specifications-index.md v1.2.0
 status: Draft
-version: 1.4.0
+version: 1.4.1
 created: "2026-09-03"
 ---
 
@@ -148,8 +148,10 @@ catch 拡張も、真を返す subindex を llama 経路しか throw しない�
   **非破壊の観測範囲** (structured-output §5.1 が定める 3 点: 呼び出し元の戻り値 /
   永続化される出力 / 集計・キャッシュへの副作用) で確認する。診断ログの文言と件数は
   観測範囲に含めない
-- 呼び出し元 3 箇所 (classify / filter / normalize) はいずれも適合と判定済み。normalize の
-  segment ループは空配列だと全ファイル null のまま返るため、実装時に件数を数え直して個別確認する
+- 呼び出し元 3 箇所のうち classify / normalize は適合、filter は不適合と判定済み
+  (structured-output §5.1)。filter は戻り値と `stats` の内訳が変わるが、R-004 が意図した挙動として
+  REQ-C-002 の例外に記録済みであり、本 commit をブロックしない。normalize の segment ループは
+  空配列だと全ファイル null のまま返るため、実装時に件数を数え直して個別確認する
 
 **テスト**: unit (`json-utils` の `parseAiJsonArray`)
 
@@ -931,3 +933,4 @@ R-004 は特定の commit に閉じない。§3.1 が対象 commit を列挙す�
 | 2026-09-04 | 1.3.1   | codex consistency セカンドオピニオンの所見を反映 (訂正のみ): Commit 20/21 入れ替えに未追随の参照 2 件を訂正 (Commit 10 の注記・Phase 7 の着手条件) 、§3.1 のミラー同期対象へ Commit 21 を追加、§4.2 R-001 の割り当てへ Commit 14 を追加し Commit 14 の参照行と双方向にした                                                                                                                                                                                                                                                                                                                                                                                                         |
 | 2026-09-04 | 1.3.2   | 構成の整理 (決定内容の変更なし): 着手条件を §1.4 の依存表へ集約、全 22 commit を参照／変更／テスト／Green の固定書式へ統一、重複記述を単一の所有箇所へ集約 (AC-020 の不適合条件・AC-008 の signal 検証・Phase 0 依存の未決) 、陳腐化した §6 Commit 番号対応表を削除し 1.1.0 行へ圧縮、旧 Open Items 表を各 commit 本文へ吸収、Commit 15 Step 5 の記述を実測後の恒久規則へ書き換え                                                                                                                                                                                                                                                                                                  |
 | 2026-09-05 | 1.4.0   | codex feasibility セカンドオピニオンの所見を反映: Commit 3 の Green を層ごとに分離し実 API と矛盾しない形へ訂正 (`parseModel` は provider prefix の照合のみで `llama/` を `{provider:'llama', model:''}` として解決する。空識別子の拒否は llama 限定の判定述語が担い、`ChatlogError` への写像は transport §4.1 Step 2 を担う Commit 10 前段が所有する)、対応する Green を Commit 10 へ追加。structured-output v2.1.0 §4.3.1 (呼び出し元ごとの契約定義) の新設を受けて Commit 11 / 12 の参照と本文を同表参照へ改め、辞書由来 enum の引数注入・単一値 enum のフォールバックの値域内包・配列要素 enum の空配列表現を Green へ追加、§3.2 の未決「`yaml` 契約の許容型」を解決済みとした |
+| 2026-09-06 | 1.4.1   | Commit 1 の非破壊判定を structured-output v2.1.2 §5.1 の訂正へ追随: 呼び出し元 3 箇所のうち filter は不適合であり、R-004 が意図した挙動として REQ-C-002 の例外に記録済みであることを明記（cle-nnb）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
