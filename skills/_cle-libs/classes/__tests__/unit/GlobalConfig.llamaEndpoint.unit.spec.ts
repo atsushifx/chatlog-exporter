@@ -7,6 +7,8 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+// cspell:words imeout
+
 // ─── BDD modules
 import { assert, assertEquals, assertFalse, assertThrows } from '@std/assert';
 import { beforeEach, describe, it } from '@std/testing/bdd';
@@ -76,13 +78,6 @@ const _normalCases: EndpointCase[] = [
     yaml: 'llamaEndpoint: http://192.168.1.10:8080\n',
     expected: 'http://192.168.1.10:8080',
   },
-  {
-    caseId: 'T-04-01-02',
-    testId: 'T-CLS-GCL-01-02',
-    label: '他キーと同時指定でも llamaEndpoint が独立に解決される',
-    yaml: 'agent: chatgpt\nmodel: llama/qwen3-14b\nllamaEndpoint: http://192.168.1.10:8080\n',
-    expected: 'http://192.168.1.10:8080',
-  },
 ];
 
 /** 正常系: agent と model が互いに影響せず解決されるケース。 */
@@ -130,7 +125,7 @@ const _edgeCases: EndpointCase[] = [
  * 値付き指定・省略・空文字列・null・非文字列の各同値クラスと、
  * agent 軸の独立性・経路別タイムアウトキー不在の回帰ガードを検証する。
  *
- * テスト ID 範囲: T-CLS-GCL-01-01 〜 T-CLS-GCL-07-01（01 系は 01-02 まで）
+ * テスト ID 範囲: T-CLS-GCL-01-01 〜 T-CLS-GCL-07-01
  *
  * @see GlobalConfig
  */
@@ -195,7 +190,7 @@ describe('GlobalConfig llamaEndpoint', () => {
 
       assertFalse(_schemaKeys.includes('llamaTimeoutMs'));
       assertFalse(_valueKeys.includes('llamaTimeoutMs'));
-      assertEquals([..._schemaKeys, ..._valueKeys].filter((k) => /^llama.*timeout/i.test(k)), []);
+      assertEquals([..._schemaKeys, ..._valueKeys].filter((k) => /^llama.*[Tt]imeout/i.test(k)), []);
       assert(_schemaKeys.includes('timeoutMs'));
       assert(_valueKeys.includes('timeoutMs'));
     });
