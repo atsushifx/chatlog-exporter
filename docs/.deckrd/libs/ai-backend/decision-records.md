@@ -2,7 +2,7 @@
 title: "Decision Records: libs/ai-backend"
 module: "libs/ai-backend"
 status: Draft
-version: 3.4.0
+version: 3.5.2
 created: "2026-09-02"
 ---
 
@@ -1143,6 +1143,101 @@ Commit 21 の Green 条件で捕らえられます。production の `runAI` 呼�
 
 ---
 
+## DR-29: 続行側の失敗は「記録して skip」であり、フォールバック値の書き込みではない
+
+**Status**: Accepted（DR-18 が定めた続行側の意味を、呼び出し元 catch の分岐構造として確定させます）
+
+**Context**: T-06（Commit 6〜9）の実装中に、`tasks.md` の T-06-04-01 が続行側 subindex の
+Expected を「当該ファイルのみ `DEFAULT_FALLBACK_TYPE` / `DEFAULT_FALLBACK_CATEGORY` が
+書き込まれ、他ファイルの処理が続行すること」と記述していました。この文言に従って
+`setfm-type-category.ts` の catch から `isFatalAiError` 分岐を削除したところ、
+続行側 AI エラーでフォールバック値が書き込まれる挙動になりました。
+
+しかし上流の記述はいずれも「書き込む」とは言っていません。
+
+- AC-023（`requirements.md`）: 呼び出し元は当該ファイルのみを **失敗として記録** し、
+  残りのファイルの処理を続行する
+- `specifications-error-handling.md` §3.2: 続行は当該呼び出しのみを **失敗として記録** し
+  残りの処理を進めることを意味する
+
+つまり T-06-04-01 の Expected は SPEC → TASK の導出時に「失敗として記録」が
+「フォールバック値を書き込む」へすり替わった誤導出でした。DR-18 の検出（設定漏れが
+`kind: InvalidFormat` となり第 3 分岐へ落ちてフォールバック値の一括書き込みになる）は
+当時の実装に対して正確であり、DR-18 は第 2 分岐の削除を求めていません。
+
+削除した第 2 分岐は #370 / #374 が意図的に入れたもので、**フォールバック値は
+「AI の応答が壊れているとき（非 AiError・パース失敗等）」専用** という不変条件を担っていました。
+削除により次の退行が生じます。`judgeTypeAndCategory` が常に両フィールドを書くため、
+`phase-type-category.ts` の `cache.delete` 分岐へ到達しなくなり、`cache.write` が走ります。
+`needsTypeCategoryAi()` は status が `REVIEW_FAILED` でなく両フィールドが揃っていれば偽を返すため、
+**一時的な `ExitFailure` が `research` / `development` としてキャッシュに固着し、次回以降
+AI 判定が再試行されません**。`--no-review` 実行時は `REVIEW_FAILED` による救済もありません。
+
+**Decision**:
+
+1. 呼び出し元 catch の続行側は「`logger.error` で失敗を記録して当該ファイルを skip する」とする。
+   `type` / `category` を書き込まない
+2. フォールバック値（`DEFAULT_FALLBACK_TYPE` / `DEFAULT_FALLBACK_CATEGORY`）の書き込みは
+   非 AiError（パース失敗・値域外等、AI の応答そのものが壊れている場合）専用とする。
+   AI 実行の失敗をフォールバック値で表現しない
+3. `setfm-type-category.ts` の catch は 3 分岐を維持する。第 1 分岐の述語のみ DR-18 に従い
+   `isRateLimitError` から `isAbortingAiError` へ拡げる。第 2 分岐（`isFatalAiError` →
+   `logger.error` + `return`）と第 3 分岐（フォールバック値）は維持する
+4. `tasks.md` T-06-04-01 の Expected を AC-023 準拠へ訂正する
+
+**Alternatives Considered**:
+
+- `tasks.md` の文言を正とし、フォールバック値の書き込みを許容する — AC-023 および
+  `specifications-error-handling.md` §3.2 と矛盾します。下流が上流を上書きすることになり、
+  設計チェーンの向きが逆転するため不採用
+- フォールバック値は書き込むが、キャッシュには書かない（`phase-type-category.ts` 側で救済する） —
+  「AI が失敗したのに frontmatter には妥当な値が入っている」という状態が残り、
+  出力ファイルだけを見た利用者が失敗に気づけません。DD-02（フォールバック値を返すと
+  呼び出し元が気づかないまま処理を続行してしまう）と同じ理由で不採用
+- フォールバック書き込み時に status を `REVIEW_FAILED` にして次回再試行させる —
+  `REVIEW_FAILED` は review phase が所有する状態であり、type/category 判定の失敗を
+  そこへ相乗りさせると状態の意味が二重化します。救済としては働くものの、
+  失敗を失敗として記録する決定 1 のほうが単純なため不採用
+
+**Consequences**: **`type` / `category` をまだ持たないエントリについて**、続行側 AI エラーを
+受けたファイルは両フィールドが未設定のまま残り、`phase-type-category.ts` の `cache.delete`
+分岐へ到達して次回実行の対象になります。これは T-06 以前の挙動であり、
+`T-SF-TC-14` / `T-SF-E2E-17-01` が固定していたものです。
+`isFatalAiError` は本決定により呼び出し元を 1 箇所回復します。
+DR-18 決定 1（llama 経路の `kind` を一律 `AiError` とする）は維持され、
+設定漏れ・サーバ未起動が第 3 分岐へ落ちる経路は引き続き塞がれています。
+
+`cache.status` が `REVIEW_FAILED` かつ既存の `type` / `category` を持つエントリでは、
+本決定の当初の実装（`judgeTypeAndCategory` が `Promise<void>`）では上の不変条件が成立せず、
+再判定シグナルが失われていました。`needsTypeCategoryAi()` が真を返して再判定へ進む一方、
+第 2 分岐は `entry.frontmatter` に触れずに `return` するため、`phase-type-category.ts` は
+ディスク由来の旧値を読み、両方が truthy なので `cache.delete` ではなく
+`cache.write(status: TYPE_CATEGORY)` を実行していたためです。第 2 分岐が元から持っていた形で、
+本決定が持ち込んだ退行ではありません。
+
+この経路は bd issue `cle-cso` で解消済みです。判定の成否を戻り値で明示する形へ改め、
+呼び出し元は失敗時に `REVIEW_FAILED` を据え置くようにしました。
+
+1. `judgeTypeAndCategory` の戻り値を `Promise<void>` から `Promise<boolean>` へ変更する。
+   第 2 分岐は `false`、`type` / `category` を書き込めた場合は `true` を返す
+   （第 3 分岐のフォールバック値の書き込みも「判定できた」として `true`）。
+   同スキルの `generateFrontmatter` / `_GenerateProvider` が既に採っている書き方にそろえた
+2. `phase-type-category.ts` は戻り値が `false` のとき、`cache.status` が `REVIEW_FAILED`
+   ならキャッシュに触れず、それ以外のときのみ `cache.delete` する
+
+`cache.delete` で代替できない点に注意する。削除すると次回の `cache.status` が `undefined` になり、
+`_resolveTypeCategory` が `entry.frontmatter` のディスク由来の旧値を拾うため
+`needsTypeCategoryAi()` が偽を返し、やはり再判定されない。
+固定するテストは `T-SF-PTC-01-14-01`（`REVIEW_FAILED` は据え置き）と
+`T-SF-PTC-01-14-02`（それ以外は `cache.delete`）、および戻り値そのものを見る
+`T-SF-TC-25` / `T-SF-TC-26`。
+
+**Open Question**: 続行側 AI エラーが多発した場合、`type` / `category` が未設定のまま
+残り続けるファイルが累積します。現状これを一覧する手段は cache の status のみです。
+運用上の可視化が必要かは、llama 経路の実測（REQ-F-016）後に判断します。
+
+---
+
 ## 削除した Decision Records
 
 | ID    | 旧タイトル                                                          | 削除理由                                    |
@@ -1154,23 +1249,26 @@ Commit 21 の Green 条件で捕らえられます。production の `runAI` 呼�
 
 ## Change History
 
-| Date       | Version | Description                                                                                                                                                                                                                             |
-| ---------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-09-02 | 1.0.0   | Initial release                                                                                                                                                                                                                         |
-| 2026-09-02 | 1.1.0   | DR-09 追加、DR-03 に過負荷系ステータスの subindex 分離を追記                                                                                                                                                                            |
-| 2026-09-02 | 1.2.0   | DR-10 追加、DR-09 に実測ゲートの合格基準と未実測実装の対象外化を追記                                                                                                                                                                    |
-| 2026-09-02 | 1.3.0   | DR-11〜DR-13 追加（harden レビュー所見の反映: YAML 契約への構造化出力強制、llamaEndpoint 未設定時の設定エラー、`--allow-net` の無制限付与）                                                                                             |
-| 2026-09-02 | 2.0.0   | 整理: DR-07 を DR-01 へ、DR-08 を DR-06 へ統合し 2 件を削除、DR-06 を「既知の周辺不具合を併せて直す」に再定義、Index と削除記録を追加                                                                                                   |
-| 2026-09-02 | 2.1.0   | DR-14 追加（spec harden レビュー: llama 経路の識別子解決規則を確定）                                                                                                                                                                    |
-| 2026-09-02 | 2.2.0   | DR-15 追加（spec harden レビュー: リクエストボディの閉じた集合と切り詰め応答の分類）                                                                                                                                                    |
-| 2026-09-02 | 2.3.0   | DR-16 追加（spec harden レビュー: 失敗系分類の一覧を error-handling が単独所有）                                                                                                                                                        |
-| 2026-09-02 | 2.4.0   | DR-17 追加（spec harden レビュー: llama 経路は既存 `timeoutMs` を共有）                                                                                                                                                                 |
-| 2026-09-02 | 2.5.0   | DR-18 / DR-19 追加（codex risk・balanced・consistency レビュー: 失敗分類をバックエンド可用性の軸へ、出力契約を呼び出し単位で明示）                                                                                                      |
-| 2026-09-02 | 3.0.0   | DR-16 決定 3 を撤回し新 subindex 2 件の新設と `ExitFailure` の分割へ、DR-12 を DR-18 で supersede（`kind` を `AiError` へ）                                                                                                             |
-| 2026-09-02 | 3.0.1   | DR-11 の Context を実態（6 呼び出し / 3 契約）へ訂正、DR-03 / DR-15 / DR-17 に据え置きの理由と再検討トリガーを記録                                                                                                                      |
-| 2026-09-03 | 3.0.2   | 本文をですます体へ統一し textlint 指摘を解消（内容変更なし）                                                                                                                                                                            |
-| 2026-09-04 | 3.1.0   | DR-20〜DR-23 追加（impl harden レビュー: 可到達性の commit 単一化と Phase 6 の 2 巡化、AC 単位の検証割り当て、実測レポートの独立と再基準化、空モデル名の拒否）                                                                          |
-| 2026-09-04 | 3.2.0   | DR-24〜DR-26 追加（codex balanced セカンドオピニオン: 権限付与を結線の前へ移し不合格時の着地範囲を Phase 1 に限定、実測ゲートの合格線を全条件 100% に、runtime 由来の失敗と非 JSON 応答を中断側へ）。DR-22 決定 4 を DR-24 が supersede |
-| 2026-09-04 | 3.3.0   | DR-27 追加（codex completeness セカンドオピニオン: `RequestInit.signal` の受け渡し検証と、production の `runAI` 呼び出しが全件出力契約を持つことの静的検査を Commit 21 の Green 条件へ）                                                |
-| 2026-09-04 | 3.3.1   | textlint 指摘に伴う文言整理（内容変更なし）                                                                                                                                                                                             |
-| 2026-09-06 | 3.4.0   | DR-28 追加（DR-06 の空配列受理を段 1 限定と確定し、直接パース段のコードフェンス除去経路にも適用する決定を記録）                                                                                                                         |
+| Date       | Version | Description                                                                                                                                                                                                                                                                              |
+| ---------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-02 | 1.0.0   | Initial release                                                                                                                                                                                                                                                                          |
+| 2026-09-02 | 1.1.0   | DR-09 追加、DR-03 に過負荷系ステータスの subindex 分離を追記                                                                                                                                                                                                                             |
+| 2026-09-02 | 1.2.0   | DR-10 追加、DR-09 に実測ゲートの合格基準と未実測実装の対象外化を追記                                                                                                                                                                                                                     |
+| 2026-09-02 | 1.3.0   | DR-11〜DR-13 追加（harden レビュー所見の反映: YAML 契約への構造化出力強制、llamaEndpoint 未設定時の設定エラー、`--allow-net` の無制限付与）                                                                                                                                              |
+| 2026-09-02 | 2.0.0   | 整理: DR-07 を DR-01 へ、DR-08 を DR-06 へ統合し 2 件を削除、DR-06 を「既知の周辺不具合を併せて直す」に再定義、Index と削除記録を追加                                                                                                                                                    |
+| 2026-09-02 | 2.1.0   | DR-14 追加（spec harden レビュー: llama 経路の識別子解決規則を確定）                                                                                                                                                                                                                     |
+| 2026-09-02 | 2.2.0   | DR-15 追加（spec harden レビュー: リクエストボディの閉じた集合と切り詰め応答の分類）                                                                                                                                                                                                     |
+| 2026-09-02 | 2.3.0   | DR-16 追加（spec harden レビュー: 失敗系分類の一覧を error-handling が単独所有）                                                                                                                                                                                                         |
+| 2026-09-02 | 2.4.0   | DR-17 追加（spec harden レビュー: llama 経路は既存 `timeoutMs` を共有）                                                                                                                                                                                                                  |
+| 2026-09-02 | 2.5.0   | DR-18 / DR-19 追加（codex risk・balanced・consistency レビュー: 失敗分類をバックエンド可用性の軸へ、出力契約を呼び出し単位で明示）                                                                                                                                                       |
+| 2026-09-02 | 3.0.0   | DR-16 決定 3 を撤回し新 subindex 2 件の新設と `ExitFailure` の分割へ、DR-12 を DR-18 で supersede（`kind` を `AiError` へ）                                                                                                                                                              |
+| 2026-09-02 | 3.0.1   | DR-11 の Context を実態（6 呼び出し / 3 契約）へ訂正、DR-03 / DR-15 / DR-17 に据え置きの理由と再検討トリガーを記録                                                                                                                                                                       |
+| 2026-09-03 | 3.0.2   | 本文をですます体へ統一し textlint 指摘を解消（内容変更なし）                                                                                                                                                                                                                             |
+| 2026-09-04 | 3.1.0   | DR-20〜DR-23 追加（impl harden レビュー: 可到達性の commit 単一化と Phase 6 の 2 巡化、AC 単位の検証割り当て、実測レポートの独立と再基準化、空モデル名の拒否）                                                                                                                           |
+| 2026-09-04 | 3.2.0   | DR-24〜DR-26 追加（codex balanced セカンドオピニオン: 権限付与を結線の前へ移し不合格時の着地範囲を Phase 1 に限定、実測ゲートの合格線を全条件 100% に、runtime 由来の失敗と非 JSON 応答を中断側へ）。DR-22 決定 4 を DR-24 が supersede                                                  |
+| 2026-09-04 | 3.3.0   | DR-27 追加（codex completeness セカンドオピニオン: `RequestInit.signal` の受け渡し検証と、production の `runAI` 呼び出しが全件出力契約を持つことの静的検査を Commit 21 の Green 条件へ）                                                                                                 |
+| 2026-09-04 | 3.3.1   | textlint 指摘に伴う文言整理（内容変更なし）                                                                                                                                                                                                                                              |
+| 2026-09-06 | 3.4.0   | DR-28 追加（DR-06 の空配列受理を段 1 限定と確定し、直接パース段のコードフェンス除去経路にも適用する決定を記録）                                                                                                                                                                          |
+| 2026-09-06 | 3.5.0   | DR-29 追加（T-06 実装中に判明: `tasks.md` T-06-04-01 の Expected が AC-023 の誤導出であり、続行側 AI エラーはフォールバック値を書かず `logger.error` で記録して skip すると確定。`setfm-type-category.ts` の catch は 3 分岐を維持し、第 1 分岐の述語のみ `isAbortingAiError` へ拡げる） |
+| 2026-09-06 | 3.5.1   | DR-29 の Consequences を訂正（`cache.delete` 到達の不変条件は `type` / `category` 未設定のエントリに限定。`REVIEW_FAILED` + 既存値の形では成立しないことを明記）                                                                                                                         |
+| 2026-09-06 | 3.5.2   | DR-29 の Consequences を更新（`REVIEW_FAILED` + 既存値の経路を `cle-cso` で解消。`judgeTypeAndCategory` を `Promise<boolean>` へ改め、失敗時は `REVIEW_FAILED` を据え置く。`cache.delete` で代替できない理由と固定テストを明記）                                                         |
