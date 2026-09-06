@@ -1,5 +1,5 @@
 // src: scripts/modules/filter/count-unexecuted-chunk-files.ts
-// @(#): レートリミット abort により未実行のまま残ったチャンクのファイル数を集計する
+// @(#): AI 実行の中断により未実行のまま残ったチャンクのファイル数を集計する
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //

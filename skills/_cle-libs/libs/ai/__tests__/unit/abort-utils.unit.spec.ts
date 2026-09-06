@@ -1,6 +1,6 @@
 // src: skills/_cle-libs/libs/ai/__tests__/unit/abort-utils.unit.spec.ts
 // @(#): abort-utils のユニットテスト
-//       対象: isAbortingAiError
+//       対象: isAbortingAiError, describeAbortReason
 //
 // Copyright (c) 2026- atsushifx <https://github.com/atsushifx>
 //
@@ -12,7 +12,7 @@ import { assertEquals } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // ─── Test target
-import { isAbortingAiError } from '../../abort-utils.ts';
+import { describeAbortReason, isAbortingAiError } from '../../abort-utils.ts';
 
 // ─── Regression targets (未変更の既存判定関数)
 import { isFatalAiError, isRateLimitError } from '../../rate-limit-utils.ts';
@@ -81,6 +81,30 @@ const _falseCases = [
   },
 ] as const;
 
+/** `describeAbortReason` が理由ラベルを返すべき中断側ケース。 */
+const _reasonCases = [
+  {
+    id: 'T-LIB-AI-LAP-06-01',
+    subindex: 'RateLimit',
+    expected: 'レートリミット',
+  },
+  {
+    id: 'T-LIB-AI-LAP-06-02',
+    subindex: 'InvalidEndpoint',
+    expected: 'エンドポイント設定の不備',
+  },
+  {
+    id: 'T-LIB-AI-LAP-06-03',
+    subindex: 'BackendUnavailable',
+    expected: 'AI バックエンドへの接続失敗',
+  },
+  {
+    id: 'T-LIB-AI-LAP-06-04',
+    subindex: 'ResponseFormatRejected',
+    expected: 'レスポンス形式の拒否',
+  },
+] as const;
+
 // ─── Tests
 
 /**
@@ -133,5 +157,42 @@ describe('回帰: 既存判定関数の挙動', () => {
   it('[Normal] T-LIB-AI-LAP-04-02: isFatalAiError は kind=AiError のみ true のまま', () => {
     assertEquals(isFatalAiError(new ChatlogError('AiError', 'ExitFailure')), true);
     assertEquals(isFatalAiError(new ChatlogError('TimedOut', 'Timeout')), false);
+  });
+});
+
+/**
+ * `describeAbortReason` のユニットテストスイート。
+ *
+ * 中断側 `ChatlogError` に対してのみ、ユーザーに提示する理由ラベルを返すことを検証する。
+ * 続行側・非 `ChatlogError` では `undefined` を返し、呼び出し元が中立な既定文言へ
+ * フォールバックできることを固定する。
+ *
+ * テスト ID 範囲: T-LIB-AI-LAP-06-01 〜 T-LIB-AI-LAP-07-03
+ *
+ * @see describeAbortReason
+ */
+describe('describeAbortReason', () => {
+  describe('When: 正常系', () => {
+    for (const { id, subindex, expected } of _reasonCases) {
+      it(`[Normal] ${id}: subindex=${subindex} → ${expected}`, () => {
+        assertEquals(describeAbortReason(new ChatlogError('AiError', subindex)), expected);
+      });
+    }
+  });
+
+  describe('When: 続行側・エッジケース', () => {
+    it('[Edge] T-LIB-AI-LAP-07-01: 続行側 subindex=ExitFailure → undefined', () => {
+      assertEquals(describeAbortReason(new ChatlogError('AiError', 'ExitFailure')), undefined);
+    });
+
+    it('[Edge] T-LIB-AI-LAP-07-02: 続行側 subindex=ResponseSchemaViolation → undefined', () => {
+      assertEquals(describeAbortReason(new ChatlogError('AiError', 'ResponseSchemaViolation')), undefined);
+    });
+
+    it('[Edge] T-LIB-AI-LAP-07-03: ChatlogError 以外・null / undefined → undefined（throw しない）', () => {
+      assertEquals(describeAbortReason(new Error('BackendUnavailable')), undefined);
+      assertEquals(describeAbortReason(null), undefined);
+      assertEquals(describeAbortReason(undefined), undefined);
+    });
   });
 });

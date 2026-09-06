@@ -92,7 +92,7 @@ export const processChunk = async (
     });
   } catch (e) {
     if (!(e instanceof ChatlogError)) { throw e; }
-    logger.warn(`${LOGGER_TEXT.INDENT}claude CLI 実行失敗。チャンク内ファイルをすべて error 扱い`);
+    logger.warn(`${LOGGER_TEXT.INDENT}AI 実行失敗。チャンク内ファイルをすべて error 扱い`);
     logger.warn(`${LOGGER_TEXT.INDENT}error: ${e.message}`);
     chunkEntries.forEach((entry) => logger.warn(`${LOGGER_TEXT.INDENT}error扱い: ${entry.filename}`));
     stats.error += chunkEntries.length;
