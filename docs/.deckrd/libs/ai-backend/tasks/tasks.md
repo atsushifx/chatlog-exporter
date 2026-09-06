@@ -102,8 +102,8 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 | T-02: 受理モデル形式の文言生成関数                                  | 2      | 1     | —       | 4         | 7       | done    |
 | T-03: `parseModel` / `getAiBackend` / `isValidModel` + llama 定数群 | 3      | 2     | —       | 7         | 11      | done    |
 | T-04: `GlobalConfig` (`llamaEndpoint`)                              | 4      | 2     | —       | 7         | 8       | done    |
-| T-05: `FetchProvider` 型 / llama 中断側判定関数                     | 5      | 2     | —       | 5         | 13      | pending |
-| T-06: 呼び出し元 catch の中断判定拡張 (4 スキル)                    | 6〜9   | 3     | —       | 12        | 16      | pending |
+| T-05: `FetchProvider` 型 / llama 中断側判定関数                     | 5      | 2     | —       | 5         | 13      | done    |
+| T-06: 呼び出し元 catch の中断判定拡張 (4 スキル)                    | 6〜9   | 3     | —       | 12        | 16      | done    |
 | T-07: `runAI` の 3 層分割                                           | 10     | 4     | —       | 8         | 16      | pending |
 | T-08: json_schema 構築関数                                          | 11     | 5     | Phase 0 | 9         | 14      | pending |
 | T-09: on-wire contract validation 関数と契約別復元関数              | 12     | 5     | Phase 0 | 13        | 15      | pending |
