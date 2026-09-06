@@ -60,3 +60,17 @@ export const getAiBackend = (model: string): AiBackend | null => {
 
 /** AI バックエンドが識別できるモデル名かどうかを返す。 */
 export const isValidModel = (model: string): boolean => parseModel(model) !== null;
+
+/**
+ * llama provider のモデル識別子が実質空かどうかを返す。
+ *
+ * 判定対象は llama provider に限定し、既存 provider の受理範囲は変えない。
+ * **never-throw**: 例外を投げず `boolean` のみを返す。
+ *
+ * @param model - 判定対象のモデル指定文字列（例: `'llama/'`）
+ * @returns llama provider かつモデル識別子が空白のみなら `true`
+ */
+export const isEmptyLlamaModelId = (model: string): boolean => {
+  const _parsed = parseModel(model);
+  return _parsed?.provider === 'llama' && _parsed.model.trim() === '';
+};
