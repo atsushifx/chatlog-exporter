@@ -108,6 +108,22 @@ const _makeCorrectedStub = (result: ReviewResult): { stub: _ReviewProvider } => 
   return { stub };
 };
 
+/**
+ * 1 回目の呼び出しだけ指定エラーを throw し、以降は `{ validity: 'pass' }` を返す reviewProvider スタブを返す。
+ *
+ * @param e - 1 回目の呼び出しで throw する値
+ * @returns `{ stub, getCount }` — stub は `_ReviewProvider` 互換、getCount は呼び出し回数を返す
+ */
+const _makeFirstThrowReviewStub = (e: unknown): { stub: _ReviewProvider; getCount: () => number } => {
+  let _count = 0;
+  const stub: _ReviewProvider = (_entry, _dics, _prompts) => {
+    _count++;
+    if (_count === 1) { throw e; }
+    return Promise.resolve({ validity: 'pass', errors: [] });
+  };
+  return { stub, getCount: () => _count };
+};
+
 /** テスト用の空 Dics / Prompts ダミー。 */
 const _dics = {} as Dics;
 const _prompts = {} as Prompts;
@@ -435,6 +451,51 @@ describe('phaseReview', () => {
         const cache = await _makeCache();
         await cache.write(filePath, { status: SETFM_CACHE_STATUSES.FRONTMATTER });
         assertEquals(needsReviewAi(_makeEntry(filePath), cache), true);
+      });
+    });
+  });
+
+  /**
+   * llama 経路で `reviewProvider` が中断側／続行側の subindex を throw したときの分岐を検証する。
+   *
+   * 続行側（ExitFailure）は握りつぶして後続エントリを処理し、
+   * 中断側（BackendUnavailable）は `runConcurrent` の外へ例外を伝播させる。
+   */
+  describe('phaseReview — llama 中断側判定（isAbortingAiError）', () => {
+    /** 続行側 subindex では 1 ファイルの失敗として扱い、後続エントリのレビューを継続する。 */
+    describe('When: 正常系', () => {
+      it('[Normal] T-SF-LAB-01-03: 先頭が AiError/ExitFailure → resolve し error ログを出して 2 件目以降も処理する', async () => {
+        const cache = await _makeCache();
+        const { stub, getCount } = _makeFirstThrowReviewStub(
+          new ChatlogError('AiError', 'ExitFailure', 'simulated exit failure'),
+        );
+        const entries = [_makeEntry('/path/to/a.md'), _makeEntry('/path/to/b.md')];
+        const errorSpy = spy(logger, 'error');
+        try {
+          await phaseReview(entries, cache, _dics, _prompts, { concurrency: 1, dryRun: false }, stub);
+          assertEquals(getCount(), 2);
+          assertEquals(errorSpy.calls.some((c) => String(c.args[0]).includes('review 失敗')), true);
+        } finally {
+          errorSpy.restore();
+        }
+      });
+    });
+
+    /** 中断側 subindex では例外が runConcurrent の外へ伝播しバッチが止まる。 */
+    describe('When: 異常系', () => {
+      it('[Error] T-SF-LAB-02-03: 先頭が AiError/BackendUnavailable → reject し 2 件目以降は処理されない', async () => {
+        const cache = await _makeCache();
+        const { stub, getCount } = _makeFirstThrowReviewStub(
+          new ChatlogError('AiError', 'BackendUnavailable', 'simulated backend unavailable'),
+        );
+        const entries = [_makeEntry('/path/to/a.md'), _makeEntry('/path/to/b.md')];
+
+        const error = await assertRejects(
+          () => phaseReview(entries, cache, _dics, _prompts, { concurrency: 1, dryRun: false }, stub),
+          ChatlogError,
+        );
+        assertEquals(error.subindex, 'BackendUnavailable');
+        assertEquals(getCount(), 1);
       });
     });
   });

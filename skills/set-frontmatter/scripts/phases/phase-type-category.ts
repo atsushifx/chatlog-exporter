@@ -32,7 +32,7 @@ type _JudgeProvider = (
   prompts: Prompts,
   model?: string,
   signal?: AbortSignal,
-) => Promise<void>;
+) => Promise<boolean>;
 
 /** このフェーズが処理対象とする cache.status の集合。これ以外（frontmatter/reviewed/written）は対象外。 */
 const _TARGET_STATUSES: readonly (SetfmCacheStatus | undefined)[] = [
@@ -129,7 +129,15 @@ export const phaseTypeAndCategory = async (
         return;
       }
 
-      await _judge(entry, maxContentLength, dics, prompts, config.model, ctl.signal);
+      const _judged = await _judge(entry, maxContentLength, dics, prompts, config.model, ctl.signal);
+      if (!_judged) {
+        // 判定失敗。REVIEW_FAILED は再判定シグナルなので消さずに据え置く（cle-cso）。
+        // それ以外は cache を消して次回の対象に戻す。
+        if (cache.read(_fp).status !== SETFM_CACHE_STATUSES.REVIEW_FAILED) {
+          await cache.delete(_fp);
+        }
+        return;
+      }
       const _type = entry.frontmatter.get('type') as string;
       const _category = entry.frontmatter.get('category') as string;
       if (_type && _category) {

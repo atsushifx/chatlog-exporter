@@ -53,6 +53,8 @@ export const DEFAULT_CONFIG_SCHEMA: ConfigSchema = {
   cacheDir: 'string',
   /** runAI の最大リトライ回数（0=リトライなし、上限 10）。 */
   maxRetry: { type: 'number', min: 0, max: 10 },
+  /** LAN 上の llama サーバのエンドポイント URL。空文字列は未設定を意味する。 */
+  llamaEndpoint: 'string',
 };
 
 /** DEFAULT_CONFIG_SCHEMA のキーのユニオン型。 */
@@ -96,4 +98,6 @@ export const DEFAULT_CONFIG_VALUES = {
   discardThreshold: 0.7,
   /** デフォルト最大リトライ回数 */
   maxRetry: DEFAULT_MAX_RETRY,
+  /** デフォルト llama エンドポイントは未設定（空文字列） */
+  llamaEndpoint: '',
 } as const satisfies ConfigValues;

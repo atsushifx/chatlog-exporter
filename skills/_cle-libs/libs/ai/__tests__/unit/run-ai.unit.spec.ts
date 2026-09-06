@@ -7,12 +7,15 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+// cspell:words mcps
+
 // ─── BDD modules
-import { assertEquals, assertRejects, assertStringIncludes } from '@std/assert';
+import { assertArrayIncludes, assertEquals, assertFalse, assertRejects, assertStringIncludes } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // ─── Test target
-import { _buildCommand, runAI } from '../../run-ai.ts';
+import { _buildCommand, buildValidModelsMessage, runAI } from '../../run-ai.ts';
+import type { RunAIOptions } from '../../run-ai.ts';
 
 // ─── Helpers
 import { ChatlogError } from '../../../../classes/ChatlogError.class.ts';
@@ -25,6 +28,10 @@ import {
   makeSuccessMock,
 } from '../../../../__tests__/helpers/deno-command-mock.ts';
 import { makeLoggerStub } from '../../../../__tests__/helpers/logger-stub.ts';
+import type { AiModelToProvider } from '../../../../types/ai.const.types.ts';
+import type { FetchProvider } from '../../../../types/providers.types.ts';
+// constants
+import { AI_MODEL_TO_PROVIDER_MAP, AI_PROVIDERS } from '../../../../types/ai.const.types.ts';
 
 // ─── Internal Helpers
 
@@ -132,6 +139,25 @@ const _cases: Array<{ model: string; expected: CommandSpec }> = [
     expected: { command: 'opencode', args: ['run', '--model', 'openai/gpt-4'], hasSystemPromptWithArgs: false },
   },
 ];
+
+/**
+ * `buildValidModelsMessage` の文言からモデル名トークンを取り出す。
+ *
+ * 部分文字列で検証すると `opus` が `opusplan` / `opus[1m]` / `claude-opus-*` に、
+ * `sonnet` が `sonnet[1m]` に、`haiku` が `claude-haiku-*` に一致してしまい、
+ * 定数からそのエントリが失われても検知できない。トークン厳密一致にするための分割。
+ */
+const _listedModels = (message: string): string[] =>
+  message.split(' (or ')[0].replace('Valid models: ', '').split(', ');
+
+/**
+ * `buildValidModelsMessage` の文言から provider 名トークンを取り出す。
+ *
+ * `claude` が `claude-opus-*` に一致する同種の取りこぼしを避けるため、
+ * `<provider>/<model>` 一覧の側もトークンへ分割して検証する。
+ */
+const _listedProviders = (message: string): string[] =>
+  message.split(' (or <provider>/<model> with provider: ')[1].replace(/\)$/, '').split(', ');
 
 // ─── Tests
 
@@ -965,5 +991,176 @@ describe('runAI', () => {
         assertEquals(_result, 'ok');
       });
     });
+  });
+});
+
+/**
+ * モデルパターン型 `AiModelToProvider` のユニットテストスイート。
+ *
+ * `regex` バリアントが表示ラベルを必須フィールドとして持つことを型レベルで検証する。
+ * 文言生成関数はこのラベルを参照するため、ラベルの欠落はコンパイル時に検出される必要がある。
+ *
+ * テスト ID 範囲: T-LIB-AI-MSG-04-01
+ *
+ * @see AiModelToProvider
+ */
+describe('AiModelToProvider', () => {
+  /** 表示ラベルを欠いた regex エントリが型として拒否されることを確認する。 */
+  describe('When: エッジケース', () => {
+    /**
+     * `regex` バリアントの `label` が必須であることは型レベルで固定する。`@ts-expect-error` は
+     * ラベル欠落を拒否できなければ「未使用の抑制」として型検査エラーになるため、
+     * `label` が省略可能になった時点でこのテストはコンパイルに失敗する。
+     */
+    it('[Edge] T-LIB-AI-MSG-04-01: 表示ラベルを欠いた regex エントリは AiModelToProvider に代入できない', () => {
+      // arrange
+      // @ts-expect-error label 必須のため、ラベルを欠いた regex エントリは代入できない
+      const _noLabel: AiModelToProvider = { match: 'regex', pattern: /^x-/, provider: 'claude' };
+      const _labeled: AiModelToProvider = { match: 'regex', pattern: /^x-/, label: 'x-*', provider: 'claude' };
+
+      // assert
+      assertEquals(_noLabel.match, 'regex');
+      assertEquals(_labeled, { match: 'regex', pattern: /^x-/, label: 'x-*', provider: 'claude' });
+    });
+  });
+});
+
+/**
+ * 受理モデル形式の案内文言を生成する `buildValidModelsMessage` のユニットテストスイート。
+ *
+ * 文言は `AI_MODEL_TO_PROVIDER_MAP` / `AI_PROVIDERS` から動的に導出されるため、
+ * 定数の追加・変更が文言へ自動的に反映されることを検証する。
+ *
+ * テスト ID 範囲: T-LIB-AI-MSG-01-01 〜 T-LIB-AI-MSG-03-01
+ *
+ * @see buildValidModelsMessage
+ */
+describe('buildValidModelsMessage', () => {
+  /** 引数を省略し、実定数から文言を生成するケース。 */
+  describe('When: 正常系', () => {
+    /**
+     * `exact` エントリは受理されるモデル名そのものであり、一件でも欠ければ利用者は
+     * 有効なモデルを無効と誤認する。`sonnet[1m]` / `opus[1m]` は角括弧を含むため
+     * 正規表現ではなく部分文字列として検証する。
+     */
+    it('[Normal] T-LIB-AI-MSG-01-01: exact エントリ 9 件がすべて文言に含まれる', () => {
+      // act
+      const _message = buildValidModelsMessage();
+
+      // assert
+      assertArrayIncludes(_listedModels(_message), [
+        'default',
+        'best',
+        'fable',
+        'opus',
+        'sonnet',
+        'haiku',
+        'sonnet[1m]',
+        'opus[1m]',
+        'opusplan',
+      ]);
+    });
+
+    /**
+     * `regex` エントリは exact 名と同じく実際に受理される形式であり、表示ラベルが欠ければ
+     * 利用者はバージョン付きモデル名を指定できないと誤認する。claude 系 3 件は
+     * `^claude-` の 1 件へまとめられやすいため、5 件すべてを個別に検証する。
+     */
+    it('[Normal] T-LIB-AI-MSG-01-02: regex エントリ 5 件の表示ラベルがすべて文言に含まれる', () => {
+      // act
+      const _message = buildValidModelsMessage();
+
+      // assert
+      assertStringIncludes(_message, 'gpt-*');
+      assertStringIncludes(_message, 'claude-opus-*');
+      assertStringIncludes(_message, 'claude-sonnet-*');
+      assertStringIncludes(_message, 'claude-haiku-*');
+      assertStringIncludes(_message, 'gemini-*');
+    });
+
+    /**
+     * `<provider>/<model>` 形式の provider 一覧は実定数から導出される。`llama` は
+     * `AI_PROVIDERS` の要素であるため、引数を注入せずに文言へ現れなければならない。
+     * 文言全体への部分一致では `ollama` 等へ偽陽性で当たるため、provider 一覧の
+     * セグメントをトークンへ分割して検証する（AC-014）。
+     */
+    it('[Normal] T-LIB-AI-MSG-01-03: <provider>/<model> の provider 一覧に llama が含まれる', () => {
+      // act
+      const _message = buildValidModelsMessage();
+
+      // assert
+      assertArrayIncludes(_listedProviders(_message), ['llama']);
+    });
+
+    /**
+     * provider 一覧が引数からそのまま導出されることを、実定数に存在しない名前で確認する。
+     * 実 provider 名を使うと文言側の手書き分岐でも偶然通ってしまうため、衝突しない
+     * テスト専用の名前を渡し、手書き列挙が無いことを保証する。
+     */
+    it('[Normal] T-LIB-AI-MSG-02-01: provider 一覧を引数で受け取り手書き分岐を経由せず文言へ反映する', () => {
+      // act
+      const _message = buildValidModelsMessage(['test-provider-xyz', 'another-fake-provider']);
+
+      // assert
+      assertStringIncludes(_message, 'test-provider-xyz');
+      assertStringIncludes(_message, 'another-fake-provider');
+    });
+
+    /**
+     * 引数を省略した呼び出しが実定数を束ねていることを固定する。既定引数がハードコードの
+     * 配列や部分集合へ差し替えられると、実定数を明示的に渡した結果と文言が食い違うため、
+     * 両者の一致で回帰を検出する。
+     */
+    it('[Normal] T-LIB-AI-MSG-02-02: 既定引数が実定数を束ね実定数の内容と一致する文言を返す', () => {
+      // act
+      const _message = buildValidModelsMessage();
+      const _explicit = buildValidModelsMessage(AI_PROVIDERS, AI_MODEL_TO_PROVIDER_MAP);
+
+      // assert
+      assertArrayIncludes(_listedProviders(_message), [...AI_PROVIDERS]);
+      assertEquals(_message, _explicit);
+    });
+  });
+
+  /** 正規表現ソースと表示ラベルの分離を確認するケース。 */
+  describe('When: エッジケース', () => {
+    /**
+     * `regex` エントリの文言は `pattern.source` から導出せず、定義側が持つ表示ラベルを
+     * そのまま使う。ラベルが正規表現ソースへ退行すると `^gpt-` のような利用者が
+     * 入力できない文字列が案内文言に漏れるため、キャレット付きの形の不在を固定する。
+     */
+    it('[Edge] T-LIB-AI-MSG-03-01: 正規表現ソースそのものは文言に出力されない', () => {
+      // act
+      const _message = buildValidModelsMessage();
+
+      // assert
+      assertFalse(_message.includes('^gpt-'));
+      assertFalse(_message.includes('/^gpt-/'));
+      assertFalse(_message.includes('^claude-opus-'));
+      assertFalse(_message.includes('^gemini-'));
+      assertStringIncludes(_message, 'gpt-*');
+    });
+  });
+});
+
+/**
+ * `RunAIOptions.fetchProvider` の型受け入れを固定するテストスイート。
+ *
+ * HTTP 呼び出しをテストからインジェクトできるよう、`fetch` 互換関数を任意フィールドとして
+ * 受け付けることを検証する（値の利用は後続タスク）。
+ *
+ * テスト ID 範囲: T-LIB-AI-LAP-02
+ *
+ * @see RunAIOptions
+ */
+describe('RunAIOptions.fetchProvider', () => {
+  it('[Normal] T-LIB-AI-LAP-02-01: FetchProvider 形の関数を任意フィールドへ代入できる', () => {
+    // 代入が成立すること自体が検証対象（`globalThis.fetch` が FetchProvider に適合する）
+    const _realFetch: FetchProvider = globalThis.fetch;
+    const _fakeFetch: FetchProvider = () => Promise.resolve(new Response(''));
+
+    const _options: RunAIOptions = { fetchProvider: _fakeFetch };
+
+    assertEquals(_options.fetchProvider, _fakeFetch);
   });
 });

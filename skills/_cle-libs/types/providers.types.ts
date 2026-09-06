@@ -81,3 +81,25 @@ export type CommandProvider = new(
 ) => {
   output(): Promise<{ success: boolean; code: number; stdout: Uint8Array }>;
 };
+
+// ─────────────────────────────────────────────
+// ネットワーク系
+// ─────────────────────────────────────────────
+
+/** HTTP 呼び出しを行う `fetch` 互換の関数型。テスト用インジェクションに利用する。 */
+export type FetchProvider = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+
+// ─────────────────────────────────────────────
+// AI 実行系
+// ─────────────────────────────────────────────
+
+/** `runAI` に渡すオプション。 */
+export type RunAIOptions = {
+  model?: string;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+  fetchProvider?: FetchProvider;
+};
+
+/** `runAI` 互換の関数型。テスト用インジェクションに利用する。 */
+export type AiRunnerProvider = (system: string, user: string, options?: RunAIOptions) => Promise<string>;

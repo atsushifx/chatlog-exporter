@@ -8,10 +8,12 @@
 // https://opensource.org/licenses/MIT
 
 // ─── BDD modules
-import { assertEquals, assertRejects } from '@std/assert';
+import { assertEquals, assertRejects, assertStrictEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 // stub
 import { stub } from '@std/testing/mock';
+// types
+import type { Stub } from '@std/testing/mock';
 
 // ─── Test target
 import { processChunk } from '../../process-chunk.ts';
@@ -41,6 +43,7 @@ import { fileOrDirExists } from '../../../../../../_cle-libs/libs/file-ops/exist
 // constants
 import { FILTER_DECISIONS } from '../../../../types/filter-decision.const.types.ts';
 // types
+import type { AiRunnerProvider } from '../../../../../../_cle-libs/types/providers.types.ts';
 import type { CLEResult } from '../../../../types/cache.types.ts';
 
 // ─── Internal Helpers
@@ -109,6 +112,9 @@ function _makeRateLimitMock(): DenoCommandLike {
     }
   } as unknown as DenoCommandLike;
 }
+
+/** 与えられた例外を必ず reject する `AiRunnerProvider` スタブを返すファクトリヘルパー。 */
+const _throwingRunner = (e: unknown): AiRunnerProvider => () => Promise.reject(e);
 
 // ─── Tests
 
@@ -852,6 +858,90 @@ describe('processChunk', () => {
           assertEquals(stats.keep, 0);
         });
       });
+    });
+  });
+});
+
+/**
+ * `processChunk` の catch 判定を `isAbortingAiError` へ差し替えたことを検証するスイート。
+ *
+ * `aiRunnerProvider` 引数へ「指定の例外を投げるスタブ」を注入し、中断すべき `ChatlogError` のときだけ
+ * `ctl.abort()` が呼ばれ、それ以外は従来どおり全件 `stats.error` に計上して
+ * `ChatlogError` を返すことを確認する。
+ *
+ * テスト ID 範囲: T-FL-LAB-01 〜 T-FL-LAB-03
+ *
+ * @see processChunk
+ * @see isAbortingAiError
+ */
+describe('processChunk — llama 中断側判定（isAbortingAiError）', () => {
+  describe('When: aiRunnerProvider が例外を投げる', () => {
+    let errStub: Stub;
+    let stats: FilterStats;
+    let cache: ChatlogCache<CLEResult>;
+    let ctl: AbortController;
+    let entries: ChatlogEntry[];
+
+    beforeEach(async () => {
+      errStub = stub(console, 'error', () => {});
+      stats = { keep: 0, skip: 0, remove: 0, error: 0 };
+      cache = await _makeEmptyCache();
+      ctl = new AbortController();
+      entries = [
+        new ChatlogEntry(_TEMP_CONTENT, { filePath: '/fake/input/a.md' }),
+        new ChatlogEntry(_TEMP_CONTENT, { filePath: '/fake/input/b.md' }),
+      ];
+    });
+
+    afterEach(() => {
+      errStub.restore();
+    });
+
+    it('[Normal] T-FL-LAB-01-01: AiError/ExitFailure → abort されず全件 stats.error に計上され同じ ChatlogError が返る', async () => {
+      const thrown = new ChatlogError('AiError', 'ExitFailure');
+
+      const result = await processChunk(
+        entries,
+        stats,
+        DEFAULT_CONFIG_VALUES.discardThreshold as number,
+        cache,
+        ctl,
+        undefined,
+        _throwingRunner(thrown),
+      );
+
+      assertEquals(ctl.signal.aborted, false);
+      assertEquals(stats.error, entries.length);
+      assertStrictEquals(result, thrown);
+    });
+
+    it('[Error] T-FL-LAB-02-01: AiError/RateLimit → ctl.abort() が呼ばれる', async () => {
+      await processChunk(
+        entries,
+        stats,
+        DEFAULT_CONFIG_VALUES.discardThreshold as number,
+        cache,
+        ctl,
+        undefined,
+        _throwingRunner(new ChatlogError('AiError', 'RateLimit')),
+      );
+
+      assertEquals(ctl.signal.aborted, true);
+    });
+
+    it('[Edge] T-FL-LAB-03-01: AiError/RateLimit → 差し替え前と同じく abort され stats.error も加算される', async () => {
+      await processChunk(
+        entries,
+        stats,
+        DEFAULT_CONFIG_VALUES.discardThreshold as number,
+        cache,
+        ctl,
+        undefined,
+        _throwingRunner(new ChatlogError('AiError', 'RateLimit')),
+      );
+
+      assertEquals(ctl.signal.aborted, true);
+      assertEquals(stats.error, entries.length);
     });
   });
 });

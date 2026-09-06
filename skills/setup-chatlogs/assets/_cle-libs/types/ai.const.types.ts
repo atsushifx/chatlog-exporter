@@ -9,8 +9,11 @@
 // ─── Backend
 
 /** 使用可能な AI バックエンド論理名。 */
-export const AI_BACKENDS = ['claude', 'codex', 'copilot', 'opencode', 'antigravity'] as const;
+export const AI_BACKENDS = ['claude', 'codex', 'copilot', 'opencode', 'antigravity', 'llama'] as const;
 export type AiBackend = (typeof AI_BACKENDS)[number];
+
+/** CLI バイナリを持つバックエンドの部分集合（llama は HTTP transport のため除外）。 */
+export type AiCliBackend = Exclude<AiBackend, 'llama'>;
 
 /** バックエンドが使用する CLI コマンド名（実行バイナリ名）。 */
 export const AI_BACKEND_CLI_COMMANDS = ['claude', 'codex', 'copilot', 'opencode', 'agy'] as const;
@@ -23,7 +26,7 @@ export const AI_BACKEND_COMMAND_MAP = {
   copilot: 'copilot',
   opencode: 'opencode',
   antigravity: 'agy',
-} as const satisfies Record<AiBackend, AiBackendCommand>;
+} as const satisfies Record<AiCliBackend, AiBackendCommand>;
 
 // ─── Provider
 
@@ -37,6 +40,7 @@ export const AI_PROVIDERS = [
   'copilot',
   'google',
   'antigravity',
+  'llama',
 ] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
@@ -50,6 +54,7 @@ export const AI_PROVIDER_BACKEND_MAP = {
   copilot: 'copilot',
   google: 'antigravity',
   antigravity: 'antigravity',
+  llama: 'llama',
 } as const satisfies Record<AiProvider, AiBackend>;
 
 // ─── Model patterns
@@ -57,12 +62,12 @@ export const AI_PROVIDER_BACKEND_MAP = {
 /** モデル名のマッチング方法と対応プロバイダーを定義するパターン。 */
 export type AiModelToProvider =
   | { match: 'exact'; value: string; provider: AiProvider }
-  | { match: 'regex'; pattern: RegExp; provider: AiProvider };
+  | { match: 'regex'; pattern: RegExp; label: string; provider: AiProvider };
 
 /** bare string モデル名からプロバイダーを解決するパターンリスト（上から優先）。 */
 export const AI_MODEL_TO_PROVIDER_MAP: AiModelToProvider[] = [
   // openai codex
-  { match: 'regex', pattern: /^gpt-/, provider: 'codex' },
+  { match: 'regex', pattern: /^gpt-/, label: 'gpt-*', provider: 'codex' },
   // Anthropic claude
   { match: 'exact', value: 'default', provider: 'claude' },
   { match: 'exact', value: 'best', provider: 'claude' },
@@ -74,11 +79,11 @@ export const AI_MODEL_TO_PROVIDER_MAP: AiModelToProvider[] = [
   { match: 'exact', value: 'opus[1m]', provider: 'claude' },
   { match: 'exact', value: 'opusplan', provider: 'claude' },
   // Anthropic claude / with version
-  { match: 'regex', pattern: /^claude-opus-/, provider: 'claude' },
-  { match: 'regex', pattern: /^claude-sonnet-/, provider: 'claude' },
-  { match: 'regex', pattern: /^claude-haiku-/, provider: 'claude' },
+  { match: 'regex', pattern: /^claude-opus-/, label: 'claude-opus-*', provider: 'claude' },
+  { match: 'regex', pattern: /^claude-sonnet-/, label: 'claude-sonnet-*', provider: 'claude' },
+  { match: 'regex', pattern: /^claude-haiku-/, label: 'claude-haiku-*', provider: 'claude' },
   // Google Antigravity
-  { match: 'regex', pattern: /^gemini-/, provider: 'antigravity' },
+  { match: 'regex', pattern: /^gemini-/, label: 'gemini-*', provider: 'antigravity' },
 ];
 
 // ─── Model spec

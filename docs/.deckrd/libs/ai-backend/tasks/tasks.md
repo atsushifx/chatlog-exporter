@@ -99,11 +99,11 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 | Test Target                                                         | Commit | Phase | Gate    | Scenarios | Cases   | Status  |
 | ------------------------------------------------------------------- | ------ | ----- | ------- | --------- | ------- | ------- |
 | T-01: `parseAiJsonArray` / `_tryParseArray`                         | 1      | 1     | —       | 3         | 6       | done    |
-| T-02: 受理モデル形式の文言生成関数                                  | 2      | 1     | —       | 4         | 7       | pending |
-| T-03: `parseModel` / `getAiBackend` / `isValidModel` + llama 定数群 | 3      | 2     | —       | 7         | 11      | pending |
-| T-04: `GlobalConfig` (`llamaEndpoint`)                              | 4      | 2     | —       | 7         | 8       | pending |
-| T-05: `FetchProvider` 型 / llama 中断側判定関数                     | 5      | 2     | —       | 5         | 13      | pending |
-| T-06: 呼び出し元 catch の中断判定拡張 (4 スキル)                    | 6〜9   | 3     | —       | 12        | 16      | pending |
+| T-02: 受理モデル形式の文言生成関数                                  | 2      | 1     | —       | 4         | 7       | done    |
+| T-03: `parseModel` / `getAiBackend` / `isValidModel` + llama 定数群 | 3      | 2     | —       | 7         | 11      | done    |
+| T-04: `GlobalConfig` (`llamaEndpoint`)                              | 4      | 2     | —       | 7         | 8       | done    |
+| T-05: `FetchProvider` 型 / llama 中断側判定関数                     | 5      | 2     | —       | 5         | 13      | done    |
+| T-06: 呼び出し元 catch の中断判定拡張 (4 スキル)                    | 6〜9   | 3     | —       | 12        | 16      | done    |
 | T-07: `runAI` の 3 層分割                                           | 10     | 4     | —       | 8         | 16      | pending |
 | T-08: json_schema 構築関数                                          | 11     | 5     | Phase 0 | 9         | 14      | pending |
 | T-09: on-wire contract validation 関数と契約別復元関数              | 12     | 5     | Phase 0 | 13        | 15      | pending |
@@ -116,6 +116,14 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 | **合計**                                                            | —      | —     | —       | **113**   | **191** | —       |
 
 <!-- Status may be: pending | in progress | done -->
+
+> **注記**: 本表はテストケースを持つ commit のみを扱う。実装計画
+> (`../implementation/implementation.md`) の次の 2 つは、テストを持たないため T-xx を採番しない。
+> 全 T-xx が done になっても、これらは別途完了を確認すること。
+>
+> - **Phase 0** (REQ-F-016 実測ゲート / commit なし) — Commit 11 以降の着手条件
+> - **Commit 22** (`docs(skills): document llamaEndpoint and llama backend`) —
+>   BDD RGR サイクルの免除条件 (ドキュメントのみ) に該当する
 
 ---
 
@@ -189,21 +197,21 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-02-01: 現在受理されるすべての形式が案内文言に含まれる
 
-- [ ] **T-02-01-01**: `exact` エントリ 9 件がすべて文言に含まれる
+- [x] **T-02-01-01**: `exact` エントリ 9 件がすべて文言に含まれる
   - Target: モデル受理形式の文言生成関数
   - Test ID: `T-LIB-AI-MSG-01-01`
   - Rule: error-handling R-005 / DR-06
   - Scenario: Given `AI_MODEL_TO_PROVIDER_MAP` の `exact` エントリが `default` / `best` / `fable` / `opus` / `sonnet` / `haiku` / `sonnet[1m]` / `opus[1m]` / `opusplan` の 9 件である, When 案内文言を生成する
   - Expected: Then 生成された文言に 9 件すべてが含まれること（`opus, sonnet, haiku` の 3 件のみでは不合格。「現在受理されるすべての形式」を名乗る以上、定数の全 `exact` エントリを網羅する）
 
-- [ ] **T-02-01-02**: `regex` エントリ 5 件の表示ラベルがすべて文言に含まれる
+- [x] **T-02-01-02**: `regex` エントリ 5 件の表示ラベルがすべて文言に含まれる
   - Target: モデル受理形式の文言生成関数
   - Test ID: `T-LIB-AI-MSG-01-02`
   - Rule: error-handling R-005 / DR-06
   - Scenario: Given `AiModelToProvider` の `regex` エントリが `^gpt-` / `^claude-opus-` / `^claude-sonnet-` / `^claude-haiku-` / `^gemini-` の 5 件である, When 案内文言を生成する
   - Expected: Then 生成された文言に表示ラベル `gpt-*` / `claude-opus-*` / `claude-sonnet-*` / `claude-haiku-*` / `gemini-*` の 5 件すべてが含まれること。claude 系 3 件を落とさない（`^claude-opus-` 等は `AI_MODEL_TO_PROVIDER_MAP` に実在する受理形式である）
 
-- [ ] **T-02-01-03**: `<provider>/<model>` 形式の provider 一覧（llama を含む）が文言に含まれる
+- [x] **T-02-01-03**: `<provider>/<model>` 形式の provider 一覧（llama を含む）が文言に含まれる
   - Target: モデル受理形式の文言生成関数
   - Test ID: `T-LIB-AI-MSG-01-03`
   - Rule: error-handling R-005 / error-handling §4.3 / REQ-F-014 / AC-014
@@ -218,14 +226,14 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 > 定数を monkey patch する前提のテストは書かない。既定引数として実定数を束ねる薄い
 > ラッパーを別に置いてよいが、検証対象は純関数側とする。
 
-- [ ] **T-02-02-01**: provider 一覧を引数で受け取り、手書き分岐を経由せず文言へ反映する
+- [x] **T-02-02-01**: provider 一覧を引数で受け取り、手書き分岐を経由せず文言へ反映する
   - Target: モデル受理形式の文言生成関数（純関数）
   - Test ID: `T-LIB-AI-MSG-02-01`
   - Rule: error-handling R-005 / REQ-F-014
   - Scenario: Given 実定数に存在しないテスト用 provider を含む provider 配列を引数で渡す, When 案内文言を生成する
   - Expected: Then 渡した provider 名がすべて文言に現れること（文言側の手書き分岐を経由しない）
 
-- [ ] **T-02-02-02**: 既定引数が実定数を束ね、実定数の内容と一致する文言を返す
+- [x] **T-02-02-02**: 既定引数が実定数を束ね、実定数の内容と一致する文言を返す
   - Target: モデル受理形式の文言生成関数（既定引数のラッパー）
   - Test ID: `T-LIB-AI-MSG-02-02`
   - Rule: error-handling R-005 / REQ-F-014
@@ -240,7 +248,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-02-03: regex ラベルと正規表現ソースの分離
 
-- [ ] **T-02-03-01**: 正規表現ソースそのものは文言に出力されない
+- [x] **T-02-03-01**: 正規表現ソースそのものは文言に出力されない
   - Target: モデル受理形式の文言生成関数
   - Test ID: `T-LIB-AI-MSG-03-01`
   - Rule: error-handling R-005 / DR-06
@@ -251,7 +259,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-02-04: `AiModelToProvider` の regex 側が表示ラベルを必須で持つ
 
-- [ ] **T-02-04-01**: 表示ラベルを欠いた regex エントリを型が受け付けない
+- [x] **T-02-04-01**: 表示ラベルを欠いた regex エントリを型が受け付けない
   - Target: `AiModelToProvider`
   - Test ID: `T-LIB-AI-MSG-04-01`
   - Rule: error-handling R-005 / DR-06 / REQ-F-014
@@ -268,21 +276,21 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-03-01: llama モデル値の解決
 
-- [ ] **T-03-01-01**: `llama/qwen3-14b` が provider `llama` / model `qwen3-14b` として解決される
+- [x] **T-03-01-01**: `llama/qwen3-14b` が provider `llama` / model `qwen3-14b` として解決される
   - Target: `parseModel`
   - Test ID: `T-LIB-AI-MDL-01-01`
   - Rule: transport R-001 / REQ-F-001
   - Scenario: Given モデル値が `"llama/qwen3-14b"` である, When `parseModel` を呼ぶ
   - Expected: Then `{ provider: 'llama', model: 'qwen3-14b' }` が返ること
 
-- [ ] **T-03-01-02**: `llama/qwen3-14b` は `getAiBackend` により `llama` バックエンドへ解決される
+- [x] **T-03-01-02**: `llama/qwen3-14b` は `getAiBackend` により `llama` バックエンドへ解決される
   - Target: `getAiBackend`
   - Test ID: `T-LIB-AI-MDL-01-02`
   - Rule: transport R-001 / REQ-F-001
   - Scenario: Given モデル値が `"llama/qwen3-14b"` である, When `getAiBackend` を呼ぶ
   - Expected: Then 戻り値が `'llama'` であること
 
-- [ ] **T-03-01-03**: `llama/qwen3-14b` は `isValidModel` で真となる
+- [x] **T-03-01-03**: `llama/qwen3-14b` は `isValidModel` で真となる
   - Target: `isValidModel`
   - Test ID: `T-LIB-AI-MDL-01-03`
   - Rule: transport R-001
@@ -291,7 +299,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-03-02: 既存 provider の空モデル名は従来どおり受理される（非破壊）
 
-- [ ] **T-03-02-01**: `openai/` の空モデル名が従来どおり受理される
+- [x] **T-03-02-01**: `openai/` の空モデル名が従来どおり受理される
   - Target: `parseModel`
   - Test ID: `T-LIB-AI-MDL-02-01`
   - Rule: error-handling §4.3 / REQ-C-002
@@ -300,7 +308,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-03-03: 多段スラッシュの受理
 
-- [ ] **T-03-03-01**: `llama/org/model` が provider `llama` / model `org/model` として受理される
+- [x] **T-03-03-01**: `llama/org/model` が provider `llama` / model `org/model` として受理される
   - Target: `parseModel`
   - Test ID: `T-LIB-AI-MDL-03-01`
   - Rule: error-handling §5（多段スラッシュ） / DR-23 / REQ-C-002
@@ -325,21 +333,21 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 > （`parseModel(input): AiModelSpec | null` / `isValidModel(model): boolean` /
 > `getAiBackend(model): AiBackend | null`）。
 
-- [ ] **T-03-04-01**: `llama/` は `parseModel` では拒否されず空のモデル識別子として解決される
+- [x] **T-03-04-01**: `llama/` は `parseModel` では拒否されず空のモデル識別子として解決される
   - Target: `parseModel`
   - Test ID: `T-LIB-AI-MDL-04-01`
   - Rule: DR-23 / transport R-001 / REQ-C-002
   - Scenario: Given モデル値が `"llama/"` である, When `parseModel` を呼ぶ
   - Expected: Then `{ provider: 'llama', model: '' }` が返ること（`null` ではない。空識別子の拒否は T-03-04-02 の述語が担う）
 
-- [ ] **T-03-04-02**: llama 限定の空識別子述語が `llama/` に対し真を返す
+- [x] **T-03-04-02**: llama 限定の空識別子述語が `llama/` に対し真を返す
   - Target: llama の空モデル識別子判定述語
   - Test ID: `T-LIB-AI-MDL-04-02`
   - Rule: DR-23 / transport R-001（Step 2） / REQ-F-014 / AC-014
   - Scenario: Given モデル値が `"llama/"` / `"llama/ "`（空白のみのモデル識別子）である, When 述語を呼ぶ
   - Expected: Then いずれも真を返し、例外は throw されないこと（throw は T-07-08 が検証する）
 
-- [ ] **T-03-04-03**: 同述語が既存 provider の空モデル名に対し偽を返す
+- [x] **T-03-04-03**: 同述語が既存 provider の空モデル名に対し偽を返す
   - Target: llama の空モデル識別子判定述語
   - Test ID: `T-LIB-AI-MDL-04-03`
   - Rule: DR-23 / error-handling §4.3 / REQ-C-002
@@ -348,7 +356,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-03-07: 未知モデル値で throw される例外の message
 
-- [ ] **T-03-07-01**: 未知モデル値に対し `parseModel` / `isValidModel` が `null` / `false` を返す
+- [x] **T-03-07-01**: 未知モデル値に対し `parseModel` / `isValidModel` が `null` / `false` を返す
   - Target: `parseModel` / `isValidModel`
   - Test ID: `T-LIB-AI-MDL-07-01`
   - Rule: error-handling R-005 / DR-06 / REQ-F-014 / AC-014
@@ -359,7 +367,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-03-05: provider prefix の大文字小文字区別
 
-- [ ] **T-03-05-01**: `Llama/qwen3-14b` は未知 provider として拒否される
+- [x] **T-03-05-01**: `Llama/qwen3-14b` は未知 provider として拒否される
   - Target: `parseModel`
   - Test ID: `T-LIB-AI-MDL-05-01`
   - Rule: DR-02 / DR-14（決定 3）
@@ -368,7 +376,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-03-06: CLI バックエンドの部分集合型
 
-- [ ] **T-03-06-01**: llama は `AI_BACKEND_COMMAND_MAP` に CLI コマンドを持たない
+- [x] **T-03-06-01**: llama は `AI_BACKEND_COMMAND_MAP` に CLI コマンドを持たない
   - Target: `AI_BACKEND_COMMAND_MAP`（CLI バックエンド部分集合型）
   - Test ID: `T-LIB-AI-MDL-06-01`
   - Rule: DR-14（決定 3）
@@ -387,23 +395,30 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-04-01: `llamaEndpoint` が値付きで指定されている
 
-- [ ] **T-04-01-01**: 指定された値がそのまま解決される
+- [x] **T-04-01-01**: 指定された値がそのまま解決される
   - Target: `GlobalConfig`
   - Test ID: `T-CLS-GCL-01-01`
   - Rule: config-packaging R-001 / AC-009
   - Scenario: Given `config.yaml` に `llamaEndpoint: http://192.168.1.10:8080` が記述されている, When `GlobalConfig` がこれを読み込む
   - Expected: Then 解決結果の `llamaEndpoint` が `http://192.168.1.10:8080` であること
 
+- [x] **T-04-01-02**: 他キーと同時指定でも独立に解決される
+  - Target: `GlobalConfig`
+  - Test ID: `T-CLS-GCL-01-02`
+  - Rule: config-packaging R-001 / R-002 / AC-009
+  - Scenario: Given `config.yaml` に `agent: chatgpt` / `model: llama/qwen3-14b` / `llamaEndpoint: http://192.168.1.10:8080` が同時に記述されている, When `GlobalConfig` がこれを読み込む
+  - Expected: Then 解決結果の `llamaEndpoint` が `http://192.168.1.10:8080` であること。他キーの併記は `llamaEndpoint` の解決に影響しない
+
 #### T-04-02: `agent` と `model` が同時に指定されている（軸の独立解決）
 
-- [ ] **T-04-02-01**: `agent` の値が `model` の解決に影響されない
+- [x] **T-04-02-01**: `agent` の値が `model` の解決に影響されない
   - Target: `GlobalConfig`
   - Test ID: `T-CLS-GCL-02-01`
   - Rule: config-packaging R-002 / DD-02 / AC-010
   - Scenario: Given `config.yaml` に `agent: chatgpt` と `model: llama/qwen3-14b` が同時に記述されている, When `GlobalConfig` がこれを読み込む
   - Expected: Then 解決結果の `agent` が `chatgpt` のままであり、`model` が `llama/qwen3-14b` として解決されること
 
-- [ ] **T-04-02-02**: `agent` の既知一覧に llama が現れない
+- [x] **T-04-02-02**: `agent` の既知一覧に llama が現れない
   - Target: `KNOWN_AGENTS` / `isKnownAgent`（`skills/_cle-libs/constants/agents.constants.ts`）
   - Test ID: `T-CLS-GCL-02-02`
   - Rule: config-packaging R-002 / DD-02 / DR-02
@@ -414,7 +429,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-04-06: `llamaEndpoint` に文字列以外の値が書かれている
 
-- [ ] **T-04-06-01**: 既存の `text` 型キーと同じく `TypeError` が伝播する
+- [x] **T-04-06-01**: 既存の `text` 型キーと同じく `TypeError` が伝播する
   - Target: `GlobalConfig`
   - Test ID: `T-CLS-GCL-06-01`
   - Rule: config-packaging R-001 / DD-01 / REQ-C-002
@@ -425,7 +440,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-04-03: `llamaEndpoint` が省略されている
 
-- [ ] **T-04-03-01**: 未知キーエラーにならず既定値（空文字列）が解決される
+- [x] **T-04-03-01**: 未知キーエラーにならず既定値（空文字列）が解決される
   - Target: `GlobalConfig`
   - Test ID: `T-CLS-GCL-03-01`
   - Rule: config-packaging R-001 / DD-05 / DR-05 / Edge config-packaging-1 / AC-009
@@ -434,7 +449,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-04-04: `llamaEndpoint` に空文字列が明示されている
 
-- [ ] **T-04-04-01**: 省略時と同一の値（空文字列）に収束する
+- [x] **T-04-04-01**: 省略時と同一の値（空文字列）に収束する
   - Target: `GlobalConfig`
   - Test ID: `T-CLS-GCL-04-01`
   - Rule: config-packaging R-001 / DD-05 / DR-12 / Edge config-packaging-2
@@ -445,7 +460,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-04-05: 経路別のタイムアウト設定キーを設けない
 
-- [ ] **T-04-05-01**: `llamaTimeoutMs` のような経路別設定キーがスキーマに存在しない
+- [x] **T-04-05-01**: `llamaTimeoutMs` のような経路別設定キーがスキーマに存在しない
   - Target: `DEFAULT_CONFIG_SCHEMA` / `DEFAULT_CONFIG_VALUES`
   - Test ID: `T-CLS-GCL-05-01`
   - Rule: DR-17 / transport R-004 / REQ-C-002
@@ -454,7 +469,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-04-07: `llamaEndpoint` に `null` が明示されている
 
-- [ ] **T-04-07-01**: 既存の `text` 型キーと同じく空文字列へ収束する
+- [x] **T-04-07-01**: 既存の `text` 型キーと同じく空文字列へ収束する
   - Target: `GlobalConfig`
   - Test ID: `T-CLS-GCL-07-01`
   - Rule: config-packaging R-001 / DD-05 / Edge config-packaging-2 / REQ-C-002
@@ -471,28 +486,28 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-05-01: 中断側 subindex を持つ `AiError` を判定する
 
-- [ ] **T-05-01-01**: `RateLimit` を中断側として判定する
+- [x] **T-05-01-01**: `RateLimit` を中断側として判定する
   - Target: `llama 中断側判定関数`
   - Test ID: `T-LIB-AI-LAP-01-01`
   - Rule: transport R-005 / error-handling §3.2（subindex 一覧） / DR-18 決定 2・3
   - Scenario: Given `kind: 'AiError', subindex: 'RateLimit'` の `ChatlogError`, When 判定関数を呼ぶ
   - Expected: Then `true` を返すこと
 
-- [ ] **T-05-01-02**: `InvalidEndpoint` を中断側として判定する
+- [x] **T-05-01-02**: `InvalidEndpoint` を中断側として判定する
   - Target: `llama 中断側判定関数`
   - Test ID: `T-LIB-AI-LAP-01-02`
   - Rule: transport R-005 / error-handling §3.2 / DR-18 決定 2・3
   - Scenario: Given `kind: 'AiError', subindex: 'InvalidEndpoint'` の `ChatlogError`, When 判定関数を呼ぶ
   - Expected: Then `true` を返すこと
 
-- [ ] **T-05-01-03**: `BackendUnavailable` を中断側として判定する
+- [x] **T-05-01-03**: `BackendUnavailable` を中断側として判定する
   - Target: `llama 中断側判定関数`
   - Test ID: `T-LIB-AI-LAP-01-03`
   - Rule: transport R-005 / error-handling §3.2 / DR-18 決定 2・3
   - Scenario: Given `kind: 'AiError', subindex: 'BackendUnavailable'` の `ChatlogError`, When 判定関数を呼ぶ
   - Expected: Then `true` を返すこと
 
-- [ ] **T-05-01-04**: `ResponseFormatRejected` を中断側として判定する
+- [x] **T-05-01-04**: `ResponseFormatRejected` を中断側として判定する
   - Target: `llama 中断側判定関数`
   - Test ID: `T-LIB-AI-LAP-01-04`
   - Rule: transport R-005 / error-handling §3.2 / DR-18 決定 2・3
@@ -501,7 +516,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-05-02: `FetchProvider` を `RunAIOptions` の任意フィールドとして代入できる
 
-- [ ] **T-05-02-01**: `FetchProvider` 形の関数を `RunAIOptions` の任意フィールドへ代入できる
+- [x] **T-05-02-01**: `FetchProvider` 形の関数を `RunAIOptions` の任意フィールドへ代入できる
   - Target: `FetchProvider`
   - Test ID: `T-LIB-AI-LAP-02-01`
   - Rule: transport R-005 / REQ-C-005 / DR-19 決定 1
@@ -516,21 +531,21 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-05-03: 続行側 subindex および非 `AiError` を偽として判定する
 
-- [ ] **T-05-03-01**: `ExitFailure` を続行側として判定する（偽を返す）
+- [x] **T-05-03-01**: `ExitFailure` を続行側として判定する（偽を返す）
   - Target: `llama 中断側判定関数`
   - Test ID: `T-LIB-AI-LAP-03-01`
   - Rule: transport R-005 / error-handling §3.2 / DR-18 決定 2
   - Scenario: Given `kind: 'AiError', subindex: 'ExitFailure'` の `ChatlogError`, When 判定関数を呼ぶ
   - Expected: Then `false` を返すこと
 
-- [ ] **T-05-03-02**: `ResponseSchemaViolation` を続行側として判定する（偽を返す）
+- [x] **T-05-03-02**: `ResponseSchemaViolation` を続行側として判定する（偽を返す）
   - Target: `llama 中断側判定関数`
   - Test ID: `T-LIB-AI-LAP-03-02`
   - Rule: transport R-005 / error-handling §3.2 / DR-18 決定 2
   - Scenario: Given `kind: 'AiError', subindex: 'ResponseSchemaViolation'` の `ChatlogError`, When 判定関数を呼ぶ
   - Expected: Then `false` を返すこと
 
-- [ ] **T-05-03-03**: `AiError` 以外の `kind` を偽として判定する
+- [x] **T-05-03-03**: `AiError` 以外の `kind` を偽として判定する
   - Target: `llama 中断側判定関数`
   - Test ID: `T-LIB-AI-LAP-03-03`
   - Rule: transport R-005 / DR-18 決定 2
@@ -539,14 +554,14 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-05-04: 既存 2 判定関数の挙動が変わらない（回帰）
 
-- [ ] **T-05-04-01**: `isRateLimitError` の挙動が新判定関数の追加前後で変わらない
+- [x] **T-05-04-01**: `isRateLimitError` の挙動が新判定関数の追加前後で変わらない
   - Target: `isRateLimitError`
   - Test ID: `T-LIB-AI-LAP-04-01`
   - Rule: DR-18 決定 3 / REQ-C-002 / AC-022
   - Scenario: Given 既存の `isRateLimitError` に対する既存テストケース一式, When 新判定関数の追加後に同じ入力で呼ぶ
   - Expected: Then 追加前と同じ真偽値を返すこと
 
-- [ ] **T-05-04-02**: `isFatalAiError` の挙動が新判定関数の追加前後で変わらない
+- [x] **T-05-04-02**: `isFatalAiError` の挙動が新判定関数の追加前後で変わらない
   - Target: `isFatalAiError`
   - Test ID: `T-LIB-AI-LAP-04-02`
   - Rule: DR-18 決定 3 / REQ-C-002 / AC-022
@@ -557,21 +572,21 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-05-05: catch が受け取る任意の値を安全に判定する
 
-- [ ] **T-05-05-01**: plain `Error` を throw せず偽として判定する
+- [x] **T-05-05-01**: plain `Error` を throw せず偽として判定する
   - Target: llama 中断側判定関数
   - Test ID: `T-LIB-AI-LAP-05-01`
   - Rule: transport R-005 / DR-18 決定 2 / REQ-C-002
   - Scenario: Given `ChatlogError` ではない plain `Error` インスタンス, When 判定関数へ渡す
   - Expected: Then 例外を投げずに偽を返すこと
 
-- [ ] **T-05-05-02**: `null` / `undefined` を throw せず偽として判定する
+- [x] **T-05-05-02**: `null` / `undefined` を throw せず偽として判定する
   - Target: llama 中断側判定関数
   - Test ID: `T-LIB-AI-LAP-05-02`
   - Rule: transport R-005 / DR-18 決定 2 / REQ-C-002
   - Scenario: Given `null` および `undefined`, When 判定関数へ渡す
   - Expected: Then いずれも例外を投げずに偽を返すこと
 
-- [ ] **T-05-05-03**: `kind` / `subindex` を持たない任意のオブジェクトを throw せず偽として判定する
+- [x] **T-05-05-03**: `kind` / `subindex` を持たない任意のオブジェクトを throw せず偽として判定する
   - Target: llama 中断側判定関数
   - Test ID: `T-LIB-AI-LAP-05-03`
   - Rule: transport R-005 / DR-18 決定 2 / REQ-C-002
@@ -588,7 +603,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-06-01: classify — 続行側 subindex
 
-- [ ] **T-06-01-01**: 続行側 subindex でチャンク全件が action:ERROR として cache に書き込まれ処理が続行する
+- [x] **T-06-01-01**: 続行側 subindex でチャンク全件が action:ERROR として cache に書き込まれ処理が続行する
   - Target: `phase-classify-ai.ts` の `runAI` 呼び出しを囲む catch
   - Test ID: `T-CL-LAB-01-01`
   - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / AC-023
@@ -597,7 +612,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-06-02: filter — 続行側 subindex
 
-- [ ] **T-06-02-01**: 続行側 subindex では `ctl.abort()` が呼ばれず `stats` が従来どおり加算される
+- [x] **T-06-02-01**: 続行側 subindex では `ctl.abort()` が呼ばれず `stats` が従来どおり加算される
   - Target: `process-chunk.ts` の catch
   - Test ID: `T-FL-LAB-01-01`
   - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / AC-023
@@ -606,7 +621,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-06-03: normalize — 続行側 subindex
 
-- [ ] **T-06-03-01**: 続行側 subindex で全件 null の Map が返り処理が続行する
+- [x] **T-06-03-01**: 続行側 subindex で全件 null の Map が返り処理が続行する
   - Target: `segment-ai.ts` の catch
   - Test ID: `T-NC-LAB-01-01`
   - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / AC-023
@@ -615,21 +630,21 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-06-04: set-frontmatter — 続行側 subindex
 
-- [ ] **T-06-04-01**: 続行側 subindex では当該ファイルのみフォールバック値が書き込まれ処理が続行する
+- [x] **T-06-04-01**: 続行側 subindex では当該ファイルのみ失敗として記録され処理が続行する
   - Target: `setfm-type-category.ts` の catch
   - Test ID: `T-SF-LAB-01-01`
-  - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / AC-023
+  - Rule: error-handling §3.2 / DR-18（決定 3） / DR-29（決定 1・2） / REQ-F-006 / AC-023
   - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: ExitFailure)` を投げる, When set-frontmatter の type/category 判定がこれを catch する
-  - Expected: Then 当該ファイルのみ `DEFAULT_FALLBACK_TYPE` / `DEFAULT_FALLBACK_CATEGORY` が書き込まれ、他ファイルの処理が続行すること
+  - Expected: Then `DEFAULT_FALLBACK_TYPE` / `DEFAULT_FALLBACK_CATEGORY` は書き込まれず、`logger.error` に判定失敗が記録されたうえで他ファイルの処理が続行すること（フォールバック値は非 AiError 専用。DR-29 決定 2）
 
-- [ ] **T-06-04-02**: frontmatter 生成 phase の続行側 subindex では 1 ファイルの失敗として続行する
+- [x] **T-06-04-02**: frontmatter 生成 phase の続行側 subindex では 1 ファイルの失敗として続行する
   - Target: `phase-frontmatter.ts` の catch 第 1 分岐
   - Test ID: `T-SF-LAB-01-02`
   - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / REQ-C-002 / AC-023
   - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: ExitFailure)` を投げる, When `runConcurrent` のワーカーがこれを catch する
   - Expected: Then 従来どおり `logger.error` して `return` し、他ファイルの処理が続行すること
 
-- [ ] **T-06-04-03**: review phase の続行側 subindex では 1 ファイルの失敗として続行する
+- [x] **T-06-04-03**: review phase の続行側 subindex では 1 ファイルの失敗として続行する
   - Target: `phase-review.ts` の catch 第 1 分岐
   - Test ID: `T-SF-LAB-01-03`
   - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / REQ-C-002 / AC-023
@@ -640,7 +655,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-06-05: classify — 中断側 subindex
 
-- [ ] **T-06-05-01**: 中断側 subindex で一括処理が中断する
+- [x] **T-06-05-01**: 中断側 subindex で一括処理が中断する
   - Target: `phase-classify-ai.ts` の catch 第 1 分岐
   - Test ID: `T-CL-LAB-02-01`
   - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / AC-004
@@ -649,16 +664,24 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-06-06: filter — 中断側 subindex
 
-- [ ] **T-06-06-01**: 中断側 subindex で `ctl.abort()` が呼ばれる
+- [x] **T-06-06-01**: 中断側 subindex で `ctl.abort()` が呼ばれる
   - Target: `process-chunk.ts` の catch
   - Test ID: `T-FL-LAB-02-01`
   - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / AC-004
   - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: RateLimit)` を投げる, When filter のチャンク処理がこれを catch する
   - Expected: Then `ctl.abort()` が呼ばれること
 
+> **注記**: 本シナリオは `RateLimit` を指定しているが、filter は差し替え前の判定が
+> `e.subindex === 'RateLimit'` の直書きだったため、`RateLimit` では新旧の判定が一致する。
+> つまり T-06-02-01（`ExitFailure`）と本ケースを合わせても、filter で中断側集合が
+> 1 個から 4 個へ拡大したことを判別できない。他 3 スキルは `BackendUnavailable` /
+> `InvalidEndpoint` を使う判別力のあるケースを持つが、filter だけが欠いている。
+> 中断側集合の拡大を固定するケース（`BackendUnavailable` で `ctl.abort()`）の追加が必要で、
+> bd issue `cle-1hd` で追跡している。追加時は本シナリオ配下に `T-FL-LAB-02-02` を採番する。
+
 #### T-06-07: normalize — 中断側 subindex
 
-- [ ] **T-06-07-01**: 中断側 subindex で処理が中断する
+- [x] **T-06-07-01**: 中断側 subindex で処理が中断する
   - Target: `segment-ai.ts` の catch
   - Test ID: `T-NC-LAB-02-01`
   - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / AC-004
@@ -667,21 +690,21 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-06-08: set-frontmatter — 中断側 subindex（AC-019）
 
-- [ ] **T-06-08-01**: `InvalidEndpoint` / `BackendUnavailable` を受けたときフォールバック値が書き込まれずに中断する
+- [x] **T-06-08-01**: `InvalidEndpoint` / `BackendUnavailable` を受けたときフォールバック値が書き込まれずに中断する
   - Target: `setfm-type-category.ts` の catch
   - Test ID: `T-SF-LAB-02-01`
   - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / REQ-F-019 / AC-019 / AC-004
   - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: InvalidEndpoint)` または `ChatlogError(kind: AiError, subindex: BackendUnavailable)` を投げる, When set-frontmatter の type/category 判定がこれを catch する
   - Expected: Then `DEFAULT_FALLBACK_TYPE` / `DEFAULT_FALLBACK_CATEGORY` が書き込まれずに処理が中断すること（DR-18 が解消する起点の不具合の再発防止）
 
-- [ ] **T-06-08-02**: frontmatter 生成 phase の中断側 subindex では例外が `runConcurrent` の外へ伝播する
+- [x] **T-06-08-02**: frontmatter 生成 phase の中断側 subindex では例外が `runConcurrent` の外へ伝播する
   - Target: `phase-frontmatter.ts` の catch 第 1 分岐
   - Test ID: `T-SF-LAB-02-02`
   - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / REQ-F-019 / AC-019 / AC-004
   - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: InvalidEndpoint)` または `ChatlogError(kind: AiError, subindex: BackendUnavailable)` を投げる, When `runConcurrent` のワーカーがこれを catch する
   - Expected: Then `logger.error` + `return` に落ちず例外が再 throw され、バッチが中断すること（1 ファイルの生成失敗に化けないこと）
 
-- [ ] **T-06-08-03**: review phase の中断側 subindex では例外が `runConcurrent` の外へ伝播する
+- [x] **T-06-08-03**: review phase の中断側 subindex では例外が `runConcurrent` の外へ伝播する
   - Target: `phase-review.ts` の catch 第 1 分岐
   - Test ID: `T-SF-LAB-02-03`
   - Rule: error-handling §3.2 / DR-18（決定 3） / REQ-F-006 / REQ-F-019 / AC-019 / AC-004
@@ -692,7 +715,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-06-09: classify — 既存挙動の非破壊
 
-- [ ] **T-06-09-01**: 非 AiError 例外時の既存フォールバック挙動が変化しない
+- [x] **T-06-09-01**: 非 AiError 例外時の既存フォールバック挙動が変化しない
   - Target: `phase-classify-ai.ts` の catch
   - Test ID: `T-CL-LAB-03-01`
   - Rule: REQ-C-002 / AC-022
@@ -701,7 +724,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-06-10: filter — 既存挙動の非破壊
 
-- [ ] **T-06-10-01**: 既存の `subindex === 'RateLimit'` 単体判定の挙動が変化しない
+- [x] **T-06-10-01**: 既存の `subindex === 'RateLimit'` 単体判定の挙動が変化しない
   - Target: `process-chunk.ts` の catch
   - Test ID: `T-FL-LAB-03-01`
   - Rule: REQ-C-002 / AC-022
@@ -710,7 +733,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-06-11: normalize — 既存挙動の非破壊
 
-- [ ] **T-06-11-01**: 全件 null の Map 返却時の既存挙動が変化しない
+- [x] **T-06-11-01**: 全件 null の Map 返却時の既存挙動が変化しない
   - Target: `segment-ai.ts` の catch
   - Test ID: `T-NC-LAB-03-01`
   - Rule: REQ-C-002 / AC-022
@@ -719,7 +742,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-06-12: set-frontmatter — 既存挙動の非破壊
 
-- [ ] **T-06-12-01**: catch を持たない 2 呼び出し（`setfm-frontmatter.ts` / `setfm-review.ts`）の既存挙動が変化しない
+- [x] **T-06-12-01**: catch を持たない 2 呼び出し（`setfm-frontmatter.ts` / `setfm-review.ts`）の既存挙動が変化しない
   - Target: `setfm-frontmatter.ts` / `setfm-review.ts` の `maxRetry` ループ
   - Test ID: `T-SF-LAB-03-01`
   - Rule: REQ-C-002 / REQ-C-003 / AC-022

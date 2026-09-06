@@ -11,6 +11,7 @@
 import type { ChatlogCache } from '../../../../_cle-libs/classes/ChatlogCache.class.ts';
 import { ChatlogError } from '../../../../_cle-libs/classes/ChatlogError.class.ts';
 // functions
+import { isAbortingAiError } from '../../../../_cle-libs/libs/ai/abort-utils.ts';
 import { runAI } from '../../../../_cle-libs/libs/ai/run-ai.ts';
 import { logger } from '../../../../_cle-libs/libs/io/logger.ts';
 import { parseAiJsonArray } from '../../../../_cle-libs/libs/text/json-utils.ts';
@@ -18,6 +19,7 @@ import { parseAiJsonArray } from '../../../../_cle-libs/libs/text/json-utils.ts'
 import { LOGGER_TEXT } from '../../../../_cle-libs/constants/logger.constants.ts';
 // types
 import type { ChatlogEntry } from '../../../../_cle-libs/classes/ChatlogEntry.class.ts';
+import type { AiRunnerProvider } from '../../../../_cle-libs/types/providers.types.ts';
 
 // ─── internal ───
 // functions
@@ -78,19 +80,23 @@ export const processChunk = async (
   cache: ChatlogCache<CLEResult>,
   ctl: AbortController,
   model?: string,
+  aiRunnerProvider: AiRunnerProvider = runAI,
 ): Promise<ChatlogError | undefined> => {
   const batchPrompt = buildBatchPrompt(chunkEntries);
 
   let rawResult: string;
   try {
-    rawResult = await runAI(_SYSTEM_PROMPT, batchPrompt, { ...(model ? { model } : {}), signal: ctl.signal });
+    rawResult = await aiRunnerProvider(_SYSTEM_PROMPT, batchPrompt, {
+      ...(model ? { model } : {}),
+      signal: ctl.signal,
+    });
   } catch (e) {
     if (!(e instanceof ChatlogError)) { throw e; }
-    logger.warn(`${LOGGER_TEXT.INDENT}claude CLI 実行失敗。チャンク内ファイルをすべて error 扱い`);
+    logger.warn(`${LOGGER_TEXT.INDENT}AI 実行失敗。チャンク内ファイルをすべて error 扱い`);
     logger.warn(`${LOGGER_TEXT.INDENT}error: ${e.message}`);
     chunkEntries.forEach((entry) => logger.warn(`${LOGGER_TEXT.INDENT}error扱い: ${entry.filename}`));
     stats.error += chunkEntries.length;
-    if (e.subindex === 'RateLimit') { ctl.abort(); }
+    if (isAbortingAiError(e)) { ctl.abort(); }
     return e;
   }
 

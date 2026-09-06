@@ -16,17 +16,14 @@ import { logger } from '../io/logger.ts';
 import { getAiBackend, isValidModel, parseModel } from './model-utils.ts';
 
 // types
-import type { AiBackendCommand } from '../../types/ai.const.types.ts';
+import type { AiBackendCommand, AiModelToProvider } from '../../types/ai.const.types.ts';
+import type { RunAIOptions } from '../../types/providers.types.ts';
 
 // constants
-import { AI_BACKEND_COMMAND_MAP } from '../../types/ai.const.types.ts';
+import { AI_BACKEND_COMMAND_MAP, AI_MODEL_TO_PROVIDER_MAP, AI_PROVIDERS } from '../../types/ai.const.types.ts';
 
-// internal types
-export type RunAIOptions = {
-  model?: string;
-  timeoutMs?: number;
-  signal?: AbortSignal;
-};
+// re-export（後方互換: 既存の import 元を維持する）
+export type { RunAIOptions };
 
 type _CommandSpec = { command: AiBackendCommand; args: string[]; hasSystemPromptWithArgs: boolean };
 
@@ -43,11 +40,10 @@ const _RATE_LIMIT_PATTERN = /rate.?limit|429|usage limit|spend limit/i;
 export const _buildCommand = (model: string, systemPrompt: string): _CommandSpec => {
   const _parsed = parseModel(model)!;
   const _backend = getAiBackend(model)!;
-  const _command = AI_BACKEND_COMMAND_MAP[_backend];
   switch (_backend) {
     case 'claude':
       return {
-        command: _command,
+        command: AI_BACKEND_COMMAND_MAP[_backend],
         args: [
           '--print',
           '--output-format',
@@ -69,7 +65,7 @@ export const _buildCommand = (model: string, systemPrompt: string): _CommandSpec
       };
     case 'codex':
       return {
-        command: _command,
+        command: AI_BACKEND_COMMAND_MAP[_backend],
         args: [
           'exec',
           '--skip-git-repo-check',
@@ -82,7 +78,7 @@ export const _buildCommand = (model: string, systemPrompt: string): _CommandSpec
       };
     case 'copilot':
       return {
-        command: _command,
+        command: AI_BACKEND_COMMAND_MAP[_backend],
         args: [
           '--disable-builtin-mcps',
           '--model',
@@ -94,7 +90,7 @@ export const _buildCommand = (model: string, systemPrompt: string): _CommandSpec
       };
     case 'opencode':
       return {
-        command: _command,
+        command: AI_BACKEND_COMMAND_MAP[_backend],
         args: [
           'run',
           '--pure',
@@ -107,7 +103,7 @@ export const _buildCommand = (model: string, systemPrompt: string): _CommandSpec
       };
     case 'antigravity':
       return {
-        command: _command,
+        command: AI_BACKEND_COMMAND_MAP[_backend],
         args: [
           '--model',
           _parsed.model,
@@ -197,6 +193,25 @@ const _interpretClaudeOutput = (parsed: Record<string, unknown>, stdout: string)
 };
 
 /**
+ * 受理されるモデル指定形式の案内文言を、モデルパターン定義から動的に生成する。
+ *
+ * 文言にモデル名を手書きで列挙せず、すべて引数（既定値は実定数）から導出するため、
+ * 定数へのモデル追加が文言へ自動的に反映される。`regex` エントリは正規表現ソースではなく
+ * 定義側が持つ表示ラベル（`gpt-*` 等）を使う。
+ *
+ * @param providers - `<provider>/<model>` 形式で利用できるプロバイダー名の一覧
+ * @param modelMap - bare string モデル名の受理パターン一覧
+ * @returns 受理形式を列挙した案内文言
+ */
+export const buildValidModelsMessage = (
+  providers: readonly string[] = AI_PROVIDERS,
+  modelMap: readonly AiModelToProvider[] = AI_MODEL_TO_PROVIDER_MAP,
+): string => {
+  const _models = modelMap.map((entry) => entry.match === 'exact' ? entry.value : entry.label);
+  return `Valid models: ${_models.join(', ')} (or <provider>/<model> with provider: ${providers.join(', ')})`;
+};
+
+/**
  * Runs an AI CLI subprocess with the given system prompt and user prompt.
  * Returns the trimmed stdout text on success, or throws on failure.
  */
@@ -213,7 +228,7 @@ export const runAI = async (
     throw new ChatlogError(
       'UnknownModel',
       'InvalidModel',
-      `"${_options.model}" is not valid. Valid models: opus, sonnet, haiku (or full IDs)`,
+      `"${_options.model}" is not valid. ${buildValidModelsMessage()}`,
     );
   }
   const _spec = _buildCommand(_options.model, systemPrompt);

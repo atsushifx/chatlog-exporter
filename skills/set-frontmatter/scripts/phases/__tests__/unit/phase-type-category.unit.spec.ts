@@ -40,7 +40,7 @@ type _JudgeProvider = (
   prompts: Prompts,
   model?: string,
   signal?: AbortSignal,
-) => Promise<void>;
+) => Promise<boolean>;
 
 // constants
 /** テスト用ダミー辞書。AI 呼び出しのないスタブには渡されるだけで参照されない。 */
@@ -149,10 +149,13 @@ const _makeJudgeStub = (): { stub: _JudgeProvider; getCount: () => number } => {
     _count++;
     entry.frontmatter.set('type', 'stub');
     entry.frontmatter.set('category', 'stub');
-    return Promise.resolve();
+    return Promise.resolve(true);
   };
   return { stub, getCount: () => _count };
 };
+
+/** 続行側 AI エラーで判定失敗した judgeProvider を模す。frontmatter に何も書かず `false` を返す。 */
+const _FAILING_JUDGE_STUB: _JudgeProvider = () => Promise.resolve(false);
 
 // ─── Tests
 
@@ -421,6 +424,62 @@ describe('_phaseTypeAndCategory', () => {
   });
 
   /**
+   * judgeProvider が続行側 AI エラーで判定失敗（`false`）を返したときの cache 更新方針。
+   *
+   * `review-failed` は再判定シグナルなので据え置く（cle-cso）。それ以外は cache を消して次回対象へ戻す。
+   */
+  describe('judgeProvider が判定失敗（false）を返す', () => {
+    describe('When: 異常系', () => {
+      it(
+        '[Error] T-SF-PTC-01-14-01: status=review-failed + 既存 type/category + judge が false → status は review-failed のまま',
+        async () => {
+          const filePath = '/path/to/review-failed.md';
+          const cache = await _makeCacheWithEntry(filePath, SETFM_CACHE_STATUSES.REVIEW_FAILED);
+          const entries = [_makeEntryWithFrontmatter(filePath, 'old-type', 'old-cat')];
+
+          await phaseTypeAndCategory(
+            entries,
+            cache,
+            1000,
+            _DICS,
+            _PROMPTS,
+            { concurrency: 1, dryRun: false },
+            _FAILING_JUDGE_STUB,
+          );
+
+          assertEquals(cache.read(filePath).status, SETFM_CACHE_STATUSES.REVIEW_FAILED);
+        },
+      );
+
+      it(
+        '[Error] T-SF-PTC-01-14-02: cache 空 + type/category なし + judge が false → cache.delete され次回の対象として残る',
+        async () => {
+          const filePath = '/path/to/cache-miss.md';
+          const cache = await _makeCache();
+          const entries = [_makeEntry(filePath)];
+          const deleteSpy = spy(cache, 'delete');
+
+          await phaseTypeAndCategory(
+            entries,
+            cache,
+            1000,
+            _DICS,
+            _PROMPTS,
+            { concurrency: 1, dryRun: false },
+            _FAILING_JUDGE_STUB,
+          );
+
+          assertEquals(deleteSpy.calls.length, 1);
+          deleteSpy.restore();
+          const _cached = cache.read(filePath);
+          assertEquals(_cached.type, undefined);
+          assertEquals(_cached.category, undefined);
+        },
+      );
+    });
+  });
+
+  /**
    * worker が `runConcurrent` の `ctl.signal` を judgeProvider へ転送するケース。
    *
    * この転送があることで、兄弟ファイルが RateLimit で abort したとき in-flight の judge が signal を受け取れる。
@@ -433,7 +492,7 @@ describe('_phaseTypeAndCategory', () => {
         _captured = signal;
         entry.frontmatter.set('type', 'stub');
         entry.frontmatter.set('category', 'stub');
-        return Promise.resolve();
+        return Promise.resolve(true);
       };
       const entries = [_makeEntry('/path/to/a.md')];
 

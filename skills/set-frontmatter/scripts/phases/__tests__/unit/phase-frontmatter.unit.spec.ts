@@ -129,6 +129,22 @@ const _makeGenerateStub = (returns = true): { stub: _GenerateProvider; getCount:
   return { stub, getCount: () => _count };
 };
 
+/**
+ * 1 回目の呼び出しだけ指定エラーを throw し、以降は `true` を返す `generateProvider` スタブを返す。
+ *
+ * @param e - 1 回目の呼び出しで throw する値
+ * @returns `{ stub, getCount }` — stub は `_GenerateProvider` 互換、getCount は呼び出し回数を返す
+ */
+const _makeFirstThrowGenerateStub = (e: unknown): { stub: _GenerateProvider; getCount: () => number } => {
+  let _count = 0;
+  const stub: _GenerateProvider = (_entry, _maxLen, _dics, _prompts) => {
+    _count++;
+    if (_count === 1) { throw e; }
+    return Promise.resolve(true);
+  };
+  return { stub, getCount: () => _count };
+};
+
 /** `hasRequiredFields()` を満たす全5フィールド（type/category/title/topics/tags）の frontmatter。 */
 const _FULL_FRONTMATTER = {
   type: 'tech',
@@ -439,6 +455,68 @@ describe('_phaseFrontmatter', () => {
       it('[Edge] T-SF-PFM-02-07-03: cache miss + entry フィールドなし → true', async () => {
         const cache = await _makeCache();
         assertEquals(needsFrontmatterAi(_makeEntry('/path/to/a.md'), cache), true);
+      });
+    });
+  });
+
+  /**
+   * llama 経路で `generateProvider` が中断側／続行側の subindex を throw したときの分岐を検証する。
+   *
+   * 続行側（ExitFailure）は握りつぶして後続エントリを処理し、
+   * 中断側（InvalidEndpoint）は `runConcurrent` の外へ例外を伝播させる。
+   */
+  describe('phaseFrontmatter — llama 中断側判定（isAbortingAiError）', () => {
+    /** 続行側 subindex では 1 ファイルの失敗として扱い、後続エントリの生成を継続する。 */
+    describe('When: 正常系', () => {
+      it('[Normal] T-SF-LAB-01-02: 先頭が AiError/ExitFailure → resolve し error ログを出して 2 件目以降も処理する', async () => {
+        const cache = await _makeCache();
+        const { stub, getCount } = _makeFirstThrowGenerateStub(
+          new ChatlogError('AiError', 'ExitFailure', 'simulated exit failure'),
+        );
+        const entries = [_makeEntry('/path/to/a.md'), _makeEntry('/path/to/b.md')];
+        const errorSpy = spy(logger, 'error');
+        try {
+          await phaseFrontmatter(
+            entries,
+            cache,
+            1000,
+            _FAKE_DICS,
+            _FAKE_PROMPTS,
+            { concurrency: 1, dryRun: false },
+            stub,
+          );
+          assertEquals(getCount(), 2);
+          assertEquals(errorSpy.calls.some((c) => String(c.args[0]).includes('生成失敗')), true);
+        } finally {
+          errorSpy.restore();
+        }
+      });
+    });
+
+    /** 中断側 subindex では例外が runConcurrent の外へ伝播しバッチが止まる。 */
+    describe('When: 異常系', () => {
+      it('[Error] T-SF-LAB-02-02: 先頭が AiError/InvalidEndpoint → reject し 2 件目以降は処理されない', async () => {
+        const cache = await _makeCache();
+        const { stub, getCount } = _makeFirstThrowGenerateStub(
+          new ChatlogError('AiError', 'InvalidEndpoint', 'simulated invalid endpoint'),
+        );
+        const entries = [_makeEntry('/path/to/a.md'), _makeEntry('/path/to/b.md')];
+
+        const error = await assertRejects(
+          () =>
+            phaseFrontmatter(
+              entries,
+              cache,
+              1000,
+              _FAKE_DICS,
+              _FAKE_PROMPTS,
+              { concurrency: 1, dryRun: false },
+              stub,
+            ),
+          ChatlogError,
+        );
+        assertEquals(error.subindex, 'InvalidEndpoint');
+        assertEquals(getCount(), 1);
       });
     });
   });

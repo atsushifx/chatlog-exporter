@@ -11,10 +11,13 @@ import { assert, assertEquals, assertFalse } from '@std/assert';
 import { describe, it } from '@std/testing/bdd';
 
 // ─── Test target
-import { getAiBackend, isValidModel, parseModel } from '../../model-utils.ts';
+import { getAiBackend, isEmptyLlamaModelId, isValidModel, parseModel } from '../../model-utils.ts';
+
+// constants
+import { AI_BACKEND_COMMAND_MAP } from '../../../../types/ai.const.types.ts';
 
 // types
-import type { AiModelSpec } from '../../../../types/ai.const.types.ts';
+import type { AiCliBackend, AiModelSpec } from '../../../../types/ai.const.types.ts';
 
 // ─── Internal Helpers
 
@@ -143,6 +146,12 @@ describe('getAiBackend', () => {
     it('T-LIB-AI-54: getAiBackend("foobar/baz") → null (unknown provider)', () => {
       assertEquals(getAiBackend('foobar/baz'), null);
     });
+
+    /** llama provider は同名の llama バックエンドへ写像される（`AI_PROVIDER_BACKEND_MAP`）。 */
+    it('[Normal] T-LIB-AI-MDL-01-02: getAiBackend("llama/qwen3-14b") → "llama"', () => {
+      // assert
+      assertEquals(getAiBackend('llama/qwen3-14b'), 'llama');
+    });
   });
 
   /** 境界値・特殊エイリアスのエッジケース。 */
@@ -179,6 +188,12 @@ describe('isValidModel (multi-backend)', () => {
 
     it('T-LIB-AI-28: isValidModel("openai/gpt-4") → true', () => {
       assert(isValidModel('openai/gpt-4'));
+    });
+
+    /** llama バックエンドの追加により `<provider>/<model>` 形式の llama モデルが有効になる。 */
+    it('[Normal] T-LIB-AI-MDL-01-03: isValidModel("llama/qwen3-14b") → true', () => {
+      // assert
+      assert(isValidModel('llama/qwen3-14b'));
     });
   });
 
@@ -245,6 +260,68 @@ describe('parseModel', () => {
       const _expected: AiModelSpec = { provider: 'codex', model: 'gpt-5' };
       assertEquals(parseModel('gpt-5'), _expected);
     });
+
+    /**
+     * `parseModel` は provider prefix の照合しか行わず、モデル識別子の空判定は担わない。
+     * llama 向けの空識別子拒否を誤って `parseModel` へ入れると既存 provider の
+     * 受理範囲まで壊れるため、その回帰を検出するゲートとして固定する（REQ-C-002）。
+     */
+    it('[Normal] T-LIB-AI-MDL-02-01: parseModel("openai/") は llama 追加後も null を返さず受理される', () => {
+      // arrange
+      const _expected: AiModelSpec = { provider: 'openai', model: '' };
+
+      // assert
+      assertEquals(parseModel('openai/'), _expected);
+    });
+
+    /** LAN 上の llama サーバを指す `<provider>/<model>` 形式が known provider として解決される。 */
+    it('[Normal] T-LIB-AI-MDL-01-01: parseModel("llama/qwen3-14b") → { provider:"llama", model:"qwen3-14b" }', () => {
+      // arrange
+      const _expected: AiModelSpec = { provider: 'llama', model: 'qwen3-14b' };
+
+      // assert
+      assertEquals(parseModel('llama/qwen3-14b'), _expected);
+    });
+
+    /**
+     * 2 つ目以降のスラッシュはモデル識別子の一部として扱う。llama のモデル名は
+     * `org/model` 形式を取りうるため、多段スラッシュを拒否する分岐を持たない。
+     */
+    it('[Normal] T-LIB-AI-MDL-03-01: parseModel("llama/org/model") → { provider:"llama", model:"org/model" }', () => {
+      // arrange
+      const _expected: AiModelSpec = { provider: 'llama', model: 'org/model' };
+
+      // assert
+      assertEquals(parseModel('llama/org/model'), _expected);
+    });
+  });
+
+  /** 既知の受理形式に一致しないモデル値を拒否する異常ケース。 */
+  describe('When: 異常系', () => {
+    /**
+     * 受理形式のいずれにも一致しない値は `parseModel` が `null`、`isValidModel` が `false` を返す。
+     * 例外 message へ受理形式一覧が載ることの検証は `runAI` 前段を対象とする別テストが所有し、
+     * ここでは message を assert しない。
+     */
+    it('[Error] T-LIB-AI-MDL-07-01: 未知モデル値に対し parseModel は null、isValidModel は false を返す', () => {
+      // assert
+      assertEquals(parseModel('mistral-7b'), null);
+      assertFalse(isValidModel('mistral-7b'));
+      assertEquals(parseModel('llama'), null);
+      assertFalse(isValidModel('llama'));
+    });
+
+    /**
+     * `parseModel` は provider prefix の照合しか行わないため、モデル識別子が空でも
+     * `null` にはならない。空識別子の拒否は llama に限定した述語が担う（DR-23）。
+     */
+    it('[Error] T-LIB-AI-MDL-04-01: parseModel("llama/") → { provider:"llama", model:"" }（null ではない）', () => {
+      // arrange
+      const _expected: AiModelSpec = { provider: 'llama', model: '' };
+
+      // assert
+      assertEquals(parseModel('llama/'), _expected);
+    });
   });
 
   /** バックエンドが特定できないモデル → null のエッジケース。 */
@@ -259,6 +336,81 @@ describe('parseModel', () => {
 
     it('T-LIB-AI-56: parseModel("foobar/baz") → null (unknown provider)', () => {
       assertEquals(parseModel('foobar/baz'), null);
+    });
+
+    /**
+     * provider 照合は完全一致で行う。`toLowerCase()` 等の「親切な」正規化が入ると
+     * `Llama/...` が `llama` として解決されてしまうため、その退行を検出する（DR-02）。
+     */
+    it('[Edge] T-LIB-AI-MDL-05-01: parseModel("Llama/qwen3-14b") → null（provider 照合は完全一致）', () => {
+      // assert
+      assertEquals(parseModel('Llama/qwen3-14b'), null);
+    });
+  });
+});
+
+/**
+ * `AI_BACKEND_COMMAND_MAP` と CLI バックエンド部分集合型のユニットテストスイート。
+ *
+ * llama は LAN 上の HTTP サーバであり CLI バイナリを持たないため、
+ * CLI コマンド表の制約対象から除外されることを検証する。
+ *
+ * テスト ID 範囲: T-LIB-AI-MDL-06-01
+ *
+ * @see AI_BACKEND_COMMAND_MAP
+ */
+describe('AI_BACKEND_COMMAND_MAP', () => {
+  /** CLI バイナリを持たないバックエンドの扱いを固定するエッジケース。 */
+  describe('When: エッジケース', () => {
+    /**
+     * `@ts-expect-error` は `AiCliBackend` が `Exclude` を失って `AiBackend` と同義になった
+     * 瞬間に「未使用の抑制」となりコンパイルに失敗する。加えて `Object.hasOwn` の実行時検証を
+     * 併置し、`AI_BACKEND_COMMAND_MAP` へ `llama` キーが足された場合も検出する。
+     */
+    it('[Edge] T-LIB-AI-MDL-06-01: llama は AiCliBackend に含まれず AI_BACKEND_COMMAND_MAP にエントリを持たない', () => {
+      // arrange
+      // @ts-expect-error llama は AiCliBackend から除外されるため代入できない
+      const _llamaAsCli: AiCliBackend = 'llama';
+      const _cliBackend: AiCliBackend = 'claude';
+
+      // assert
+      assertFalse(Object.hasOwn(AI_BACKEND_COMMAND_MAP, 'llama'));
+      assertEquals(_llamaAsCli, 'llama');
+      assertEquals(AI_BACKEND_COMMAND_MAP[_cliBackend], 'claude');
+    });
+  });
+});
+
+/**
+ * `isEmptyLlamaModelId` のユニットテストスイート。
+ *
+ * llama provider に限定して、モデル識別子が実質空であることを判定する述語を検証する。
+ * 例外は投げず `boolean` のみを返す（例外への写像は `runAI` 前段が担う）。
+ *
+ * テスト ID 範囲: T-LIB-AI-MDL-04-02 〜 T-LIB-AI-MDL-04-03
+ *
+ * @see isEmptyLlamaModelId
+ */
+describe('isEmptyLlamaModelId', () => {
+  /** llama のモデル識別子が欠落している異常ケース。 */
+  describe('When: 異常系', () => {
+    /**
+     * モデル識別子が空文字・空白のみのいずれでも真を返す。`assertThrows` を使わず、
+     * 2 回の呼び出しが例外なく `boolean` を返すこと自体で never-throw を担保する。
+     */
+    it('[Error] T-LIB-AI-MDL-04-02: isEmptyLlamaModelId は "llama/" と "llama/ " に真を返し throw しない', () => {
+      // assert
+      assert(isEmptyLlamaModelId('llama/'));
+      assert(isEmptyLlamaModelId('llama/ '));
+    });
+
+    /**
+     * 判定対象は llama provider に限定される。provider を見ずに「空モデル名なら真」と
+     * 実装されると既存 provider の受理範囲を狭めてしまうため、その退行を検出する。
+     */
+    it('[Error] T-LIB-AI-MDL-04-03: isEmptyLlamaModelId("openai/") → false（判定は llama に限定）', () => {
+      // assert
+      assertFalse(isEmptyLlamaModelId('openai/'));
     });
   });
 });
