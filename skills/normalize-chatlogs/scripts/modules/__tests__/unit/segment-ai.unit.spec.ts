@@ -8,7 +8,7 @@
 // https://opensource.org/licenses/MIT
 
 // ─── BDD modules
-import { assert, assertEquals, assertFalse, assertNotEquals, assertRejects } from '@std/assert';
+import { assert, assertEquals, assertFalse, assertNotEquals, assertRejects, assertStrictEquals } from '@std/assert';
 import { afterEach, describe, it } from '@std/testing/bdd';
 // stub
 import { stub } from '@std/testing/mock';
@@ -40,6 +40,8 @@ import { ChatlogEntry } from '../../../../../_cle-libs/classes/ChatlogEntry.clas
 import { ChatlogError } from '../../../../../_cle-libs/classes/ChatlogError.class.ts';
 // constants
 import { DEFAULT_AI_MODEL } from '../../../../../_cle-libs/constants/defaults.constants.ts';
+// types
+import type { AiRunnerProvider } from '../../../../../_cle-libs/types/providers.types.ts';
 
 // ─── Internal Helpers
 
@@ -47,6 +49,9 @@ import { DEFAULT_AI_MODEL } from '../../../../../_cle-libs/constants/defaults.co
 
 /** テスト用の `ChatlogEntry` を `filePath` と本文 `content` から生成する（frontmatterなし）。 */
 const _makeEntry = (filePath: string, content: string): ChatlogEntry => new ChatlogEntry(content, { filePath });
+
+/** 与えられた値で必ず reject する `AiRunnerProvider` スタブを返す。 */
+const _throwingRunner = (e: unknown): AiRunnerProvider => () => Promise.reject(e);
 
 // constants
 
@@ -747,5 +752,57 @@ describe('segmentChatlogs', () => {
         warnStub?.restore();
       }
     });
+  });
+});
+
+/**
+ * `segmentChatlogs` の中断側判定テストスイート。
+ *
+ * `options.aiRunnerProvider` へ例外を投げるスタブを注入し、catch 節が `isAbortingAiError` で
+ * 再 throw / 握りつぶしを振り分けることを検証する。
+ *
+ * テスト ID 範囲: T-NC-LAB-01-01 〜 T-NC-LAB-03-01
+ *
+ * @see segmentChatlogs
+ */
+describe('segmentChatlogs — llama 中断側判定（isAbortingAiError）', () => {
+  it('[Normal] T-NC-LAB-01-01: AiError/ExitFailure は再 throw されず全件 null の Map が返る', async () => {
+    // arrange
+    const inputs = [_makeEntry('a.md', 'content a'), _makeEntry('b.md', 'content b')];
+
+    // act
+    const result = await segmentChatlogs(inputs, {
+      aiRunnerProvider: _throwingRunner(new ChatlogError('AiError', 'ExitFailure')),
+    });
+
+    // assert
+    assertEquals(result.size, 2);
+    assertNull(result.get('a.md'));
+    assertNull(result.get('b.md'));
+  });
+
+  it('[Error] T-NC-LAB-02-01: AiError/BackendUnavailable は同一インスタンスが再 throw される', async () => {
+    // arrange
+    const inputs = [_makeEntry('a.md', 'content a'), _makeEntry('b.md', 'content b')];
+    const expectedError = new ChatlogError('AiError', 'BackendUnavailable');
+
+    // act & assert
+    const thrown = await assertRejects(() =>
+      segmentChatlogs(inputs, { aiRunnerProvider: _throwingRunner(expectedError) })
+    );
+    assertStrictEquals(thrown, expectedError);
+  });
+
+  it('[Edge] T-NC-LAB-03-01: 非 AiError の Error は従来どおり再 throw されず全件 null の Map が返る', async () => {
+    // arrange
+    const inputs = [_makeEntry('a.md', 'content a'), _makeEntry('b.md', 'content b')];
+
+    // act
+    const result = await segmentChatlogs(inputs, { aiRunnerProvider: _throwingRunner(new Error('boom')) });
+
+    // assert
+    assertEquals(result.size, 2);
+    assertNull(result.get('a.md'));
+    assertNull(result.get('b.md'));
   });
 });

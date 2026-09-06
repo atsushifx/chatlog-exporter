@@ -13,10 +13,11 @@
 import { ChatlogError } from '../../../_cle-libs/classes/ChatlogError.class.ts';
 // types
 import type { ChatlogEntry } from '../../../_cle-libs/classes/ChatlogEntry.class.ts';
+import type { AiRunnerProvider } from '../../../_cle-libs/types/providers.types.ts';
 
 // functions
 // --- ai ---
-import { isRateLimitError } from '../../../_cle-libs/libs/ai/rate-limit-utils.ts';
+import { isAbortingAiError } from '../../../_cle-libs/libs/ai/abort-utils.ts';
 import { runAI } from '../../../_cle-libs/libs/ai/run-ai.ts';
 
 // constants
@@ -75,12 +76,12 @@ const _addLineNumbers = (content: string): string => {
  * responsibility (see {@link phaseWrite}).
  *
  * @param inputs   - Array of `ChatlogEntry` to segment
- * @param options  - Optional AI options (model, timeoutMs, signal)
+ * @param options  - Optional AI options (model, timeoutMs, signal, aiRunnerProvider)
  * @returns Map from filePath to SegmentPlan[] or null
  */
 export const segmentChatlogs = async (
   inputs: ChatlogEntry[],
-  options?: { model?: string; timeoutMs?: number; signal?: AbortSignal },
+  options?: { model?: string; timeoutMs?: number; signal?: AbortSignal; aiRunnerProvider?: AiRunnerProvider },
 ): Promise<Map<string, SegmentPlan[] | null>> => {
   const _nullMap = (): Map<string, SegmentPlan[] | null> => {
     const m = new Map<string, SegmentPlan[] | null>();
@@ -106,15 +107,16 @@ export const segmentChatlogs = async (
     .map((entry, i) => `File ${i + 1}: ${entry.filePath}\n${_addLineNumbers(entry.content)}`)
     .join('\n\n---\n\n');
 
+  const _run = options?.aiRunnerProvider ?? runAI;
   let _raw: string;
   try {
-    _raw = await runAI(systemPrompt, userPrompt, {
+    _raw = await _run(systemPrompt, userPrompt, {
       model: options?.model ?? DEFAULT_AI_MODEL,
       ...(options?.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
       ...(options?.signal !== undefined ? { signal: options.signal } : {}),
     });
   } catch (e) {
-    if (isRateLimitError(e)) {
+    if (isAbortingAiError(e)) {
       throw e;
     }
     const _paths = inputs.map((entry) => getBasename(entry.filePath!)).join(', ');
