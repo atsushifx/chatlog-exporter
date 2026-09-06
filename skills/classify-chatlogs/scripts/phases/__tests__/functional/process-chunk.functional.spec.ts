@@ -9,7 +9,7 @@
 // cspell:words MoveByAI
 
 // ─── BDD modules
-import { assertEquals, assertRejects } from '@std/assert';
+import { assertEquals, assertRejects, assertStrictEquals } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // ─── Test target
@@ -45,6 +45,7 @@ import type {
   DenoCommandLike,
 } from '../../../../../_cle-libs/__tests__/helpers/deno-command-mock.ts';
 import type { LoggerStub } from '../../../../../_cle-libs/__tests__/helpers/logger-stub.ts';
+import type { AiRunnerProvider } from '../../../../../_cle-libs/types/providers.types.ts';
 
 /**
  * 非ゼロ exit かつ stderr に rate limit 文言を含む出力を模倣するモッククラス。
@@ -70,6 +71,9 @@ class _RateLimitMockCommand extends BaseMockCommand {
 
 /** `_RateLimitMockCommand` を `DenoCommandLike` として返すファクトリヘルパー。 */
 const _makeRateLimitMock = (): DenoCommandLike => _RateLimitMockCommand as unknown as DenoCommandLike;
+
+/** 与えられた例外を必ず reject する `AiRunnerProvider` スタブを返すファクトリヘルパー。 */
+const _throwingRunner = (e: unknown): AiRunnerProvider => () => Promise.reject(e);
 
 // ─── Tests
 
@@ -375,6 +379,72 @@ describe('processChunk', () => {
       await processChunk(metas, projects, model, cache, new AbortController());
 
       assertEquals(cache.read('/tmp/input/a.md').project, 'app1');
+    });
+  });
+});
+
+/**
+ * `processChunk` の catch 判定を `isAbortingAiError` へ差し替えたことを検証するスイート。
+ *
+ * `aiRunnerProvider` 引数へ「指定の例外を投げるスタブ」を注入し、中断すべき `ChatlogError` のみが
+ * re-throw され、それ以外は従来どおり握りつぶされてチャンク全件 `action: ERROR` になることを確認する。
+ *
+ * テスト ID 範囲: T-CL-LAB-01 〜 T-CL-LAB-03
+ *
+ * @see processChunk
+ * @see isAbortingAiError
+ */
+describe('processChunk — llama 中断側判定（isAbortingAiError）', () => {
+  describe('When: aiRunnerProvider が例外を投げる', () => {
+    let loggerStub: LoggerStub;
+    let model: string;
+    let cache: ChatlogCache<ClassifyCache>;
+    let projects: ProjectDicEntry;
+
+    beforeEach(async () => {
+      model = DEFAULT_AI_MODEL;
+      loggerStub = makeLoggerStub();
+      cache = await _makeEmptyClassifyCache();
+      projects = { app1: {}, misc: {} };
+    });
+
+    afterEach(() => {
+      loggerStub.restore();
+    });
+
+    it('[Normal] T-CL-LAB-01-01: AiError/ExitFailure → throw せずチャンク全件が action: ERROR として cache に書かれる', async () => {
+      const metas = [_makeClassifyChatlogEntry('a.md'), _makeClassifyChatlogEntry('b.md')];
+      const runner = _throwingRunner(new ChatlogError('AiError', 'ExitFailure'));
+
+      const result = await processChunk(metas, projects, model, cache, new AbortController(), runner);
+
+      assertEquals(result, ['/tmp/input/a.md', '/tmp/input/b.md']);
+      assertEquals(cache.read('/tmp/input/a.md').action, CLASSIFY_ACTIONS.ERROR);
+      assertEquals(cache.read('/tmp/input/b.md').action, CLASSIFY_ACTIONS.ERROR);
+    });
+
+    it('[Error] T-CL-LAB-02-01: AiError/BackendUnavailable → 同じ ChatlogError が再 throw され cache には書き込まれない', async () => {
+      const metas = [_makeClassifyChatlogEntry('a.md')];
+      const thrown = new ChatlogError('AiError', 'BackendUnavailable');
+
+      const error = await assertRejects(
+        () => processChunk(metas, projects, model, cache, new AbortController(), _throwingRunner(thrown)),
+        ChatlogError,
+      );
+
+      assertStrictEquals(error, thrown);
+      assertEquals(cache.read('/tmp/input/a.md'), {});
+    });
+
+    it('[Edge] T-CL-LAB-03-01: 非 AiError（素の Error）→ 従来どおり throw せず全件 action: ERROR が書き込まれる', async () => {
+      const metas = [_makeClassifyChatlogEntry('a.md'), _makeClassifyChatlogEntry('b.md')];
+      const runner = _throwingRunner(new Error('boom'));
+
+      const result = await processChunk(metas, projects, model, cache, new AbortController(), runner);
+
+      assertEquals(result, ['/tmp/input/a.md', '/tmp/input/b.md']);
+      assertEquals(cache.read('/tmp/input/a.md').action, CLASSIFY_ACTIONS.ERROR);
+      assertEquals(cache.read('/tmp/input/b.md').action, CLASSIFY_ACTIONS.ERROR);
     });
   });
 });

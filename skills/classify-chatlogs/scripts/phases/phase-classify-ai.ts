@@ -10,7 +10,7 @@
 // cspell:words MoveByAI
 
 // ─── Shared scripts
-import { isRateLimitError } from '../../../_cle-libs/libs/ai/rate-limit-utils.ts';
+import { isAbortingAiError } from '../../../_cle-libs/libs/ai/abort-utils.ts';
 import { runAI } from '../../../_cle-libs/libs/ai/run-ai.ts';
 import { logger } from '../../../_cle-libs/libs/io/logger.ts';
 import { runChunked } from '../../../_cle-libs/libs/parallel/concurrency.ts';
@@ -20,6 +20,7 @@ import { parseAiJsonArray } from '../../../_cle-libs/libs/text/json-utils.ts';
 import type { ChatlogCache } from '../../../_cle-libs/classes/ChatlogCache.class.ts';
 import { ChatlogEntry } from '../../../_cle-libs/classes/ChatlogEntry.class.ts';
 // types
+import type { AiRunnerProvider } from '../../../_cle-libs/types/providers.types.ts';
 import type {
   ClassifyCache,
   ClassifyConfig,
@@ -112,6 +113,7 @@ export const processChunk = async (
   model: string,
   cache: ChatlogCache<ClassifyCache>,
   ctl: AbortController,
+  aiRunnerProvider: AiRunnerProvider = runAI,
 ): Promise<string[]> => {
   if (chunkMetas.length === 0) { return []; }
 
@@ -120,9 +122,9 @@ export const processChunk = async (
 
   let rawResult: string;
   try {
-    rawResult = await runAI(_systemPrompt, _batchPrompt, { model, signal: ctl.signal });
+    rawResult = await aiRunnerProvider(_systemPrompt, _batchPrompt, { model, signal: ctl.signal });
   } catch (e) {
-    if (isRateLimitError(e) || ctl.signal.aborted) {
+    if (isAbortingAiError(e) || ctl.signal.aborted) {
       throw e;
     }
     const _reason = `claude CLI 実行失敗: ${e}`;
