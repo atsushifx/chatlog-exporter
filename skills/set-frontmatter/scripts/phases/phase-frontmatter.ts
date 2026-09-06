@@ -13,7 +13,7 @@
 import { ChatlogCache } from '../../../_cle-libs/classes/ChatlogCache.class.ts';
 import { ChatlogEntry } from '../../../_cle-libs/classes/ChatlogEntry.class.ts';
 import { LOGGER_TEXT } from '../../../_cle-libs/constants/logger.constants.ts';
-import { isRateLimitError } from '../../../_cle-libs/libs/ai/rate-limit-utils.ts';
+import { isAbortingAiError } from '../../../_cle-libs/libs/ai/abort-utils.ts';
 import { logger } from '../../../_cle-libs/libs/io/logger.ts';
 import { runConcurrent } from '../../../_cle-libs/libs/parallel/concurrency.ts';
 import { getFilename } from '../../../_cle-libs/libs/path-utils/path-utils.ts';
@@ -131,7 +131,7 @@ export const phaseFrontmatter = async (
         try {
           _ok = await _generate(entry, maxContentLength, dics, prompts, config.maxRetry ?? 0, config.model, ctl.signal);
         } catch (e) {
-          if (isRateLimitError(e) || ctl.signal.aborted) {
+          if (isAbortingAiError(e) || ctl.signal.aborted) {
             throw e;
           }
           logger.error(`${LOGGER_TEXT.INDENT}FAIL (生成失敗): ${getFilename(entry.filePath!)} — ${e}`);

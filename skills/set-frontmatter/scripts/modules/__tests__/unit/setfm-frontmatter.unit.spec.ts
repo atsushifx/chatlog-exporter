@@ -19,6 +19,8 @@ import type { Stub } from '@std/testing/mock';
 
 // ─── Test target
 import { generateFrontmatter } from '../../setfm-frontmatter.ts';
+// functions
+import { reviewFrontmatter } from '../../setfm-review.ts';
 
 // ─── Helpers
 import {
@@ -129,6 +131,26 @@ class _RateLimitFailMock extends BaseMockCommand {
   }
 }
 
+/**
+ * 常に exit 1（rate limit 文字列なし）を返し、構築回数を数えるモック。
+ *
+ * `runAI` に `ChatlogError('AiError', 'ExitFailure', ...)` を throw させる。
+ * `counter.calls` で `Deno.Command` の生成回数（= `runAI` 呼び出し回数）を検証し、
+ * 転送エラーが `maxRetry` ループでリトライされないことを判別する。
+ */
+class _CountingExitFailureMock extends BaseMockCommand {
+  /** 構築のたびにカウンタを加算する。 */
+  constructor(_cmd: string, _opts: unknown, counter: { calls: number }) {
+    super();
+    counter.calls++;
+  }
+
+  /** 常に exit 1 + 空 stdout を返す（stderr なし → ExitFailure 判定）。 */
+  protected makeOutput(): Promise<{ success: boolean; code: number; stdout: Uint8Array }> {
+    return Promise.resolve({ success: false, code: 1, stdout: new Uint8Array() });
+  }
+}
+
 // functions
 
 /**
@@ -158,6 +180,20 @@ const _makeSignalCaptureMock = (
  */
 const _makeCountingRateLimitMock = (counter: { calls: number }): DenoCommandLike => {
   return class extends _CountingRateLimitMock {
+    constructor(cmd: string, opts: unknown) {
+      super(cmd, opts, counter);
+    }
+  } as unknown as DenoCommandLike;
+};
+
+/**
+ * `_CountingExitFailureMock` を `DenoCommandLike` として返すファクトリヘルパー。
+ *
+ * @param counter - `Deno.Command` 生成回数のカウンタ（構築ごとに `calls` を加算）
+ * @returns `DenoCommandLike` クラス
+ */
+const _makeCountingExitFailureMock = (counter: { calls: number }): DenoCommandLike => {
+  return class extends _CountingExitFailureMock {
     constructor(cmd: string, opts: unknown) {
       super(cmd, opts, counter);
     }
@@ -450,5 +486,50 @@ describe('generateFrontmatter', () => {
       assert(captured.instance !== null, 'mock was not instantiated');
       assertEquals(captured.instance.signal?.aborted, true);
     });
+  });
+});
+
+/**
+ * `generateFrontmatter` / `reviewFrontmatter` の `maxRetry` ループが
+ * 転送エラー（AI CLI 呼び出しの失敗）を retry 対象にしないことを固定するユニットテストスイート。
+ *
+ * `maxRetry` ループが retry するのは `InvalidYaml/ParseFailed` のみで、
+ * `runAI` の throw はループ外へ即伝播する。
+ *
+ * テスト ID 範囲: T-SF-LAB-03-01
+ *
+ * @see generateFrontmatter
+ * @see reviewFrontmatter
+ */
+describe('generateFrontmatter / reviewFrontmatter — maxRetry ループは転送エラーを retry しない', () => {
+  let commandHandle: CommandMockHandle | undefined;
+
+  afterEach(() => {
+    commandHandle?.restore();
+    commandHandle = undefined;
+    GlobalConfig.resetInstance();
+  });
+
+  it('[Edge] T-SF-LAB-03-01: maxRetry=3 で runAI が AiError/ExitFailure → 両関数とも即伝播し Deno.Command 生成は 1 回', async () => {
+    // generateFrontmatter
+    const _generateCounter = { calls: 0 };
+    commandHandle = installCommandMock(_makeCountingExitFailureMock(_generateCounter));
+    const _generateError = await assertRejects(
+      () => generateFrontmatter(_makeChatlogEntry(), _MAX_CONTENT_LENGTH, _mockDics, _mockPrompts, 3),
+      ChatlogError,
+    );
+    assertEquals(_generateError.kind, 'AiError');
+    assertEquals(_generateCounter.calls, 1);
+    commandHandle.restore();
+
+    // reviewFrontmatter
+    const _reviewCounter = { calls: 0 };
+    commandHandle = installCommandMock(_makeCountingExitFailureMock(_reviewCounter));
+    const _reviewError = await assertRejects(
+      () => reviewFrontmatter(_makeChatlogEntry(), _mockDics, _mockPrompts, 3),
+      ChatlogError,
+    );
+    assertEquals(_reviewError.kind, 'AiError');
+    assertEquals(_reviewCounter.calls, 1);
   });
 });

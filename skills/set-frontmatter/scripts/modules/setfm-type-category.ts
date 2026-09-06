@@ -14,10 +14,13 @@ import { ChatlogEntry } from '../../../_cle-libs/classes/ChatlogEntry.class.ts';
 import { ChatlogError } from '../../../_cle-libs/classes/ChatlogError.class.ts';
 import { DEFAULT_FALLBACK_CATEGORY, DEFAULT_FALLBACK_TYPE } from '../../../_cle-libs/constants/defaults.constants.ts';
 import { LOGGER_TEXT } from '../../../_cle-libs/constants/logger.constants.ts';
-import { isFatalAiError, isRateLimitError } from '../../../_cle-libs/libs/ai/rate-limit-utils.ts';
+import { isAbortingAiError } from '../../../_cle-libs/libs/ai/abort-utils.ts';
+import { isFatalAiError } from '../../../_cle-libs/libs/ai/rate-limit-utils.ts';
 import { runAI } from '../../../_cle-libs/libs/ai/run-ai.ts';
 import { logger } from '../../../_cle-libs/libs/io/logger.ts';
 import { getFilename } from '../../../_cle-libs/libs/path-utils/path-utils.ts';
+// types
+import type { AiRunnerProvider } from '../../../_cle-libs/types/providers.types.ts';
 
 // ─── Local
 import { formatDicEntries } from '../libs/dic-format-utils.ts';
@@ -54,9 +57,12 @@ const _buildTypeCategorySystemPrompt = (systemTemplate: string, dics: Dics, cate
  *
  * 判定失敗（有効キー不一致など）時はフォールバック値をセットする。
  * ただしエラー種別により挙動を分ける:
- * - RateLimit / abort 済み signal → 例外を再 throw して中断する。
- * - 非 RateLimit の AI エラー（exit failure 等）→ `logger.error` を出し、type/category を書かず skip する。
+ * - 中断側 subindex（RateLimit / InvalidEndpoint / BackendUnavailable /
+ *   ResponseFormatRejected）または abort 済み signal → 例外を再 throw して中断する。
+ * - 続行側の AI エラー（ExitFailure 等）→ `logger.error` を出し、type/category を書かず skip する。
  * - 非 AiError（パース失敗等）→ フォールバック値をセットする（後方互換）。
+ *
+ * @returns type/category を書き込めたとき `true`、続行側 AI エラーで skip したとき `false`
  */
 export const judgeTypeAndCategory = async (
   entry: ChatlogEntry,
@@ -65,7 +71,8 @@ export const judgeTypeAndCategory = async (
   prompts: Prompts,
   model?: string,
   signal?: AbortSignal,
-): Promise<void> => {
+  aiRunnerProvider: AiRunnerProvider = runAI,
+): Promise<boolean> => {
   const tmpl = prompts.prompts.get('type-category');
   if (!tmpl) {
     throw new ChatlogError(
@@ -88,7 +95,7 @@ export const judgeTypeAndCategory = async (
   let category = DEFAULT_FALLBACK_CATEGORY;
 
   try {
-    const _raw = await runAI(_system, _user, { ...(model ? { model } : {}), ...(signal ? { signal } : {}) });
+    const _raw = await aiRunnerProvider(_system, _user, { ...(model ? { model } : {}), ...(signal ? { signal } : {}) });
     const _lines = _raw.trim().split('\n');
     const _typeMatch = _lines.find((l) => l.startsWith('type:'));
     const _catMatch = _lines.find((l) => l.startsWith('category:'));
@@ -103,14 +110,14 @@ export const judgeTypeAndCategory = async (
       category = _parsedCategory;
     }
   } catch (e) {
-    // RateLimit / 外部 abort → 中断（isRateLimitError を isFatalAiError より先に判定する）
-    if (isRateLimitError(e) || signal?.aborted) {
+    // 中断側 subindex / 外部 abort → バッチを止める（AC-019）
+    if (isAbortingAiError(e) || signal?.aborted) {
       throw e;
     }
-    // 非 RateLimit の AI エラー → error ログを出し type/category を書かず skip
+    // 続行側の AI エラー → error ログを出し type/category を書かず skip（AC-023）
     if (isFatalAiError(e)) {
       logger.error(`${LOGGER_TEXT.INDENT}FAIL (type/category 判定失敗): ${getFilename(entry.filePath!)} — ${e}`);
-      return;
+      return false;
     }
     // 非 AiError（パース失敗等）→ フォールバック値をセット（後方互換）
     type = DEFAULT_FALLBACK_TYPE;
@@ -119,6 +126,7 @@ export const judgeTypeAndCategory = async (
 
   entry.frontmatter.set('type', type);
   entry.frontmatter.set('category', category);
+  return true;
 };
 
 // ─── Test exports (テスト専用・本番コードから import 禁止)

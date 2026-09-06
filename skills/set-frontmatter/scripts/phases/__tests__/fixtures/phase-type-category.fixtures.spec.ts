@@ -131,7 +131,7 @@ const _makeEntry = (filePath: string, body: string): ChatlogEntry => {
 describe('_phaseTypeAndCategory fixtures', () => {
   let cache: ChatlogCache<SetfmCache>;
   let judgeCallCount: number;
-  let judgeStub: (entry: ChatlogEntry, maxLen: number, dics: Dics, prompts: Prompts) => Promise<void>;
+  let judgeStub: (entry: ChatlogEntry, maxLen: number, dics: Dics, prompts: Prompts) => Promise<boolean>;
 
   beforeEach(async () => {
     cache = await _makeCache();
@@ -140,7 +140,7 @@ describe('_phaseTypeAndCategory fixtures', () => {
       judgeCallCount++;
       entry.frontmatter.set('type', 'stub-type');
       entry.frontmatter.set('category', 'stub-category');
-      return Promise.resolve();
+      return Promise.resolve(true);
     };
   });
 

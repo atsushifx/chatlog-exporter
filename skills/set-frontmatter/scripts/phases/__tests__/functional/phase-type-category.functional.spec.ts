@@ -172,7 +172,7 @@ describe('_phaseTypeAndCategory', () => {
     maxLen: number,
     dics: Dics,
     prompts: Prompts,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 
   beforeEach(async () => {
     buf = new Map();
@@ -182,7 +182,7 @@ describe('_phaseTypeAndCategory', () => {
       judgeCallCount++;
       entry.frontmatter.set('type', 'stub-type');
       entry.frontmatter.set('category', 'stub-category');
-      return Promise.resolve();
+      return Promise.resolve(true);
     };
   });
 
@@ -303,7 +303,7 @@ describe('_phaseTypeAndCategory', () => {
     it('[Error] T-SF-PA-05: judgeStub が type のみセット → buf にエントリが存在しない（delete）', async () => {
       judgeStub = (entry) => {
         entry.frontmatter.set('type', 'stub-type');
-        return Promise.resolve();
+        return Promise.resolve(true);
       };
       const entry = _makeEntry('/path/to/test.md', '# test');
 
@@ -330,7 +330,7 @@ describe('_phaseTypeAndCategory', () => {
     it('[Error] T-SF-PA-06: judgeStub が category のみセット → buf にエントリが存在しない（delete）', async () => {
       judgeStub = (entry) => {
         entry.frontmatter.set('category', 'stub-category');
-        return Promise.resolve();
+        return Promise.resolve(true);
       };
       const entry = _makeEntry('/path/to/test.md', '# test');
 
@@ -355,7 +355,7 @@ describe('_phaseTypeAndCategory', () => {
    */
   describe('When: キャッシュミス judgeProvider が何もセットしない', () => {
     it('[Error] T-SF-PA-07: judgeStub が何もセットしない → buf にエントリが存在しない（delete）', async () => {
-      judgeStub = () => Promise.resolve();
+      judgeStub = () => Promise.resolve(true);
       const entry = _makeEntry('/path/to/test.md', '# test');
 
       await phaseTypeAndCategory(
@@ -382,7 +382,7 @@ describe('_phaseTypeAndCategory', () => {
       judgeStub = (entry) => {
         entry.frontmatter.set('type', '');
         entry.frontmatter.set('category', 'stub-category');
-        return Promise.resolve();
+        return Promise.resolve(true);
       };
       const entry = _makeEntry('/path/to/test.md', '# test');
 

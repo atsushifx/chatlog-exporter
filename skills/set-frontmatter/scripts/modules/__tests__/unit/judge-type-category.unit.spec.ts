@@ -10,7 +10,7 @@
 // cspell:words setfm sess
 
 // ─── BDD modules
-import { assert, assertEquals, assertRejects, assertStringIncludes } from '@std/assert';
+import { assert, assertEquals, assertRejects, assertStrictEquals, assertStringIncludes } from '@std/assert';
 import { afterEach, beforeEach, describe, it } from '@std/testing/bdd';
 
 // ─── Test target
@@ -36,7 +36,13 @@ import type { LoggerStub } from '../../../../../_cle-libs/__tests__/helpers/logg
 import { ChatlogEntry } from '../../../../../_cle-libs/classes/ChatlogEntry.class.ts';
 import { ChatlogError } from '../../../../../_cle-libs/classes/ChatlogError.class.ts';
 import { GlobalConfig } from '../../../../../_cle-libs/classes/GlobalConfig.class.ts';
+// constants
+import {
+  DEFAULT_FALLBACK_CATEGORY,
+  DEFAULT_FALLBACK_TYPE,
+} from '../../../../../_cle-libs/constants/defaults.constants.ts';
 // types
+import type { AiRunnerProvider } from '../../../../../_cle-libs/types/providers.types.ts';
 import type { DicEntry, Dics, Prompts } from '../../../types/dics.types.ts';
 
 // ─── Internal Helpers
@@ -250,6 +256,9 @@ const _makeChatlogEntry = (body: string): ChatlogEntry => {
   return new ChatlogEntry(text, { filePath: '/tmp/test.md' });
 };
 
+/** 常に指定した値で reject する `AiRunnerProvider` スタブを返す。catch 側の分岐判定だけを検証するために使う。 */
+const _throwingRunner = (e: unknown): AiRunnerProvider => () => Promise.reject(e);
+
 // ─── Tests
 
 /**
@@ -359,6 +368,20 @@ describe('judgeTypeAndCategory', () => {
         assertEquals(_entry.frontmatter.get('category') as string, 'development');
       },
     );
+
+    it(
+      '[Normal] T-SF-TC-25: AI が有効な type/category を返す → 戻り値が true',
+      async () => {
+        commandHandle = installCommandMock(
+          makeClaudeJsonMock('type: discussion\ncategory: development'),
+        );
+
+        const _entry = _makeChatlogEntry('# テスト\n本文');
+        const _judged = await judgeTypeAndCategory(_entry, _MAX_CONTENT_LENGTH, _makeDics(), _makePrompts());
+
+        assertEquals(_judged, true);
+      },
+    );
   });
 
   // ─── フォールバック（不正キー）──────────────────────────────────────────────
@@ -454,8 +477,9 @@ describe('judgeTypeAndCategory', () => {
   /**
    * AI CLI が非0終了で失敗したときのエラー分岐を検証する。
    *
-   * 非 RateLimit の AI エラー（ExitFailure）は throw せず、type/category を書き込まずに skip し
-   * `logger.error` へ判定失敗ログを出す。RateLimit のみ再 throw で中断する（別ケース TC-21/23）。
+   * 続行側の AI エラー（ExitFailure）は throw せず、type/category を書き込まずに skip し
+   * `logger.error` へ判定失敗ログを出す。中断側 subindex のみ再 throw で中断する（別ケース TC-21/23）。
+   * 非 AiError はいずれの分岐にも該当せずフォールバック値の書き込みへ落ちる（TC-24 / DR-29 決定 2）。
    */
   describe('When: 異常系', () => {
     it(
@@ -470,7 +494,7 @@ describe('judgeTypeAndCategory', () => {
         // type/category は書き込まれない（skip）
         assertEquals(_entry.frontmatter.get('type'), undefined);
         assertEquals(_entry.frontmatter.get('category'), undefined);
-        // 判定失敗ログが 1 件以上（runAI 内部 error ログも同 stub に乗るため部分一致・件数下限で判定）
+        // 判定失敗ログが 1 件以上（runAI 内部 error ログも同 stub に乗るため部分一致で判定）
         assertEquals(
           loggerStub.errorLogs.some((l) => l.includes('type/category 判定失敗')),
           true,
@@ -490,6 +514,51 @@ describe('judgeTypeAndCategory', () => {
         ) as ChatlogError;
         assertEquals(_err.kind, 'AiError');
         assertEquals(_err.subindex, 'RateLimit');
+      },
+    );
+
+    it(
+      '[Edge] T-SF-TC-24: 非 AiError の例外 → throw せずフォールバック値が書き込まれる',
+      async () => {
+        const _entry = _makeChatlogEntry('# テスト\n本文');
+        // 非 AiError は中断側でも続行側 AI エラーでもないため catch 第 3 分岐へ落ちる（DR-29 決定 2）
+        await judgeTypeAndCategory(
+          _entry,
+          _MAX_CONTENT_LENGTH,
+          _makeDics(),
+          _makePrompts(),
+          undefined,
+          undefined,
+          _throwingRunner(new Error('simulated non-ai failure')),
+        );
+
+        assertEquals(_entry.frontmatter.get('type') as string, DEFAULT_FALLBACK_TYPE);
+        assertEquals(_entry.frontmatter.get('category') as string, DEFAULT_FALLBACK_CATEGORY);
+        // 続行側 AI エラー用の判定失敗ログは出ない（第 2 分岐を通っていないこと）
+        assertEquals(
+          loggerStub.errorLogs.some((l) => l.includes('type/category 判定失敗')),
+          false,
+        );
+      },
+    );
+
+    it(
+      '[Error] T-SF-TC-26: aiRunnerProvider が AiError/ExitFailure を throw → 戻り値が false で type/category 未設定',
+      async () => {
+        const _entry = _makeChatlogEntry('# テスト\n本文');
+        const _judged = await judgeTypeAndCategory(
+          _entry,
+          _MAX_CONTENT_LENGTH,
+          _makeDics(),
+          _makePrompts(),
+          undefined,
+          undefined,
+          _throwingRunner(new ChatlogError('AiError', 'ExitFailure', 'simulated exit failure')),
+        );
+
+        assertEquals(_judged, false);
+        assertEquals(_entry.frontmatter.get('type'), undefined);
+        assertEquals(_entry.frontmatter.get('category'), undefined);
       },
     );
   });
@@ -595,6 +664,92 @@ describe('judgeTypeAndCategory', () => {
 
       assert(captured.instance !== null, 'mock was not instantiated');
       assertEquals(captured.instance.signal?.aborted, true);
+    });
+  });
+});
+
+/**
+ * `judgeTypeAndCategory` の llama 経路における中断側／続行側判定のユニットテストスイート。
+ *
+ * `aiRunnerProvider` 注入口へ throw するスタブを渡し、`isAbortingAiError` による分岐
+ * （中断側 subindex は再 throw、続行側の AI エラーは書き込まず error ログ）を検証する。
+ *
+ * テスト ID 範囲: T-SF-LAB-01-01 〜 T-SF-LAB-02-01
+ *
+ * @see judgeTypeAndCategory
+ */
+describe('judgeTypeAndCategory — llama 中断側判定（isAbortingAiError）', () => {
+  let loggerStub: LoggerStub;
+
+  beforeEach(() => {
+    loggerStub = makeLoggerStub();
+  });
+
+  afterEach(() => {
+    loggerStub.restore();
+  });
+
+  /** 続行側エラーでは type/category を書かず error ログを残す正常ケース。 */
+  describe('When: 正常系', () => {
+    it('[Normal] T-SF-LAB-01-01: aiRunnerProvider が AiError/ExitFailure を throw → type/category を書かず error ログを出す', async () => {
+      const _entry = _makeChatlogEntry('# テスト\n本文');
+
+      await judgeTypeAndCategory(
+        _entry,
+        _MAX_CONTENT_LENGTH,
+        _makeDics(),
+        _makePrompts(),
+        undefined,
+        undefined,
+        _throwingRunner(new ChatlogError('AiError', 'ExitFailure', 'simulated exit failure')),
+      );
+
+      assertEquals(_entry.frontmatter.get('type'), undefined);
+      assertEquals(_entry.frontmatter.get('category'), undefined);
+      assertEquals(loggerStub.errorLogs.some((l) => l.includes('type/category 判定失敗')), true);
+    });
+  });
+
+  /** 中断側 subindex ではフォールバックを書かずに同一インスタンスを再 throw する異常ケース。 */
+  describe('When: 異常系', () => {
+    it('[Error] T-SF-LAB-02-01: aiRunnerProvider が InvalidEndpoint / BackendUnavailable を throw → 同一インスタンスを再 throw しフォールバックを書かない', async () => {
+      const _invalidEndpoint = new ChatlogError('AiError', 'InvalidEndpoint', 'simulated invalid endpoint');
+      const _entryInvalidEndpoint = _makeChatlogEntry('# テスト\n本文');
+      const _thrownInvalidEndpoint = await assertRejects(
+        () =>
+          judgeTypeAndCategory(
+            _entryInvalidEndpoint,
+            _MAX_CONTENT_LENGTH,
+            _makeDics(),
+            _makePrompts(),
+            undefined,
+            undefined,
+            _throwingRunner(_invalidEndpoint),
+          ),
+        ChatlogError,
+      );
+      assertStrictEquals(_thrownInvalidEndpoint, _invalidEndpoint);
+      assertEquals(_entryInvalidEndpoint.frontmatter.get('type'), undefined);
+      assertEquals(_entryInvalidEndpoint.frontmatter.get('category'), undefined);
+
+      const _backendUnavailable = new ChatlogError('AiError', 'BackendUnavailable', 'simulated backend unavailable');
+      const _entryBackendUnavailable = _makeChatlogEntry('# テスト\n本文');
+      const _thrownBackendUnavailable = await assertRejects(
+        () =>
+          judgeTypeAndCategory(
+            _entryBackendUnavailable,
+            _MAX_CONTENT_LENGTH,
+            _makeDics(),
+            _makePrompts(),
+            undefined,
+            undefined,
+            _throwingRunner(_backendUnavailable),
+          ),
+        ChatlogError,
+      );
+      assertStrictEquals(_thrownBackendUnavailable, _backendUnavailable);
+      assertEquals(_entryBackendUnavailable.frontmatter.get('type'), undefined);
+      assertEquals(_entryBackendUnavailable.frontmatter.get('category'), undefined);
     });
   });
 });
