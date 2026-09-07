@@ -103,8 +103,8 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 | T-03: `parseModel` / `getAiBackend` / `isValidModel` + llama 定数群 | 3      | 2     | —       | 7         | 11      | done    |
 | T-04: `GlobalConfig` (`llamaEndpoint`)                              | 4      | 2     | —       | 7         | 8       | done    |
 | T-05: `FetchProvider` 型 / llama 中断側判定関数                     | 5      | 2     | —       | 5         | 13      | done    |
-| T-06: 呼び出し元 catch の中断判定拡張 (4 スキル)                    | 6〜9   | 3     | —       | 12        | 16      | done    |
-| T-07: `runAI` の 3 層分割                                           | 10     | 4     | —       | 8         | 16      | pending |
+| T-06: 呼び出し元 catch の中断判定拡張 (4 スキル)                    | 6〜9   | 3     | —       | 12        | 17      | done    |
+| T-07: `runAI` の 3 層分割                                           | 10     | 4     | —       | 8         | 16      | done    |
 | T-08: json_schema 構築関数                                          | 11     | 5     | Phase 0 | 9         | 14      | pending |
 | T-09: on-wire contract validation 関数と契約別復元関数              | 12     | 5     | Phase 0 | 13        | 15      | pending |
 | T-10: エンドポイント受理判定関数 / URL 正規化関数                   | 13     | 6     | Phase 0 | 3         | 13      | pending |
@@ -671,13 +671,12 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
   - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: RateLimit)` を投げる, When filter のチャンク処理がこれを catch する
   - Expected: Then `ctl.abort()` が呼ばれること
 
-> **注記**: 本シナリオは `RateLimit` を指定しているが、filter は差し替え前の判定が
-> `e.subindex === 'RateLimit'` の直書きだったため、`RateLimit` では新旧の判定が一致する。
-> つまり T-06-02-01（`ExitFailure`）と本ケースを合わせても、filter で中断側集合が
-> 1 個から 4 個へ拡大したことを判別できない。他 3 スキルは `BackendUnavailable` /
-> `InvalidEndpoint` を使う判別力のあるケースを持つが、filter だけが欠いている。
-> 中断側集合の拡大を固定するケース（`BackendUnavailable` で `ctl.abort()`）の追加が必要で、
-> bd issue `cle-1hd` で追跡している。追加時は本シナリオ配下に `T-FL-LAB-02-02` を採番する。
+- [x] **T-06-06-02**: 旧判定に含まれない中断側 subindex でも `ctl.abort()` が呼ばれる
+  - Target: `process-chunk.ts` の catch
+  - Test ID: `T-FL-LAB-02-02`
+  - Rule: error-handling §3.2 / DR-18（決定 2・3） / REQ-F-006 / AC-004
+  - Scenario: Given `runAI` が `ChatlogError(kind: AiError, subindex: BackendUnavailable)` を投げる, When filter のチャンク処理がこれを catch する
+  - Expected: Then `ctl.abort()` が呼ばれること（差し替え前の `e.subindex === 'RateLimit'` では通らないこと＝中断側集合の拡大を判別する）
 
 #### T-06-07: normalize — 中断側 subindex
 
@@ -759,7 +758,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-07-01: 分割後も正常応答時の抽出結果が変わらない
 
-- [ ] **T-07-01-01**: 3 層分割後、正常応答の CLI 実行結果から従来どおりの文字列が返る
+- [x] **T-07-01-01**: 3 層分割後、正常応答の CLI 実行結果から従来どおりの文字列が返る
   - Target: `runAI`
   - Test ID: `T-LIB-AI-RA-50-01`
   - Rule: transport R-010 / §4.1.1 / DR-10 / AC-022
@@ -768,7 +767,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-07-02: 中段へ合成済み `AbortSignal` が引数として渡される
 
-- [ ] **T-07-02-01**: 前段で合成した `AbortSignal` が中段 (`_runViaCli`) に引数として渡される
+- [x] **T-07-02-01**: 前段で合成した `AbortSignal` が中段 (`_runViaCli`) に引数として渡される
   - Target: `runAI（前段）`
   - Test ID: `T-LIB-AI-RA-51-01`
   - Rule: transport §4.1.1（中段への signal 引き渡し） / DR-10
@@ -779,28 +778,28 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-07-03: error-handling §4.3 の非破壊条件がいずれも成立しない（AC-022）
 
-- [ ] **T-07-03-01**: 既存に受理されていたモデル値が分割後も拒否されない
+- [x] **T-07-03-01**: 既存に受理されていたモデル値が分割後も拒否されない
   - Target: `runAI`
   - Test ID: `T-LIB-AI-RA-52-01`
   - Rule: error-handling §4.3（条件 1） / REQ-C-002 / AC-022
   - Scenario: Given 分割前に受理されていた既存 5 バックエンドのモデル値, When `runAI` を実行する
   - Expected: Then 分割後も受理されること
 
-- [ ] **T-07-03-02**: 既存 5 バックエンドの既定モデルが分割後も変わらない
+- [x] **T-07-03-02**: 既存 5 バックエンドの既定モデルが分割後も変わらない
   - Target: `runAI`
   - Test ID: `T-LIB-AI-RA-52-02`
   - Rule: error-handling §4.3（条件 2） / REQ-C-002 / AC-022
   - Scenario: Given モデル値未指定で既存 5 バックエンドを呼ぶ, When `runAI` を実行する
   - Expected: Then 分割前と同一の既定モデルが使われること
 
-- [ ] **T-07-03-03**: 既存 5 バックエンドの `kind`/`subindex` の組が分割後も変わらない
+- [x] **T-07-03-03**: 既存 5 バックエンドの `kind`/`subindex` の組が分割後も変わらない
   - Target: `runAI`
   - Test ID: `T-LIB-AI-RA-52-03`
   - Rule: error-handling §4.3（条件 3） / REQ-C-002 / AC-022
   - Scenario: Given 既存の失敗系シナリオ一式（レートリミット・不正モデル等）, When `runAI` を実行する
   - Expected: Then 分割前と同一の `kind`/`subindex` の組で throw されること
 
-- [ ] **T-07-03-04**: 不正モデル名の案内文言変更が既存の `kind`/`subindex` 判定へ影響しない
+- [x] **T-07-03-04**: 不正モデル名の案内文言変更が既存の `kind`/`subindex` 判定へ影響しない
   - Target: `runAI`
   - Test ID: `T-LIB-AI-RA-52-04`
   - Rule: error-handling §4.3（条件 4） / REQ-C-002 / AC-022
@@ -809,14 +808,14 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-07-04: 既存の Abort / Timeout 例外メッセージ文言が変わらない
 
-- [ ] **T-07-04-01**: `_spec.command` を経路ラベルへ置き換えても `Aborted/ExternalAbort` の文言が変わらない
+- [x] **T-07-04-01**: `_spec.command` を経路ラベルへ置き換えても `Aborted/ExternalAbort` の文言が変わらない
   - Target: `runAI（後段）`
   - Test ID: `T-LIB-AI-RA-53-01`
   - Rule: transport §4.1.1（経路ラベル規則） / DR-10
   - Scenario: Given 既存 CLI バックエンドで外部キャンセルを発火させる, When `runAI` を実行する
   - Expected: Then 分割前と同一の `Aborted/ExternalAbort` メッセージ文言が返ること
 
-- [ ] **T-07-04-02**: `_spec.command` を経路ラベルへ置き換えても `TimedOut/Timeout` の文言が変わらない
+- [x] **T-07-04-02**: `_spec.command` を経路ラベルへ置き換えても `TimedOut/Timeout` の文言が変わらない
   - Target: `runAI（後段）`
   - Test ID: `T-LIB-AI-RA-53-02`
   - Rule: transport §4.1.1（経路ラベル規則） / DR-10
@@ -830,21 +829,21 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 > 前段（transport §4.1 Step 2）の責務であり、その検証を本節が持つ。
 > Commit 3 は戻り値と述語までを所有する（implementation Commit 3 / Commit 10 の Green）。
 
-- [ ] **T-07-08-01**: `llama/` に対し前段が `UnknownModel`/`InvalidModel` を throw する
+- [x] **T-07-08-01**: `llama/` に対し前段が `UnknownModel`/`InvalidModel` を throw する
   - Target: `runAI`（前段のモデル値検証）
   - Test ID: `T-LIB-AI-RA-57-01`
   - Rule: DR-23 / transport R-001（Step 2） / REQ-F-014 / AC-014
   - Scenario: Given モデル値が `"llama/"` である, When `runAI` を実行する
   - Expected: Then `ChatlogError('UnknownModel', 'InvalidModel')` が throw されること
 
-- [ ] **T-07-08-02**: `llama/` に対し前段が `UnknownModel`/`InvalidModel` を throw する
+- [x] **T-07-08-02**: `llama/` に対し前段が `UnknownModel`/`InvalidModel` を throw する
   - Target: `runAI`（前段のモデル値検証）
   - Test ID: `T-LIB-AI-RA-57-02`
   - Rule: DR-23 / REQ-F-014
   - Scenario: Given モデル値が `"llama/ "`（空白のみのモデル識別子）である, When `runAI` を実行する
   - Expected: Then `ChatlogError('UnknownModel', 'InvalidModel')` が throw されること
 
-- [ ] **T-07-08-03**: throw された例外の message に受理形式の一覧が含まれる
+- [x] **T-07-08-03**: throw された例外の message に受理形式の一覧が含まれる
   - Target: `runAI`（前段のモデル値検証）
   - Test ID: `T-LIB-AI-RA-57-03`
   - Rule: error-handling R-005 / DR-06 / REQ-F-014 / AC-014
@@ -855,14 +854,14 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-07-05: タイマー生成・キャンセル優先判定が経路ごとに複製されていない（不適合条件 1）
 
-- [ ] **T-07-05-01**: タイマー生成が前段の単一箇所にのみ存在する
+- [x] **T-07-05-01**: タイマー生成が前段の単一箇所にのみ存在する
   - Target: `runAI（前段）`
   - Test ID: `T-LIB-AI-RA-54-01`
   - Rule: transport §4.1.1（不適合条件 1） / AC-020
   - Scenario: Given 分割後の実装, When タイマー生成箇所を検査する
   - Expected: Then 前段の 1 箇所にのみ存在し経路ごとに複製されていないこと
 
-- [ ] **T-07-05-02**: 外部 abort 優先判定が後段の単一箇所にのみ存在する
+- [x] **T-07-05-02**: 外部 abort 優先判定が後段の単一箇所にのみ存在する
   - Target: `runAI（後段）`
   - Test ID: `T-LIB-AI-RA-54-02`
   - Rule: transport §4.1.1（不適合条件 1） / AC-020
@@ -871,7 +870,7 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-07-06: 中段の実装単位がモジュール外へ公開されていない（不適合条件 2）
 
-- [ ] **T-07-06-01**: `_runViaCli` がモジュール外から import できない
+- [x] **T-07-06-01**: `_runViaCli` がモジュール外から import できない
   - Target: `_runViaCli`
   - Test ID: `T-LIB-AI-RA-55-01`
   - Rule: transport §4.1.1（不適合条件 2） / AC-020
@@ -880,14 +879,14 @@ Category Balance でも `[N/A]` として扱い、0 件のカテゴリとは区�
 
 #### T-07-07: AC-008 の既存キャンセルセマンティクスが保たれる
 
-- [ ] **T-07-07-01**: `timeoutMs=0` でタイマーが設定されない
+- [x] **T-07-07-01**: `timeoutMs=0` でタイマーが設定されない
   - Target: `runAI（前段）`
   - Test ID: `T-LIB-AI-RA-56-01`
   - Rule: transport R-004 / AC-008
   - Scenario: Given `timeoutMs: 0`, When `runAI` を実行する
   - Expected: Then タイマーが設定されないこと
 
-- [ ] **T-07-07-02**: 外部 abort とタイムアウトが同時発火した場合、外部 abort が優先して報告される
+- [x] **T-07-07-02**: 外部 abort とタイムアウトが同時発火した場合、外部 abort が優先して報告される
   - Target: `runAI（後段）`
   - Test ID: `T-LIB-AI-RA-56-02`
   - Rule: transport R-004 / AC-008
